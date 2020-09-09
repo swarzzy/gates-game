@@ -1,4 +1,5 @@
 #include "SDLWin32Platform.h"
+#include <mimalloc.h>
 
 // Enforcing unicode
 #if !defined(UNICODE)
