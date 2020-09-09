@@ -8,6 +8,7 @@
 
 #include "OpenGL.h"
 
+#define NO_SDL_GLEXT
 #include <SDL_opengl.h>
 #include <SDL_keycode.h>
 
@@ -21,6 +22,8 @@ struct SDLContext {
     // Internal. Should not be used. Use values from PlatformState.input
     i32 mousePosX;
     i32 mousePosY;
+
+    OpenGL gl;
 };
 
 struct OpenGLLoadResult {
@@ -31,7 +34,7 @@ struct OpenGLLoadResult {
 Key SDLKeycodeConvert(i32 sdlKeycode);
 MouseButton SDLMouseButtonConvert(u8 button);
 
-OpenGLLoadResult SDLLoadOpenGL();
+OpenGLLoadResult SDLLoadOpenGL(SDLContext* sdlContext);
 
 void SDLInit(SDLContext* context, const PlatformState* platform, i32 glMajorVersion, i32 glMinorVersion);
 

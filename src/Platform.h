@@ -229,10 +229,17 @@ struct InputState
     i32 scrollFrameOffset;
 };
 
+struct ImGuiContext;
+typedef void*(ImGuiAllocFn)(size_t size, void* data);
+typedef void(ImGuiFreeFn)(void* ptr, void* data);
+
 struct PlatformState
 {
     PlatformCalls functions;
-    OpenGL* gl;
+    // nullptr if imgui is disabled
+    ImGuiContext* imguiContext;
+    ImGuiAllocFn* ImGuiAlloc;
+    ImGuiFreeFn* ImGuiFree;
     InputState input;
     u64 tickCount;
     i32 fps;

@@ -101,24 +101,26 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         *data = context;
         _GlobalGameContext = context;
         _GlobalPlatformState = platform;
-        GameInit();
+        //GameInit();
     } break;
     case GameInvoke::Reload: {
         _GlobalGameContext = (GameContext*)*data;
         _GlobalPlatformState = platform;
-        GameReload();
+        //GameReload();
     } break;
     case GameInvoke::Update: {
-        GameUpdate();
+        //GameUpdate();
     } break;
     case GameInvoke::Render: {
-        GameRender();
+        //GameRender();
     } break;
     invalid_default();
     }
 }
 
 // NOTE(swarzzy): All game .cpp files should be included here
+#if 0
 #include "Game.cpp"
 #include "RenderQueue.cpp"
 #include "Render.cpp"
+#endif

@@ -1569,6 +1569,8 @@ extern "C"
 #endif
 #endif /* GL_VERSION_3_0 */
 
+#if 0
+
 #ifndef GL_VERSION_3_1
 #define GL_VERSION_3_1 1
 #define GL_SAMPLER_2D_RECT                0x8B63
@@ -1779,6 +1781,7 @@ extern "C"
 #define GL_ONE_MINUS_SRC1_ALPHA           0x88FB
 #define GL_MAX_DUAL_SOURCE_DRAW_BUFFERS   0x88FC
 #define GL_ANY_SAMPLES_PASSED             0x8C2F
+    #error sdfs
 #define GL_SAMPLER_BINDING                0x8919
 #define GL_RGB10_A2UI                     0x906F
 #define GL_TEXTURE_SWIZZLE_R              0x8E42
@@ -3061,5 +3064,7 @@ extern "C"
     GLAPI void APIENTRY glPolygonOffsetClamp (GLfloat factor, GLfloat units, GLfloat clamp);
 #endif
 #endif /* GL_VERSION_4_6 */
+#endif
+
 #endif
 }

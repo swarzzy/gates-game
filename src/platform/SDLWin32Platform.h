@@ -15,6 +15,8 @@
 #define ENABLE_CONSOLE
 #define DEBUG_OPENGL
 
+#define USE_IMGUI
+
 #define OPENGL_MAJOR_VERSION 3
 #define OPENGL_MINOR_VERSION 0
 

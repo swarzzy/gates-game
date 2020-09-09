@@ -1,19 +1,33 @@
 #include "SDL.h"
 
+#include "OpenGL.h"
+
 #define GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB 0x8242
 #define GL_DEBUG_TYPE_OTHER_ARB 0x8251
 #define GL_DEBUG_SEVERITY_NOTIFICATION_ARB 0x826B
+#define GL_DEBUG_SEVERITY_LOW_ARB 0x9148
+#define GL_DEBUG_SOURCE_API_ARB 0x8246
+#define GL_DEBUG_SOURCE_WINDOW_SYSTEM_ARB 0x8247
+#define GL_DEBUG_SOURCE_SHADER_COMPILER_ARB 0x8248
+#define GL_DEBUG_SOURCE_THIRD_PARTY_ARB 0x8249
+#define GL_DEBUG_SOURCE_APPLICATION_ARB 0x824A
+#define GL_DEBUG_SOURCE_OTHER_ARB 0x824B
+#define GL_DEBUG_TYPE_ERROR_ARB 0x824C
+#define GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB 0x824D
+#define GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB 0x824E
+#define GL_DEBUG_TYPE_PORTABILITY_ARB 0x824F
+#define GL_DEBUG_TYPE_PERFORMANCE_ARB 0x8250
+#define GL_DEBUG_TYPE_OTHER_ARB 0x8251
+#define GL_DEBUG_SEVERITY_HIGH_ARB 0x9146
+#define GL_DEBUG_SEVERITY_MEDIUM_ARB 0x9147
 #define GL_DEBUG_SEVERITY_LOW_ARB 0x9148
 typedef void (APIENTRY  *GLDEBUGPROC)(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,const GLchar *message,const void *userParam);
 typedef void (APIENTRYP PFNGLDEBUGMESSAGECALLBACKPROC) (GLDEBUGPROC callback, const void *userParam);
 typedef void (APIENTRYP PFNGLDEBUGMESSAGECONTROLPROC) (GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint *ids, GLboolean enabled);
 void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam);
 
-OpenGLLoadResult SDLLoadOpenGL() {
-    OpenGL* context = (OpenGL*)malloc(sizeof(OpenGL));
-    if (!context) {
-        panic("Failed to allocate memory for OpenGL function table");
-    }
+OpenGLLoadResult SDLLoadOpenGL(SDLContext* sdlContext) {
+    OpenGL* context = &sdlContext->gl;
 
     log_print("[OpenGL] Loading functions...\n");
     log_print("[OpenGL] Functions defined: %d\n", (int)OpenGL::FunctionCount);
@@ -43,7 +57,7 @@ OpenGLLoadResult SDLLoadOpenGL() {
         if (glDebugMessageCallbackARB && glDebugMessageControlARB) {
             glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
             glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION_ARB, 0, 0, GL_FALSE);
-            glDebugMessageControlARB(GL_DONT_CARE, GL_DEBUG_TYPE_OTHER, GL_DEBUG_SEVERITY_LOW_ARB, 0, 0, GL_FALSE);
+            glDebugMessageControlARB(GL_DONT_CARE, GL_DEBUG_TYPE_OTHER_ARB, GL_DEBUG_SEVERITY_LOW_ARB, 0, 0, GL_FALSE);
             glDebugMessageCallbackARB(OpenglDebugCallback, 0);
         }
     }
@@ -86,6 +100,10 @@ void SDLPollEvents(SDLContext* context, PlatformState* platform) {
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+#if defined (USE_IMGUI)
+        ImGui_ImplSDL2_ProcessEvent(&event);
+#endif
+
         switch (event.type) {
 
         case SDL_WINDOWEVENT: {
@@ -366,30 +384,30 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
     const char* severityStr;
 
     switch (source) {
-    case GL_DEBUG_SOURCE_API: { sourceStr = "API"; } break;
-    case GL_DEBUG_SOURCE_WINDOW_SYSTEM: { sourceStr = "window system"; } break;
-    case GL_DEBUG_SOURCE_SHADER_COMPILER: { sourceStr = "shader compiler"; } break;
-    case GL_DEBUG_SOURCE_THIRD_PARTY: { sourceStr = "third party"; } break;
-    case GL_DEBUG_SOURCE_APPLICATION: { sourceStr = "application"; } break;
-    case GL_DEBUG_SOURCE_OTHER: { sourceStr = "other"; } break;
+    case GL_DEBUG_SOURCE_API_ARB: { sourceStr = "API"; } break;
+    case GL_DEBUG_SOURCE_WINDOW_SYSTEM_ARB: { sourceStr = "window system"; } break;
+    case GL_DEBUG_SOURCE_SHADER_COMPILER_ARB: { sourceStr = "shader compiler"; } break;
+    case GL_DEBUG_SOURCE_THIRD_PARTY_ARB: { sourceStr = "third party"; } break;
+    case GL_DEBUG_SOURCE_APPLICATION_ARB: { sourceStr = "application"; } break;
+    case GL_DEBUG_SOURCE_OTHER_ARB: { sourceStr = "other"; } break;
     invalid_default();
     }
 
     switch (type) {
-    case GL_DEBUG_TYPE_ERROR: { typeStr = "error"; } break;
-    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: { typeStr = "deprecated behavior"; } break;
-    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: { typeStr = "undefined behavior"; } break;
-    case GL_DEBUG_TYPE_PORTABILITY: { typeStr = "portability problem"; } break;
-    case GL_DEBUG_TYPE_PERFORMANCE: { typeStr = "performance problem"; } break;
-    case GL_DEBUG_TYPE_OTHER: { typeStr = "other"; } break;
+    case GL_DEBUG_TYPE_ERROR_ARB: { typeStr = "error"; } break;
+    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB: { typeStr = "deprecated behavior"; } break;
+    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB: { typeStr = "undefined behavior"; } break;
+    case GL_DEBUG_TYPE_PORTABILITY_ARB: { typeStr = "portability problem"; } break;
+    case GL_DEBUG_TYPE_PERFORMANCE_ARB: { typeStr = "performance problem"; } break;
+    case GL_DEBUG_TYPE_OTHER_ARB: { typeStr = "other"; } break;
     invalid_default();
     }
 
     switch (severity) {
-    case GL_DEBUG_SEVERITY_HIGH: { severityStr = "high"; } break;
-    case GL_DEBUG_SEVERITY_MEDIUM: { severityStr = "medium"; } break;
-    case GL_DEBUG_SEVERITY_LOW: { severityStr = "low"; } break;
-    case GL_DEBUG_SEVERITY_NOTIFICATION: { severityStr = "notification"; } break;
+    case GL_DEBUG_SEVERITY_HIGH_ARB: { severityStr = "high"; } break;
+    case GL_DEBUG_SEVERITY_MEDIUM_ARB: { severityStr = "medium"; } break;
+    case GL_DEBUG_SEVERITY_LOW_ARB: { severityStr = "low"; } break;
+    case GL_DEBUG_SEVERITY_NOTIFICATION_ARB: { severityStr = "notification"; } break;
     default: { severityStr = "unknown"; } break;
     }
     log_print("[OpenGL] Debug message (source: %s, type: %s, severity: %s): %s\n", sourceStr, typeStr, severityStr, message);
