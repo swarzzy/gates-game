@@ -1,5 +1,4 @@
 #include "SDLWin32Platform.h"
-#include <mimalloc.h>
 
 // Enforcing unicode
 #if !defined(UNICODE)
@@ -191,8 +190,8 @@ void* Reallocate(void* ptr, uptr newSize, void* allocatorData) {
 }
 
 #if defined(USE_IMGUI)
-void* ImguiAllocWrapper(size_t size, void* _) { return Allocate((uptr)size, 0, nullptr); }
-void ImguiFreeWrapper(void* ptr, void*_) { Deallocate(ptr, nullptr); }
+void* ImguiAllocWrapper(size_t size, void* _) { return mi_heap_malloc(GlobalContext.imguiHeap, size); }
+void ImguiFreeWrapper(void* ptr, void*_) { mi_free(ptr); }
 
 #include "../../ext/imgui-1.78/imgui.h"
 #include "../../ext/imgui-1.78/imgui_impl_gates_sdl.h"
@@ -233,6 +232,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     // Initializing ImGui context
 #if defined(USE_IMGUI)
+    context->imguiHeap = mi_heap_new();
+    if (!context->imguiHeap) {
+        panic("Failed to create heap for Dear ImGui");
+    }
     IMGUI_CHECKVERSION();
     auto imguiContext = ImGui::CreateContext();
     if (!imguiContext) {

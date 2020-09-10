@@ -7,6 +7,8 @@
 // For timeBeginPeriod
 #include <mmsystem.h>
 
+#include <mimalloc.h>
+
 #define ENABLE_CONSOLE
 
 #include "Win32CodeLoader.h"
@@ -31,6 +33,8 @@ struct Win32Context {
     LARGE_INTEGER performanceFrequency;
 
     LibraryData gameLib;
+
+    mi_heap_t* imguiHeap;
 };
 
 OpenGLLoadResult LoadOpenGL();
