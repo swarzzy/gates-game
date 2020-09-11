@@ -1,5 +1,7 @@
 #include "SDLWin32Platform.h"
 
+#include "ImGui.h"
+
 // Enforcing unicode
 #if !defined(UNICODE)
 #define UNICODE
@@ -189,20 +191,6 @@ void* Reallocate(void* ptr, uptr newSize, void* allocatorData) {
     return realloc(ptr, newSize);
 }
 
-#if defined(USE_IMGUI)
-void* ImguiAllocWrapper(size_t size, void* _) { return mi_heap_malloc(GlobalContext.imguiHeap, size); }
-void ImguiFreeWrapper(void* ptr, void*_) { mi_free(ptr); }
-
-#include "../../ext/imgui-1.78/imgui.h"
-#include "../../ext/imgui-1.78/imgui_impl_gates_sdl.h"
-#include "../../ext/imgui-1.78/imgui_impl_gates_opengl3.h"
-
-#define gl_function(func) GlobalContext.sdl.gl.functions.fn. func
-#define glViewport gl_function(glViewport)
-#define glClearColor gl_function(glClearColor)
-#define glClear gl_function(glClear)
-#endif
-
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int showCmd)
 {
 #if defined(ENABLE_CONSOLE)
@@ -231,33 +219,18 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     }
 
     // Initializing ImGui context
-#if defined(USE_IMGUI)
     context->imguiHeap = mi_heap_new();
     if (!context->imguiHeap) {
         panic("Failed to create heap for Dear ImGui");
     }
-    IMGUI_CHECKVERSION();
-    auto imguiContext = ImGui::CreateContext();
-    if (!imguiContext) {
+
+    context->state.imguiContext = InitImGuiForGL3(context->imguiHeap, context->sdl.window, &context->sdl.glContext);
+    if (!context->state.imguiContext) {
         panic("Failed to load Dear ImGui");
+    } else {
+        context->state.ImGuiAlloc = ImguiAllocWrapper;
+        context->state.ImGuiFree = ImguiFreeWrapper;
     }
-    context->state.imguiContext = imguiContext;
-    ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
-    context->state.ImGuiAlloc = ImguiAllocWrapper;
-    context->state.ImGuiFree = ImguiFreeWrapper;
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    ImGui::StyleColorsDark();
-    ImGui_ImplSDL2_InitForOpenGL(context->sdl.window, &context->sdl.glContext);
-    auto imguiGlInitResult = ImGui_ImplOpenGL3_Init("#version 130");
-    if (!imguiGlInitResult) {
-        panic("Failed to load Dear ImGui OpenGL 3 implementation");
-    }
-    io.IniFilename = nullptr;
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 0.0f;
-    style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-#endif
 
     // Setting function pointers to platform routines a for game
     context->state.functions.DebugGetFileSize = DebugGetFileSize;
@@ -298,11 +271,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         // nockeckin process imgui events
         SDLPollEvents(&context->sdl, &context->state);
 
-#if defined (USE_IMGUI)
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplSDL2_NewFrame(context->sdl.window);
-        ImGui::NewFrame();
-#endif
+        ImGuiNewFrameForGL3(context->sdl.window);
+
         bool show_demo_window = true;
         ImGui::ShowDemoWindow(&show_demo_window);
 
@@ -318,14 +288,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
         context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Render, &GlobalGameData);
 
-#if defined(USE_IMGUI)
-        ImGui::Render();
-        // TODO: Remove this temporary gl calls
-        glViewport(0, 0, (int)context->state.windowWidth, (int)context->state.windowHeight);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-#endif
+        ImGuiEndFrameForGL3(context->state.windowWidth, context->state.windowHeight);
 
         SDLSwapBuffers(&context->sdl);
 
@@ -346,61 +309,4 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 #include "SDL.cpp"
 #include "Win32CodeLoader.cpp"
 
-#if defined(USE_IMGUI)
-#define glGetIntegerv gl_function(glGetIntegerv)
-#define glBindSampler gl_function(glBindSampler)
-#define glIsEnabled gl_function(glIsEnabled)
-#define glScissor gl_function(glScissor)
-#define glDrawElementsBaseVertex gl_function(glDrawElementsBaseVertex)
-#define glDeleteVertexArrays gl_function(glDeleteVertexArrays)
-#define glBindSampler gl_function(glBindSampler)
-#define glBlendEquationSeparate gl_function(glBlendEquationSeparate)
-#define glBlendFuncSeparate gl_function(glBlendFuncSeparate)
-#define glPixelStorei gl_function(glPixelStorei)
-#define glGetAttribLocation gl_function(glGetAttribLocation)
-#define glDeleteBuffers gl_function(glDeleteBuffers)
-#define glDetachShader gl_function(glDetachShader)
-#define glDeleteProgram gl_function(glDeleteProgram)
-#define glEnable gl_function(glEnable)
-#define glBlendEquation gl_function(glBlendEquation)
-#define glBlendFunc gl_function(glBlendFunc)
-#define glDisable gl_function(glDisable)
-#define glPolygonMode gl_function(glPolygonMode)
-#define glUseProgram gl_function(glUseProgram)
-#define glUniform1i gl_function(glUniform1i)
-#define glUniformMatrix4fv gl_function(glUniformMatrix4fv)
-#define glBindVertexArray gl_function(glBindVertexArray)
-#define glBindBuffer gl_function(glBindBuffer)
-#define glEnableVertexAttribArray gl_function(glEnableVertexAttribArray)
-#define glVertexAttribPointer gl_function(glVertexAttribPointer)
-#define glActiveTexture gl_function(glActiveTexture)
-#define glGenVertexArrays gl_function(glGenVertexArrays)
-#define glBufferData gl_function(glBufferData)
-#define glBindTexture gl_function(glBindTexture)
-#define glTexParameteri gl_function(glTexParameteri)
-#define glTexImage2D gl_function(glTexImage2D)
-#define glGenTextures gl_function(glGenTextures)
-#define glDeleteTextures gl_function(glDeleteTextures)
-#define glGetShaderiv gl_function(glGetShaderiv)
-#define glGetShaderInfoLog gl_function(glGetShaderInfoLog)
-#define glGetProgramiv gl_function(glGetProgramiv)
-#define glCreateShader gl_function(glCreateShader)
-#define glShaderSource gl_function(glShaderSource)
-#define glCompileShader gl_function(glCompileShader)
-#define glCreateProgram gl_function(glCreateProgram)
-#define glAttachShader gl_function(glAttachShader)
-#define glLinkProgram gl_function(glLinkProgram)
-#define glGetUniformLocation gl_function(glGetUniformLocation)
-#define glGetProgramInfoLog gl_function(glGetProgramInfoLog)
-#define glGenBuffers gl_function(glGenBuffers)
-#define glDeleteShader gl_function(glDeleteShader)
-#define glDrawElements gl_function(glDrawElements)
-
-#include "../../ext/imgui-1.78/imconfig.h"
-#include "../../ext/imgui-1.78/imgui.cpp"
-#include "../../ext/imgui-1.78/imgui_draw.cpp"
-#include "../../ext/imgui-1.78/imgui_widgets.cpp"
-#include "../../ext/imgui-1.78/imgui_demo.cpp"
-#include "../../ext/imgui-1.78/imgui_impl_gates_opengl3.cpp"
-#include "../../ext/imgui-1.78/imgui_impl_gates_sdl.cpp"
-#endif
+#include "ImGui.cpp"

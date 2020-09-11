@@ -100,9 +100,7 @@ void SDLPollEvents(SDLContext* context, PlatformState* platform) {
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-#if defined (USE_IMGUI)
-        ImGui_ImplSDL2_ProcessEvent(&event);
-#endif
+        ImGuiProcessEventFromSDL(&event);
 
         switch (event.type) {
 
