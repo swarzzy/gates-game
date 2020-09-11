@@ -7,7 +7,7 @@
 // For timeBeginPeriod
 #include <mmsystem.h>
 
-#include <mimalloc.h>
+#include "../../ext/mimalloc-1.6.4/include/mimalloc.h"
 
 #define ENABLE_CONSOLE
 
