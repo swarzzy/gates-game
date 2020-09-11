@@ -171,7 +171,7 @@ void SDLPollEvents(SDLContext* context, PlatformState* platform) {
 
             u32 keyCode = (u32)SDLKeycodeConvert(event.key.keysym.sym);
             u16 repeatCount =  event.key.repeat;
-            platform->input.keys[keyCode].wasPressed = platform->input.keys[keyCode].pressedNow;
+            //platform->input.keys[keyCode].wasPressed = platform->input.keys[keyCode].pressedNow;
             platform->input.keys[keyCode].pressedNow = true;
         } break;
 
@@ -180,7 +180,7 @@ void SDLPollEvents(SDLContext* context, PlatformState* platform) {
 
             u32 keyCode = (u32)SDLKeycodeConvert(event.key.keysym.sym);
             u16 repeatCount =  event.key.repeat;
-            platform->input.keys[keyCode].wasPressed = platform->input.keys[keyCode].pressedNow;
+            //platform->input.keys[keyCode].wasPressed = platform->input.keys[keyCode].pressedNow;
             platform->input.keys[keyCode].pressedNow = false;
         } break;
 

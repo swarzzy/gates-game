@@ -37,7 +37,7 @@ void* GlobalAssertHandlerData = nullptr;
 static Win32Context GlobalContext;
 static void* GlobalGameData;
 
-f64 GetTimeStamp() {
+f64 Win32GetTimeStamp() {
     f64 time = 0.0;
     LARGE_INTEGER currentTime = {};
     if (QueryPerformanceCounter(&currentTime)) {
@@ -166,22 +166,26 @@ b32 DebugCopyFile(const char* source, const char* dest, b32 overwrite) {
     return (b32)result;
 }
 
+PlatformHeap* CreateHeap() {
+    PlatformHeap* heap = (PlatformHeap*)mi_heap_new();
+    return heap;
+}
+
 #if defined(COMPILER_MSVC)
 __declspec(restrict)
 #endif
-void* Allocate(uptr size, uptr alignment, void* data) {
-    if (alignment == 0) {
-        alignment = 16;
+void* HeapAlloc(PlatformHeap* heap, usize size, bool zero) {
+    void* mem = nullptr;
+    if (zero) {
+        mem = mi_heap_zalloc((mi_heap_t*)heap, (size_t)size);
+    } else {
+        mem = mi_heap_malloc((mi_heap_t*)heap, (size_t)size);
     }
-    auto memory = _aligned_malloc(size, alignment);
-    assert(memory);
-    //log_print("[Platform] Allocate %llu bytes at address %llu\n", size, (u64)memory);
-    return memory;
+    return mem;
 }
 
-void Deallocate(void* ptr, void* data) {
-    //log_print("[Platform] Deallocating memory at address %llu\n", (u64)ptr);
-    _aligned_free(ptr);
+void Free(void* ptr) {
+    mi_free(ptr);
 }
 
 #if defined(COMPILER_MSVC)
@@ -230,6 +234,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     } else {
         context->state.ImGuiAlloc = ImguiAllocWrapper;
         context->state.ImGuiFree = ImguiFreeWrapper;
+        context->state.imguiAllocatorData = context->imguiHeap;
     }
 
     // Setting function pointers to platform routines a for game
@@ -242,9 +247,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     context->state.functions.DebugCopyFile = DebugCopyFile;
     context->state.functions.DebugWriteToOpenedFile = DebugWriteToOpenedFile;
 
-    context->state.functions.Allocate = Allocate;
-    context->state.functions.Deallocate = Deallocate;
-    context->state.functions.Reallocate = Reallocate;
+    context->state.functions.CreateHeap = CreateHeap;
+    context->state.functions.HeapAlloc = HeapAlloc;
+    context->state.functions.Free = Free;
 
     if (!UpdateGameCode(&context->gameLib)) {
         panic("[Platform] Failed to load game library");
@@ -254,7 +259,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Init, &GlobalGameData);
 
     while (context->sdl.running) {
-        auto frameStartTime = GetTimeStamp();
+        auto frameStartTime = Win32GetTimeStamp();
         context->state.tickCount++;
 
         // Reload game lib if it was updated
@@ -273,26 +278,26 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
         ImGuiNewFrameForGL3(context->sdl.window);
 
-        bool show_demo_window = true;
-        ImGui::ShowDemoWindow(&show_demo_window);
+        //bool show_demo_window = true;
+        //ImGui::ShowDemoWindow(&show_demo_window);
 
         context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Update, &GlobalGameData);
 
-        for (u32 keyIndex = 0; keyIndex < InputState::KeyCount; keyIndex ++) {
+        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Render, &GlobalGameData);
+
+        for (u32 keyIndex = 0; keyIndex < array_count(context->state.input.keys); keyIndex ++) {
             context->state.input.keys[keyIndex].wasPressed = context->state.input.keys[keyIndex].pressedNow;
         }
 
-        for (u32 mbIndex = 0; mbIndex < InputState::MouseButtonCount; mbIndex++) {
+        for (u32 mbIndex = 0; mbIndex < array_count(context->state.input.mouseButtons); mbIndex++) {
             context->state.input.mouseButtons[mbIndex].wasPressed = context->state.input.mouseButtons[mbIndex].pressedNow;
         }
-
-        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Render, &GlobalGameData);
 
         ImGuiEndFrameForGL3(context->state.windowWidth, context->state.windowHeight);
 
         SDLSwapBuffers(&context->sdl);
 
-        auto frameEndTime = GetTimeStamp();
+        auto frameEndTime = Win32GetTimeStamp();
         auto frameTime = frameEndTime - frameStartTime;
 
         // If framerate lower than 15 fps just clamping delta time

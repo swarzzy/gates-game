@@ -50,6 +50,14 @@ typedef FileHandle(DebugOpenFileFn)(const char* filename);
 typedef b32(DebugCloseFileFn)(FileHandle handle);
 typedef u32(DebugWriteToOpenedFileFn)(FileHandle handle, void* data, u32 size);
 
+// Memory allocation
+struct PlatformHeap;
+
+typedef PlatformHeap*(CreateHeapFn)();
+typedef void*(HeapAllocFn)(PlatformHeap* heap, usize size, bool zero);
+typedef void(FreeFn)(void* ptr);
+
+
 // NOTE: Functions that platform passes to the game
 struct PlatformCalls
 {
@@ -62,10 +70,9 @@ struct PlatformCalls
     DebugCopyFileFn* DebugCopyFile;
     DebugWriteToOpenedFileFn* DebugWriteToOpenedFile;
 
-    // Default allocator
-    AllocateFn* Allocate;
-    DeallocateFn* Deallocate;
-    ReallocateFn* Reallocate;
+    CreateHeapFn* CreateHeap;
+    HeapAllocFn* HeapAlloc;
+    FreeFn* Free;
 };
 
 struct KeyState
@@ -240,6 +247,7 @@ struct PlatformState
     ImGuiContext* imguiContext;
     ImGuiAllocFn* ImGuiAlloc;
     ImGuiFreeFn* ImGuiFree;
+    void* imguiAllocatorData;
     InputState input;
     u64 tickCount;
     i32 fps;

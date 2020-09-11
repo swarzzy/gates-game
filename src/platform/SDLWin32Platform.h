@@ -38,7 +38,6 @@ struct Win32Context {
 };
 
 OpenGLLoadResult LoadOpenGL();
-f64 GetTimeStamp();
 u32 DebugGetFileSize(const char* filename);
 u32 DebugReadFileToBuffer(void* buffer, u32 bufferSize, const char* filename);
 u32 DebugReadTextFileToBuffer(void* buffer, u32 bufferSize, const char* filename);

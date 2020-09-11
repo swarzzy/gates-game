@@ -1,6 +1,25 @@
 #pragma once
 
-// [https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2]
+u32 AtomicCompareExchange(u32 volatile* dest, u32 comp, u32 newValue);
+u32 AtomicExchange(u32 volatile* dest, u32 value);
+u64 AtomicExchange(u64 volatile* dest, u64 value);
+
+// Returns a value after operation
+u32 AtomicIncrement(u32 volatile* dest);
+u32 AtomicDecrement(u32 volatile* dest);
+
+// Just a dummy placeholder on x86-64 windows
+u32 AtomicLoad(u32 volatile* value);
+
+u32 ThreadSleep(u32 ms);
+
+u64 GetTimeStamp();
+u64 GetTicksPerSecond();
+
+void* StackAlloc(usize size);
+void StackFree(void* ptr);
+
+// NOTE: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 constexpr u32 NextPowerOfTwo(u32 v) {
     v--;
     v |= v >> 1;
@@ -14,6 +33,17 @@ constexpr u32 NextPowerOfTwo(u32 v) {
 
 constexpr bool IsPowerOfTwo(u32 n) {
     bool result = ((n & (n - 1)) == 0);
+    return result;
+}
+
+bool IsNegative(f32 value) {
+    bool result;
+    auto sign = signbit(value);
+    if (sign) {
+        result = true;
+    } else {
+        result = false;
+    }
     return result;
 }
 
@@ -91,6 +121,10 @@ f32 Sqrt(f32 v) {
 
 f32 Floor(f32 v) {
     return floorf(v);
+}
+
+f64 Floor(f64 v) {
+    return floor(v);
 }
 
 f32 Ceil(f32 v) {
