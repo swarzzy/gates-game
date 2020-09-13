@@ -4,6 +4,7 @@
 #include "../Common.h"
 
 #define SDL_MAIN_HANDLED
+#define HAVE_LIBC
 #include <SDL.h>
 
 #include "OpenGL.h"

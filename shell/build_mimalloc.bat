@@ -15,13 +15,26 @@ set CommonCompilerFlags=/Iext\mimalloc-1.6.4\include /Gm- /fp:fast /GR- /nologo 
 set DebugCompilerFlags=/Od /RTC1 /MTd /Fd%BinOutDir%\
 set ReleaseCompilerFlags=/O2 /MT
 
-set LinkerFlags=/MACHINE:X64 /OUT:%BinOutDir%\mimalloc-static.lib
+set LinkerFlags=/OUT:%BinOutDir%\mimalloc-static.lib
 
 set CompilerFlags=%CommonCompilerFlags% %DebugCompilerFlags% %DefinesDebug%
 
-echo Building mimalloc...
-cl /c /MP /Fo%ObjOutDir% %CompilerFlags% %Sources%
-lib %LinkerFlags% %ObjFiles%
+call vcvarsall.bat x64
 
-copy /Y build\mimalloc_msvc\mimalloc-static.lib build\mimalloc-static.lib
+echo Building mimalloc for x64...
+cl /c /MP /Fo%ObjOutDir% %CompilerFlags% %Sources%
+lib %LinkerFlags% /MACHINE:X64 %ObjFiles%
+
+mkdir build\lib
+copy /Y build\mimalloc_msvc\mimalloc-static.lib build\lib\mimalloc-static-x64.lib
+
+call vcvarsall.bat x86
+
+echo Building mimalloc for x86...
+cl /c /MP /Fo%ObjOutDir% %CompilerFlags% %Sources%
+lib %LinkerFlags% /MACHINE:X86 %ObjFiles%
+
+copy /Y build\mimalloc_msvc\mimalloc-static.lib build\lib\mimalloc-static-x86.lib
 rmdir /S /Q %BinOutDir%
+
+call vcvarsall.bat x64
