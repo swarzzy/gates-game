@@ -64,6 +64,27 @@ struct ExitScopeHelp
 
 #define defer const auto& concat(defer__, __LINE__) = ExitScopeHelp() + [&]()
 
+// Making tuples be a thing using suuuper crazy template nonsence
+template <typename T1, typename T2 = void, typename T3 = void, typename T4 = void, typename T5 = void>
+struct Tuple { T1 item1; T2 item2; T2 item3; T4 item4; T5 item5; };
+template <typename T1, typename T2, typename T3, typename T4, typename T5>
+inline Tuple<T1, T2, T3, T4, T5> MakeTuple(T1 item1, T2 item2, T3 item3, T4 item4, T5 item5) { return Tuple<T1, T2, T3, T4, T5> { item1, item2, item3, item4, item5 }; }
+
+template <typename T1, typename T2, typename T3, typename T4>
+struct Tuple<T1, T2, T3, T4, void> { T1 item1; T2 item2; T3 item3; T4 item4; };
+template <typename T1, typename T2, typename T3, typename T4>
+inline Tuple<T1, T2, T3, T4> MakeTuple(T1 item1, T2 item2, T3 item3, T4 item4) { return Tuple<T1, T2, T3, T4> { item1, item2, item3, item4 }; }
+
+template <typename T1, typename T2, typename T3>
+struct Tuple<T1, T2, T3, void, void> { T1 item1; T2 item2; T3 item3; };
+template <typename T1, typename T2, typename T3>
+inline Tuple<T1, T2, T3> MakeTuple(T1 item1, T2 item2, T3 item3) { return Tuple<T1, T2, T3> { item1, item2, item3 }; }
+
+template <typename T1, typename T2>
+struct Tuple<T1, T2, void, void, void> { T1 item1; T2 item2; };
+template <typename T1, typename T2>
+inline Tuple<T1, T2> MakeTuple(T1 item1, T2 item2) { return Tuple<T1, T2> { item1, item2 }; }
+
 template <typename T>
 using ForEachFn = void(T it);
 
