@@ -39,6 +39,9 @@ const PlatformState* GetPlatform() { return _GlobalPlatformState; }
 GameContext* GetContext() {return _GlobalGameContext; }
 const InputState* GetInput() { return &_GlobalPlatformState->input; }
 
+void* HeapAllocAPI(uptr size, b32 clear, uptr alignment, void* data) { return Platform.HeapAlloc((PlatformHeap*)data, (usize)size, clear); }
+void HeapFreeAPI(void* ptr, void* data) { Platform.Free(ptr); }
+
 // NOTE: Game DLL entry point. Will be called by the platform layer.
 extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platform, GameInvoke invoke, void** data) {
     switch (invoke) {
@@ -101,6 +104,7 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
 // NOTE(swarzzy): All game .cpp files should be included here
 #include "Game.cpp"
 #include "Console.cpp"
+#include "Draw.cpp"
 
 #include "../ext/imgui-1.78/imconfig.h"
 #include "../ext/imgui-1.78/imgui.cpp"

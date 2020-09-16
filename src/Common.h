@@ -145,7 +145,7 @@ namespace U64 {
 }
 
 // NOTE: Allocator API
-typedef void*(AllocateFn)(uptr size, uptr alignment, void* allocatorData);
+typedef void*(AllocateFn)(uptr size, b32 clear, uptr alignment, void* allocatorData);
 typedef void(DeallocateFn)(void* ptr, void* allocatorData);
 
 struct Allocator {
@@ -153,7 +153,7 @@ struct Allocator {
     DeallocateFn* deallocate;
     void* data;
 
-    inline void* Alloc(uptr size, uptr alignment) { return allocate(size, alignment, data); }
+    inline void* Alloc(uptr size, b32 clear, uptr alignment = 0) { return allocate(size, clear, alignment, data); }
     inline void Dealloc(void* ptr) { deallocate(ptr, data); }
 };
 

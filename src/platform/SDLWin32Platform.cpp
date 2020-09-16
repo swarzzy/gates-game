@@ -37,6 +37,8 @@ void* GlobalAssertHandlerData = nullptr;
 static Win32Context GlobalContext;
 static void* GlobalGameData;
 
+#define GL ((const Win32Context* )&GlobalContext->sdl.gl.functions.fn)
+
 f64 Win32GetTimeStamp() {
     f64 time = 0.0;
     LARGE_INTEGER currentTime = {};
@@ -251,6 +253,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     context->state.functions.HeapAlloc = HeapAlloc;
     context->state.functions.Free = Free;
 
+    RendererInit(&context->renderer);
+
     if (!UpdateGameCode(&context->gameLib)) {
         panic("[Platform] Failed to load game library");
     }
@@ -311,6 +315,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     return 0;
 }
 
+#include "RendererGL.cpp"
 #include "SDL.cpp"
 #include "Win32CodeLoader.cpp"
 

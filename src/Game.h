@@ -3,6 +3,7 @@
 #include "Common.h"
 #include "Platform.h"
 #include "Console.h"
+#include "Draw.h"
 
 // NOTE: All global game stuff lives here
 struct GameContext {
@@ -10,6 +11,7 @@ struct GameContext {
     Logger logger;
     Console console;
     bool consoleEnabled;
+    DrawList drawList;
 };
 
 void GameInit();
@@ -23,6 +25,9 @@ const PlatformState* GetPlatform();
 GameContext* GetContext();
 const InputState* GetInput();
 bool ImGuiAvailable();
+
+void* HeapAllocAPI(uptr size, b32 clear, uptr alignment, void* data);
+void HeapFreeAPI(void* ptr, void* data);
 
 // Helpers for input handling
 inline bool KeyDown(Key key) { return GetInput()->keys[(u32)key].pressedNow; }

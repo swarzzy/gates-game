@@ -2,6 +2,8 @@
 
 #include "SDL.h"
 
+#include "RendererGL.h"
+
 #include <Windows.h>
 
 // For timeBeginPeriod
@@ -35,6 +37,8 @@ struct Win32Context {
     LibraryData gameLib;
 
     mi_heap_t* imguiHeap;
+
+    Renderer renderer;
 };
 
 OpenGLLoadResult LoadOpenGL();
