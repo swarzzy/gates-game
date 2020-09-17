@@ -9,6 +9,8 @@
 #include "Intrinsics.h"
 #include "Math.h"
 
+#include "RenderAPI.h"
+
 struct OpenGL;
 
 #if defined(PLATFORM_WINDOWS)
@@ -243,6 +245,7 @@ typedef void(ImGuiFreeFn)(void* ptr, void* data);
 struct PlatformState
 {
     PlatformCalls functions;
+    RendererAPI rendererAPI;
     // nullptr if imgui is disabled
     ImGuiContext* imguiContext;
     ImGuiAllocFn* ImGuiAlloc;

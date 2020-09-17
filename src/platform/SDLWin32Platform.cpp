@@ -37,7 +37,7 @@ void* GlobalAssertHandlerData = nullptr;
 static Win32Context GlobalContext;
 static void* GlobalGameData;
 
-#define GL ((const Win32Context* )&GlobalContext->sdl.gl.functions.fn)
+#define GL (((const Win32Context* )&GlobalContext)->sdl.gl.functions.fn)
 
 f64 Win32GetTimeStamp() {
     f64 time = 0.0;
@@ -253,6 +253,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     context->state.functions.HeapAlloc = HeapAlloc;
     context->state.functions.Free = Free;
 
+    context->state.rendererAPI.RenderDrawList = RenderDrawList;
+
     RendererInit(&context->renderer);
 
     if (!UpdateGameCode(&context->gameLib)) {
@@ -280,7 +282,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         // nockeckin process imgui events
         SDLPollEvents(&context->sdl, &context->state);
 
-        ImGuiNewFrameForGL3(context->sdl.window);
+        ImGuiNewFrameForGL3(context->sdl.window, context->state.windowWidth, context->state.windowHeight);
 
         //bool show_demo_window = true;
         //ImGui::ShowDemoWindow(&show_demo_window);
@@ -297,7 +299,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
             context->state.input.mouseButtons[mbIndex].wasPressed = context->state.input.mouseButtons[mbIndex].pressedNow;
         }
 
-        ImGuiEndFrameForGL3(context->state.windowWidth, context->state.windowHeight);
+        ImGuiEndFrameForGL3();
 
         SDLSwapBuffers(&context->sdl);
 

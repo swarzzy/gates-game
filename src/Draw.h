@@ -4,30 +4,25 @@
 
 #include "GrowableArray.h"
 
-enum struct DrawCommand {
-    Rectangle
+struct Vertex {
+    v3 position;
+    v4 color;
 };
 
-struct DrawCommandData {
-    DrawCommand command;
-    v2 min;
-    v2 max;
-    f32 z;
+struct DrawCommand {
+    u32 vertexBufferOffset;
+    u32 indexBufferOffset;
+    u32 indexCount;
 };
 
 struct DrawList {
-    GrowableArray<DrawCommandData> commands;
+    GrowableArray<DrawCommand> commandBuffer;
+    GrowableArray<Vertex> vertexBuffer;
+    GrowableArray<u32> indexBuffer;
 };
 
 void DrawListInit(DrawList* list, u32 capacity, Allocator allocator);
 
-void DrawListPush(DrawList* list, const DrawCommandData* command);
+void DrawListClear(DrawList* list);
 
-inline void DrawRect(DrawList* list, v2 min, v2 max, f32 z) {
-    DrawCommandData command {};
-    command.command = DrawCommand::Rectangle;
-    command.min = min;
-    command.max = max;
-    command.z = z;
-    DrawListPush(list, &command);
-}
+void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, v4 color);

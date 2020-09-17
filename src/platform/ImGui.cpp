@@ -34,18 +34,19 @@ ImGuiContext* InitImGuiForGL3(mi_heap_t* heap, SDL_Window* window, SDL_GLContext
     return result;
 }
 
-void ImGuiNewFrameForGL3(SDL_Window* window) {
+void ImGuiNewFrameForGL3(SDL_Window* window, u32 wWindow, u32 hWindow) {
+    // TODO: Remove this temporary gl calls
+    glViewport(0, 0, (int)wWindow, (int)hWindow);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(window);
     ImGui::NewFrame();
 }
 
-void ImGuiEndFrameForGL3(u32 wWindow, u32 hWindow) {
+void ImGuiEndFrameForGL3() {
     ImGui::Render();
-    // TODO: Remove this temporary gl calls
-    glViewport(0, 0, (int)wWindow, (int)hWindow);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 

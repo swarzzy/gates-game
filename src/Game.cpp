@@ -16,8 +16,11 @@ void GameRender() {
     auto context = GetContext();
     auto list = &context->drawList;
 
-    DrawRect(list, V2(1.0f, 1.0f), V2(2.0f, 2.0f), 0.0f);
-    DrawRect(list, V2(3.0f, 3.0f), V2(5.0f, 6.0f), 1.0f);
+    DrawListPushQuad(list, V2(1.0f, 1.0f), V2(2.0f, 1.0f), V2(2.0f, 2.0f), V2(1.0f, 2.0f), 0.0f, V4(1.0f, 0.0f, 0.0f, 1.0f));
+    DrawListPushQuad(list, V2(3.0f, 3.0f), V2(5.0f, 3.0f), V2(5.0f, 5.0f), V2(3.0f, 5.0f), 0.0f, V4(0.0f, 1.0f, 0.0f, 1.0f));
+
+    Renderer.RenderDrawList(list);
+    DrawListClear(list);
 
     if(KeyPressed(Key::Tilde)) {
         context->consoleEnabled = !context->consoleEnabled;

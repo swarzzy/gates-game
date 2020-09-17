@@ -16,10 +16,10 @@ struct GrowableArray {
     T* data = nullptr;
     Allocator allocator = {};
 
-    inline static GrowableArray Make(Allocator allocator) { GrowableArray array; array.allocator = allocator; return array; }
+    inline GrowableArray(Allocator alloc) : allocator(alloc) {}
 
     inline GrowableArray Clone()       { GrowableArray clone(allocator); clone.Resize(size); memcpy(clone.data, data, (size_t)size * sizeof(T)); return clone; }
-    inline void          FreeBuffers() { if (Data) allocator.Dealloc(data); }
+    inline void          FreeBuffers() { if (Data) allocator.Dealloc(data); size = 0; capacity = 0; data = nullptr;}
 
     inline bool        Empty() const                        { return size == 0; }
     inline u32         Count() const                        { return size; }
@@ -30,21 +30,21 @@ struct GrowableArray {
     inline T&          operator[](u32 i)                    { assert(i < size); return data[i]; }
     inline const T&    operator[](u32 i) const              { assert(i < size); return data[i]; }
 
-    inline void         Clear()                             { if (data) { size = capacity = 0; allocator.Dealloc(data); data = nullptr; } }
+    inline void         Clear()                             { size = 0; }
     inline T*           Begin()                             { return data; }
     inline const T*     Begin() const                       { return data; }
     inline T*           End()                               { return data + size; }
     inline const T*     End() const                         { return Data + Size; }
 
-    inline T*           begin()                             { return Begin() }
-    inline const T*     begin() const                       { return Begin() }
+    inline T*           begin()                             { return Begin(); }
+    inline const T*     begin() const                       { return Begin(); }
     inline T*           end()                               { return End(); }
     inline const T*     end() const                         { return End(); }
 
-    inline T&           Front()                             { assert(size > 0); return data[0]; }
-    inline const T&     Front() const                       { assert(size > 0); return data[0]; }
-    inline T&           Back()                              { assert(size > 0); return data[size - 1]; }
-    inline const T&     Back() const                        { assert(size > 0); return data[size - 1]; }
+    inline T*           Front()                             { assert(size > 0); return data; }
+    inline const T*     Front() const                       { assert(size > 0); return data; }
+    inline T*           Back()                              { assert(size > 0); return data + (size - 1); }
+    inline const T*     Back() const                        { assert(size > 0); return data + (size - 1); }
 
     inline u32          _GrowCapacity(u32 sz) const         { u32 newCapacity = capacity ? (capacity + capacity / 2) : 8; return newCapacity > sz ? newCapacity : sz; }
     inline void         Resize(u32 newSize)                 { if (newSize > сapacity) Reserve(_GrowCapacity(newSize)); size = newSize; }

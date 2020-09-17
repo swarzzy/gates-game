@@ -29,6 +29,8 @@ bool _GlobalImGuiAvailable;
 bool ImGuiAvailable() { return _GlobalImGuiAvailable; }
 
 #define Platform (*((const PlatformCalls*)(&_GlobalPlatformState->functions)))
+#define Renderer (*((const RendererAPI*)(&_GlobalPlatformState->rendererAPI)))
+
 
 #include "Game.h"
 
