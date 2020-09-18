@@ -230,6 +230,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         panic("Failed to create heap for Dear ImGui");
     }
 
+    context->stbHeap = mi_heap_new();
+    panic(context->stbHeap);
+
     context->state.imguiContext = InitImGuiForGL3(context->imguiHeap, context->sdl.window, &context->sdl.glContext);
     if (!context->state.imguiContext) {
         panic("Failed to load Dear ImGui");
@@ -252,6 +255,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     context->state.functions.CreateHeap = CreateHeap;
     context->state.functions.HeapAlloc = HeapAlloc;
     context->state.functions.Free = Free;
+
+    context->state.stbHeap = (PlatformHeap*)context->stbHeap;
 
     context->state.rendererAPI.RenderDrawList = RenderDrawList;
 
@@ -322,3 +327,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 #include "Win32CodeLoader.cpp"
 
 #include "ImGui.cpp"
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#define STBTT_STATIC
+#define STBTT_malloc(x,u)   (HeapAlloc(GlobalContext.state.stbHeap, (usize)(x), false))
+#define STBTT_free(x,u)     (Free(x))
+#define STBTT_assert(x)     assert(x)
+#include "../../ext/stb_truetype-1.24/stb_truetype.h"

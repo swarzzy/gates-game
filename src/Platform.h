@@ -242,6 +242,9 @@ struct ImGuiContext;
 typedef void*(ImGuiAllocFn)(size_t size, void* data);
 typedef void(ImGuiFreeFn)(void* ptr, void* data);
 
+typedef void* STBAllocFn(usize size, void* data);
+typedef void* STBFreeFn(void* ptr, void* data);
+
 struct PlatformState
 {
     PlatformCalls functions;
@@ -251,6 +254,7 @@ struct PlatformState
     ImGuiAllocFn* ImGuiAlloc;
     ImGuiFreeFn* ImGuiFree;
     void* imguiAllocatorData;
+    PlatformHeap* stbHeap;
     InputState input;
     u64 tickCount;
     i32 fps;

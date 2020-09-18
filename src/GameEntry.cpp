@@ -113,3 +113,10 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
 #include "../ext/imgui-1.78/imgui_draw.cpp"
 #include "../ext/imgui-1.78/imgui_widgets.cpp"
 #include "../ext/imgui-1.78/imgui_demo.cpp"
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#define STBTT_STATIC
+#define STBTT_malloc(x,u)   (Platform.HeapAlloc(GetPlatform()->stbHeap, (usize)(x), false))
+#define STBTT_free(x,u)     (Platform.Free(x))
+#define STBTT_assert(x)     assert(x)
+#include "../ext/stb_truetype-1.24/stb_truetype.h"

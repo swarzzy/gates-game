@@ -37,6 +37,7 @@ struct Win32Context {
     LibraryData gameLib;
 
     mi_heap_t* imguiHeap;
+    mi_heap_t* stbHeap;
 
     Renderer renderer;
 };

@@ -201,6 +201,8 @@ int main() {
     context->state.functions.Deallocate = Deallocate;
     context->state.functions.Reallocate = Reallocate;
 
+
+
     // Init the game
     if (!UpdateGameCode(&context->gameLib)) {
         panic("[Platform] Failed to load game library");

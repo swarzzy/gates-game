@@ -15,9 +15,9 @@ void ImguiFreeWrapper(void* ptr, void*_) { mi_free(ptr); }
 ImGuiContext* InitImGuiForGL3(mi_heap_t* heap, SDL_Window* window, SDL_GLContext* glContext) {
     ImGuiContext* result = nullptr;
     IMGUI_CHECKVERSION();
+    ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, heap);
     auto imguiContext = ImGui::CreateContext();
     if (imguiContext) {
-        ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, heap);
         ImGuiIO& io = ImGui::GetIO(); (void)io;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         ImGui::StyleColorsDark();
