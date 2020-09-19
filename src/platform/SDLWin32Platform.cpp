@@ -243,6 +243,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     context->state.stbHeap = (PlatformHeap*)context->stbHeap;
 
     context->state.rendererAPI.RenderDrawList = RenderDrawList;
+    context->state.rendererAPI.UploadTexture = RendererUploadTexture;
 
     context->state.ResourceLoaderInvoke = ResourceLoaderInvoke;
 

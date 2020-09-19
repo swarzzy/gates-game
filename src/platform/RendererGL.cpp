@@ -8,16 +8,21 @@ inline Renderer* GetRenderer() { return _GlobalRenderer; }
 const char* StandardShaderVert = R"(
 #version 330 core
 
-layout (location = 0) in vec3 Position;
-layout (location = 1) in vec4 Color;
+layout (location = 0) in vec4 aPosition;
+layout (location = 1) in vec4 aColor;
+layout (location = 2) in vec2 aUV;
 
 out vec4 VertexColor;
+out float TexBlendFactor;
+out vec2 UV;
 
 uniform mat4 MVP;
 
 void main() {
-    gl_Position = MVP * vec4(Position.xyz, 1.0f);
-    VertexColor = Color;
+    gl_Position = MVP * vec4(aPosition.xyz, 1.0f);
+    VertexColor = aColor;
+    TexBlendFactor = aPosition.w;
+    UV = aUV;
 })";
 
 const char* StandardShaderFrag = R"(
@@ -26,9 +31,17 @@ const char* StandardShaderFrag = R"(
 out vec4 FragmentColor;
 
 in vec4 VertexColor;
+in float TexBlendFactor;
+in vec2 UV;
+
+uniform sampler2D uTexture;
 
 void main() {
-    FragmentColor = vec4(VertexColor.xyz, 1.0f);
+    vec4 sample = texture(uTexture, UV);
+    sample.a = 1.0f;
+    vec4 color = vec4(VertexColor.xyz, 1.0f);
+    float factor = step(0.5f, TexBlendFactor);
+    FragmentColor = vec4(mix(color, sample, factor));
 })";
 
 void RendererInit(Renderer* renderer) {
@@ -60,6 +73,14 @@ void RendererInit(Renderer* renderer) {
     assert(renderer->standardShader.handle);
 
     BindShaderUniform(&renderer->standardShader, MVP);
+    BindShaderUniform(&renderer->standardShader, uTexture);
+
+    renderer->standardShader.textureSampler = 0;
+    renderer->standardShader.textureSlot = GL_TEXTURE0;
+
+    GL.glUseProgram(renderer->standardShader.handle);
+    GL.glUniform1i(renderer->standardShader.uTexture, renderer->standardShader.textureSampler);
+    GL.glUseProgram(0);
 }
 
 void RendererBeginFrame(const m4x4* projection, v4 clearColor) {
@@ -78,9 +99,11 @@ void RenderDrawList(DrawList* list) {
 
         GL.glEnableVertexAttribArray(0);
         GL.glEnableVertexAttribArray(1);
+        GL.glEnableVertexAttribArray(2);
 
-        GL.glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Vertex), 0);
-        GL.glVertexAttribPointer(1, 4, GL_FLOAT, false, sizeof(Vertex), (void*)sizeof(v3));
+        GL.glVertexAttribPointer(0, 4, GL_FLOAT, false, sizeof(Vertex), 0);
+        GL.glVertexAttribPointer(1, 4, GL_FLOAT, false, sizeof(Vertex), (void*)sizeof(v4));
+        GL.glVertexAttribPointer(2, 2, GL_FLOAT, false, sizeof(Vertex), (void*)(sizeof(v4) * 2));
 
         GL.glUseProgram(renderer->standardShader.handle);
 
@@ -88,9 +111,95 @@ void RenderDrawList(DrawList* list) {
         GL.glUniformMatrix4fv(renderer->standardShader.MVP, 1, false, mvp.data);
 
         for (auto& cmd : list->commandBuffer) {
+            if (cmd.texture) {
+                GL.glActiveTexture(renderer->standardShader.textureSlot);
+                GL.glBindTexture(GL_TEXTURE_2D, (GLuint)cmd.texture);
+            }
             GL.glDrawElements(GL_TRIANGLES, cmd.indexCount, GL_UNSIGNED_INT, (void*)(u64)(cmd.indexBufferOffset * sizeof(u32)));
         }
     }
+}
+
+GLenum ToOpenGL(TextureWrapMode mode) {
+    GLenum result;
+    switch (mode) {
+    case TextureWrapMode::Repeat: { result = GL_REPEAT; } break;
+    case TextureWrapMode::ClampToEdge: { result = GL_CLAMP_TO_EDGE; } break;
+        invalid_default();
+    }
+    return result;
+}
+
+struct GLTextureFormat {
+    GLenum internal;
+    GLenum format;
+    GLenum type;
+};
+
+GLTextureFormat ToOpenGL(TextureFormat format) {
+    GLTextureFormat result;
+    switch (format) {
+    case TextureFormat::SRGBA8: { result.internal = GL_SRGB8_ALPHA8; result.format = GL_RGBA; result.type = GL_UNSIGNED_BYTE; } break;
+    case TextureFormat::SRGB8: { result.internal = GL_SRGB8; result.format = GL_RGB; result.type = GL_UNSIGNED_BYTE; } break;
+    case TextureFormat::RGBA8: { result.internal = GL_RGBA8; result.format = GL_RGBA; result.type = GL_UNSIGNED_BYTE; } break;
+    case TextureFormat::RGB8: { result.internal = GL_RGB8; result.format = GL_RGB; result.type = GL_UNSIGNED_BYTE; } break;
+    case TextureFormat::RGB16F: { result.internal = GL_RGB16F; result.format = GL_RGB; result.type = GL_FLOAT; } break;
+    case TextureFormat::RG16F: { result.internal = GL_RG16F; result.format = GL_RG; result.type = GL_FLOAT; } break;
+    case TextureFormat::RG32F: { result.internal = GL_RG32F; result.format = GL_RG; result.type = GL_FLOAT; } break;
+    case TextureFormat::R8: { result.internal = GL_R8; result.format = GL_RED; result.type = GL_UNSIGNED_BYTE; } break;
+    case TextureFormat::RG8: { result.internal = GL_RG8; result.format = GL_RG; result.type = GL_UNSIGNED_BYTE; } break;
+        invalid_default();
+    }
+    return result;
+}
+
+struct GLTextureFilter {
+    GLenum min;
+    GLenum mag;
+    bool anisotropic;
+};
+
+GLTextureFilter ToOpenGL(TextureFilter filter) {
+    GLTextureFilter result = {};
+    switch (filter) {
+    case TextureFilter::None: { result.min = GL_NEAREST; result.mag = GL_NEAREST; } break;
+    case TextureFilter::Bilinear: { result.min = GL_LINEAR; result.mag = GL_LINEAR; } break;
+    case TextureFilter::Trilinear: { result.min = GL_LINEAR_MIPMAP_LINEAR; result.mag = GL_LINEAR; } break;
+    case TextureFilter::Anisotropic: { result.min = GL_LINEAR_MIPMAP_LINEAR; result.mag = GL_LINEAR; result.anisotropic = true; } break;
+    }
+    return result;
+}
+
+TextureID RendererUploadTexture(TextureID id, u32 width, u32 height, TextureFormat _format, TextureFilter _filter, TextureWrapMode _wrapMode, void* data) {
+    TextureID result = 0;
+    GLuint handle;
+    if (!id) {
+        GL.glGenTextures(1, &handle);
+    } else {
+        // TODO: Validate handle
+        handle = (GLuint)id;
+    }
+    if (handle) {
+        GL.glBindTexture(GL_TEXTURE_2D, handle);
+
+        auto wrapMode = ToOpenGL(_wrapMode);
+        auto format = ToOpenGL(_format);
+        auto filter = ToOpenGL(_filter);
+
+        GL.glTexImage2D(GL_TEXTURE_2D, 0, format.internal, width, height, 0, format.format, format.type, data);
+
+        GL.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapMode);
+        GL.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapMode);
+        GL.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter.mag);
+        GL.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter.min);
+
+        // TODO: Mips control
+        GL.glGenerateMipmap(GL_TEXTURE_2D);
+
+        GL.glBindTexture(GL_TEXTURE_2D, 0);
+        result = (TextureID)handle;
+    }
+    return result;
 }
 
 GLuint CompileGLSL(const char* name, const char* vertexSource, const char* fragmentSource) {

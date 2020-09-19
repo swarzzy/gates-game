@@ -16,12 +16,12 @@ void DrawListClear(DrawList* list) {
     list->indexBuffer.Clear();
 }
 
-void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, v4 color) {
+void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, v4 color, TextureID texture, f32 texBlend) {
     auto vertexOffset = list->vertexBuffer.Count();
-    list->vertexBuffer.PushBack({V3(lb, z), color});
-    list->vertexBuffer.PushBack({V3(rb, z), color});
-    list->vertexBuffer.PushBack({V3(rt, z), color});
-    list->vertexBuffer.PushBack({V3(lt, z), color});
+    list->vertexBuffer.PushBack(Vertex(V3(lb, z), texBlend, color, V2(0.0f, 0.0f)));
+    list->vertexBuffer.PushBack(Vertex(V3(rb, z), texBlend, color, V2(1.0f, 0.0f)));
+    list->vertexBuffer.PushBack(Vertex(V3(rt, z), texBlend, color, V2(1.0f, 1.0f)));
+    list->vertexBuffer.PushBack(Vertex(V3(lt, z), texBlend, color, V2(0.0f, 1.0f)));
 
     auto indexOffset = list->indexBuffer.Count();;
 
@@ -36,6 +36,15 @@ void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, v4 colo
     command.vertexBufferOffset = vertexOffset;
     command.indexBufferOffset = indexOffset;
     command.indexCount = 6;
+    command.texture = texture;
 
     list->commandBuffer.PushBack(command);
+}
+
+void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, v4 color) {
+    DrawListPushQuad(list, lb, rb, rt, lt, z, color, 0, 0.0f);
+}
+
+void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, TextureID texture) {
+    DrawListPushQuad(list, lb, rb, rt, lt, z, {}, texture, 1.0f);
 }

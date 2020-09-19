@@ -12,6 +12,7 @@ struct GameContext {
     Console console;
     bool consoleEnabled;
     DrawList drawList;
+    TextureID testTexture;
 };
 
 void GameInit();

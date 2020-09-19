@@ -5,7 +5,9 @@ void GameInit() {
     DrawListInit(&context->drawList, 256, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
 
     auto image = ResourceLoaderLoadImage("../res/tile_stone.png", true, 4, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
-    int i = 0;
+    TextureID texture = Renderer.UploadTexture(0, image->width, image->height, TextureFormat::RGBA8, TextureFilter::Bilinear, TextureWrapMode::Repeat, image->bits);
+    assert(texture);
+    context->testTexture = texture;
 }
 
 void GameReload() {
@@ -20,7 +22,7 @@ void GameRender() {
     auto list = &context->drawList;
 
     DrawListPushQuad(list, V2(1.0f, 1.0f), V2(2.0f, 1.0f), V2(2.0f, 2.0f), V2(1.0f, 2.0f), 0.0f, V4(1.0f, 0.0f, 0.0f, 1.0f));
-    DrawListPushQuad(list, V2(3.0f, 3.0f), V2(5.0f, 3.0f), V2(5.0f, 5.0f), V2(3.0f, 5.0f), 0.0f, V4(0.0f, 1.0f, 0.0f, 1.0f));
+    DrawListPushQuad(list, V2(3.0f, 3.0f), V2(5.0f, 3.0f), V2(5.0f, 5.0f), V2(3.0f, 5.0f), 0.0f, context->testTexture);
 
     Renderer.RenderDrawList(list);
     DrawListClear(list);
