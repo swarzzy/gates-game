@@ -31,7 +31,6 @@ bool ImGuiAvailable() { return _GlobalImGuiAvailable; }
 #define Platform (*((const PlatformCalls*)(&_GlobalPlatformState->functions)))
 #define Renderer (*((const RendererAPI*)(&_GlobalPlatformState->rendererAPI)))
 
-
 #include "Game.h"
 
 // Game context also should be set manually after dll reloading
@@ -101,6 +100,19 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
     } break;
     invalid_default();
     }
+}
+
+LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 forceBPP, Allocator allocator) {
+    LoadImageArgs args {};
+    args.filename = filename;
+    args.forceBitsPerPixel = forceBPP;
+    args.allocator = &allocator;
+    args.flipY = flipY;
+
+    LoadImageResult* result = nullptr;
+    GetPlatform()->ResourceLoaderInvoke(ResourceLoaderCommand::Image, &args, &result);
+
+    return result;
 }
 
 // NOTE(swarzzy): All game .cpp files should be included here

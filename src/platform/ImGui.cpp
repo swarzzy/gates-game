@@ -9,10 +9,10 @@
 #define glClearColor gl_function(glClearColor)
 #define glClear gl_function(glClear)
 
-void* ImguiAllocWrapper(size_t size, void* heap) { return mi_heap_malloc((mi_heap_t*)heap, size); }
-void ImguiFreeWrapper(void* ptr, void*_) { mi_free(ptr); }
+void* ImguiAllocWrapper(size_t size, void* heap) { return HeapAlloc((PlatformHeap*)heap, (usize)size, false); }
+void ImguiFreeWrapper(void* ptr, void*_) { Free(ptr); }
 
-ImGuiContext* InitImGuiForGL3(mi_heap_t* heap, SDL_Window* window, SDL_GLContext* glContext) {
+ImGuiContext* InitImGuiForGL3(PlatformHeap* heap, SDL_Window* window, SDL_GLContext* glContext) {
     ImGuiContext* result = nullptr;
     IMGUI_CHECKVERSION();
     ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, heap);

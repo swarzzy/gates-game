@@ -59,6 +59,31 @@ typedef PlatformHeap*(CreateHeapFn)();
 typedef void*(HeapAllocFn)(PlatformHeap* heap, usize size, bool zero);
 typedef void(FreeFn)(void* ptr);
 
+// Resources
+
+enum struct ResourceLoaderCommand: u32 {
+    Image
+};
+
+struct LoadImageArgs {
+    const char* filename;
+    u32 forceBitsPerPixel;
+    Allocator* allocator;
+    b32 flipY;
+};
+
+struct LoadImageResult {
+    void* base;
+    void* bits;
+    u32 width;
+    u32 height;
+    u32 channels;
+};
+
+static_assert((sizeof(LoadImageResult) % 4) == 0);
+
+typedef void(ResourceLoaderInvokeFn)(ResourceLoaderCommand command, void* args, void* result);
+
 
 // NOTE: Functions that platform passes to the game
 struct PlatformCalls
@@ -249,6 +274,7 @@ struct PlatformState
 {
     PlatformCalls functions;
     RendererAPI rendererAPI;
+    ResourceLoaderInvokeFn* ResourceLoaderInvoke;
     // nullptr if imgui is disabled
     ImGuiContext* imguiContext;
     ImGuiAllocFn* ImGuiAlloc;

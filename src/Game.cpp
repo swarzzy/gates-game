@@ -3,6 +3,9 @@
 void GameInit() {
     auto context = GetContext();
     DrawListInit(&context->drawList, 256, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
+
+    auto image = ResourceLoaderLoadImage("../res/tile_stone.png", true, 4, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
+    int i = 0;
 }
 
 void GameReload() {

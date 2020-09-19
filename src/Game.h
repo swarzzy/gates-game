@@ -26,6 +26,8 @@ GameContext* GetContext();
 const InputState* GetInput();
 bool ImGuiAvailable();
 
+LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 forceBPP, Allocator allocator);
+
 void* HeapAllocAPI(uptr size, b32 clear, uptr alignment, void* data);
 void HeapFreeAPI(void* ptr, void* data);
 

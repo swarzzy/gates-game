@@ -2,6 +2,8 @@
 
 #include "ImGui.h"
 
+#include "ResourceLoader.h"
+
 // Enforcing unicode
 #if !defined(UNICODE)
 #define UNICODE
@@ -36,6 +38,8 @@ void* GlobalAssertHandlerData = nullptr;
 
 static Win32Context GlobalContext;
 static void* GlobalGameData;
+
+PlatformHeap* ResourceLoaderScratchHeap;
 
 #define GL (((const Win32Context* )&GlobalContext)->sdl.gl.functions.fn)
 
@@ -168,35 +172,6 @@ b32 DebugCopyFile(const char* source, const char* dest, b32 overwrite) {
     return (b32)result;
 }
 
-PlatformHeap* CreateHeap() {
-    PlatformHeap* heap = (PlatformHeap*)mi_heap_new();
-    return heap;
-}
-
-#if defined(COMPILER_MSVC)
-__declspec(restrict)
-#endif
-void* HeapAlloc(PlatformHeap* heap, usize size, bool zero) {
-    void* mem = nullptr;
-    if (zero) {
-        mem = mi_heap_zalloc((mi_heap_t*)heap, (size_t)size);
-    } else {
-        mem = mi_heap_malloc((mi_heap_t*)heap, (size_t)size);
-    }
-    return mem;
-}
-
-void Free(void* ptr) {
-    mi_free(ptr);
-}
-
-#if defined(COMPILER_MSVC)
-__declspec(restrict)
-#endif
-void* Reallocate(void* ptr, uptr newSize, void* allocatorData) {
-    return realloc(ptr, newSize);
-}
-
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int showCmd)
 {
 #if defined(ENABLE_CONSOLE)
@@ -225,13 +200,22 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     }
 
     // Initializing ImGui context
-    context->imguiHeap = mi_heap_new();
+    context->imguiHeap = CreateHeap();
     if (!context->imguiHeap) {
         panic("Failed to create heap for Dear ImGui");
     }
 
-    context->stbHeap = mi_heap_new();
-    panic(context->stbHeap);
+    context->stbHeap = CreateHeap();
+    if (!context->stbHeap) {
+        panic("Failed to create heap for STB libraries");
+    }
+
+    context->platformHeap = CreateHeap();
+    if (!context->platformHeap) {
+        panic("Failed to create platform heap");
+    }
+
+    ResourceLoaderScratchHeap = context->platformHeap;
 
     context->state.imguiContext = InitImGuiForGL3(context->imguiHeap, context->sdl.window, &context->sdl.glContext);
     if (!context->state.imguiContext) {
@@ -259,6 +243,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     context->state.stbHeap = (PlatformHeap*)context->stbHeap;
 
     context->state.rendererAPI.RenderDrawList = RenderDrawList;
+
+    context->state.ResourceLoaderInvoke = ResourceLoaderInvoke;
 
     RendererInit(&context->renderer);
 
@@ -323,9 +309,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 }
 
 #include "RendererGL.cpp"
-#include "SDL.cpp"
 #include "Win32CodeLoader.cpp"
 
+#include "SDL.cpp"
+#include "Allocation.cpp"
+#include "ResourceLoader.cpp"
 #include "ImGui.cpp"
 
 #define STB_TRUETYPE_IMPLEMENTATION
