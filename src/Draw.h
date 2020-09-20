@@ -35,10 +35,15 @@ struct Vertex {
 
 typedef u64 TextureID;
 
+enum struct TextureMode : u32 {
+    Color, AlphaMask
+};
+
 struct DrawCommand {
     u32 vertexBufferOffset;
     u32 indexBufferOffset;
     u32 indexCount;
+    TextureMode textureMode;
     TextureID texture;
 };
 
@@ -54,6 +59,7 @@ void DrawListClear(DrawList* list);
 
 void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, v4 color);
 void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, TextureID texture);
+void DrawListPushQuadAlphaMask(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, TextureID texture, v4 color);
 
 // TODO: Calling convention
 // TODO: Single call

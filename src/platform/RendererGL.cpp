@@ -38,11 +38,45 @@ uniform sampler2D uTexture;
 
 void main() {
     vec4 sample = texture(uTexture, UV);
-    sample.a = 1.0f;
     vec4 color = vec4(VertexColor.xyz, 1.0f);
     float factor = step(0.5f, TexBlendFactor);
     FragmentColor = vec4(mix(color, sample, factor));
 })";
+
+const char* AlphaMaskShaderVert = R"(
+#version 330 core
+
+layout (location = 0) in vec4 aPosition;
+layout (location = 1) in vec4 aColor;
+layout (location = 2) in vec2 aUV;
+
+out vec4 VertexColor;
+out vec2 UV;
+
+uniform mat4 MVP;
+
+void main() {
+    gl_Position = MVP * vec4(aPosition.xyz, 1.0f);
+    VertexColor = aColor;
+    UV = aUV;
+})";
+
+const char* AlphaMaskShaderFrag = R"(
+#version 330 core
+
+out vec4 FragmentColor;
+
+in vec4 VertexColor;
+in vec2 UV;
+
+uniform sampler2D uTexture;
+
+void main() {
+    float alpha = texture(uTexture, UV).r;
+    vec4 color = vec4(VertexColor.xyz, alpha);
+    FragmentColor = color;
+})";
+
 
 void RendererInit(Renderer* renderer) {
     _GlobalRenderer = renderer;
@@ -58,6 +92,9 @@ void RendererInit(Renderer* renderer) {
     GL.glFrontFace(GL_CCW);
     // TODO(swarzzy): Multisampling
     //glEnable(GL_MULTISAMPLE);
+
+    GL.glEnable(GL_BLEND);
+    GL.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     //GL.glLineWidth(3.0f);
 
@@ -80,6 +117,18 @@ void RendererInit(Renderer* renderer) {
 
     GL.glUseProgram(renderer->standardShader.handle);
     GL.glUniform1i(renderer->standardShader.uTexture, renderer->standardShader.textureSampler);
+
+    renderer->alphaMaskShader.handle = CompileGLSL("AlphaMask", AlphaMaskShaderVert, AlphaMaskShaderFrag);
+    assert(renderer->alphaMaskShader.handle);
+
+    BindShaderUniform(&renderer->alphaMaskShader, MVP);
+    BindShaderUniform(&renderer->alphaMaskShader, uTexture);
+
+    renderer->alphaMaskShader.textureSampler = 0;
+    renderer->alphaMaskShader.textureSlot = GL_TEXTURE0;
+
+    GL.glUseProgram(renderer->alphaMaskShader.handle);
+    GL.glUniform1i(renderer->alphaMaskShader.uTexture, renderer->alphaMaskShader.textureSampler);
     GL.glUseProgram(0);
 }
 
@@ -105,16 +154,27 @@ void RenderDrawList(DrawList* list) {
         GL.glVertexAttribPointer(1, 4, GL_FLOAT, false, sizeof(Vertex), (void*)sizeof(v4));
         GL.glVertexAttribPointer(2, 2, GL_FLOAT, false, sizeof(Vertex), (void*)(sizeof(v4) * 2));
 
-        GL.glUseProgram(renderer->standardShader.handle);
-
         auto mvp = OrthoGLRH(0.0f, 16.0f, 0.0f, 9.0f, -1.0f, 1.0f);
+
+        GL.glUseProgram(renderer->standardShader.handle);
         GL.glUniformMatrix4fv(renderer->standardShader.MVP, 1, false, mvp.data);
 
+        GL.glUseProgram(renderer->alphaMaskShader.handle);
+        GL.glUniformMatrix4fv(renderer->alphaMaskShader.MVP, 1, false, mvp.data);
+
         for (auto& cmd : list->commandBuffer) {
+            GLuint textureSlot = 0;
+            switch (cmd.textureMode) {
+            case TextureMode::Color: { GL.glUseProgram(renderer->standardShader.handle); textureSlot = renderer->standardShader.textureSlot; } break;
+            case TextureMode::AlphaMask: { GL.glUseProgram(renderer->alphaMaskShader.handle); textureSlot = renderer->alphaMaskShader.textureSlot; } break;
+            invalid_default();
+            }
+
             if (cmd.texture) {
-                GL.glActiveTexture(renderer->standardShader.textureSlot);
+                GL.glActiveTexture(textureSlot);
                 GL.glBindTexture(GL_TEXTURE_2D, (GLuint)cmd.texture);
             }
+
             GL.glDrawElements(GL_TRIANGLES, cmd.indexCount, GL_UNSIGNED_INT, (void*)(u64)(cmd.indexBufferOffset * sizeof(u32)));
         }
     }

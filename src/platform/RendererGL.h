@@ -12,10 +12,19 @@ struct StandardShader {
     GLuint textureSlot;
 };
 
+struct AlphaMaskShader {
+    GLuint handle;
+    GLint MVP;
+    GLuint uTexture;
+    u32 textureSampler;
+    GLuint textureSlot;
+};
+
 struct Renderer {
     GLuint vertexBuffer;
     GLuint indexBuffer;
     StandardShader standardShader;
+    AlphaMaskShader alphaMaskShader;
 };
 
 void RendererInit(Renderer* renderer);

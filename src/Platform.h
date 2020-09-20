@@ -11,8 +11,6 @@
 
 #include "Draw.h"
 
-struct OpenGL;
-
 #if defined(PLATFORM_WINDOWS)
 #define GAME_CODE_ENTRY __declspec(dllexport)
 #elif defined(PLATFORM_LINUX)
@@ -62,7 +60,7 @@ typedef void(FreeFn)(void* ptr);
 // Resources
 
 enum struct ResourceLoaderCommand: u32 {
-    Image
+    Image, Font
 };
 
 struct LoadImageArgs {
@@ -82,8 +80,17 @@ struct LoadImageResult {
 
 static_assert((sizeof(LoadImageResult) % 4) == 0);
 
+struct BakeFontResult {
+    void* bitmap;
+};
+
+typedef BakeFontResult(ResourceLoaderBakeFontFn)(const char* filename, Allocator* allocator, f32 height, u32 bitmapDim);
+
 typedef void(ResourceLoaderInvokeFn)(ResourceLoaderCommand command, void* args, void* result);
 
+struct ResourceLoaderAPI {
+    ResourceLoaderBakeFontFn* BakeFont;
+};
 
 // NOTE: Functions that platform passes to the game
 struct PlatformCalls
@@ -274,6 +281,7 @@ struct PlatformState
 {
     PlatformCalls functions;
     RendererAPI rendererAPI;
+    ResourceLoaderAPI resourceLoaderAPI;
     ResourceLoaderInvokeFn* ResourceLoaderInvoke;
     // nullptr if imgui is disabled
     ImGuiContext* imguiContext;
