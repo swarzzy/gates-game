@@ -60,8 +60,9 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
     return header;
 }
 
-BakeFontResult ResourceLoaderBakeFont(const char* filename, Allocator* allocator, f32 height, u32 bitmapDim) {
-    BakeFontResult result {};
+void ResourceLoaderBakeFont(BakeFontResult* result, const char* filename, Allocator* allocator, f32 height, CodepointRange* ranges, u32 rangeCount) {
+    assert(result->bitmap);
+    assert(result->glyphs);
     auto fileSize = DebugGetFileSize(filename);
     if (fileSize) {
         auto data = (unsigned char*)HeapAlloc(ResourceLoaderScratchHeap, fileSize, false);
@@ -73,23 +74,86 @@ BakeFontResult ResourceLoaderBakeFont(const char* filename, Allocator* allocator
                 if (stbtt_InitFont(&font, data, 0)) {
                     auto scale = stbtt_ScaleForPixelHeight(&font, height);
                     stbtt_pack_context pack;
-                    result.bitmap = allocator->Alloc(sizeof(u8) * bitmapDim * bitmapDim, false);
-                    if (result.bitmap) {
-                        if (stbtt_PackBegin(&pack, (unsigned char*)result.bitmap, bitmapDim, bitmapDim, 0, 1, nullptr)) {
-                            stbtt_PackSetOversampling(&pack, 1, 1);
-                            stbtt_pack_range ranges[1] {};
-                            stbtt_packedchar chars[94];
-                            ranges[0].font_size = height;
-                            ranges[0].first_unicode_codepoint_in_range = 32;
-                            ranges[0].num_chars = 94;
-                            ranges[0].chardata_for_range = chars;
-                            stbtt_PackFontRanges(&pack, data, 0, ranges, array_count(ranges));
+                    //result.bitmap = allocator->Alloc(sizeof(u8) * bitmapDim * bitmapDim, false);
+                    if (stbtt_PackBegin(&pack, (unsigned char*)result->bitmap, result->bitmapSize, result->bitmapSize, 0, 1, nullptr)) {
+                        stbtt_PackSetOversampling(&pack, 1, 1);
+                        stbtt_PackSetSkipMissingCodepoints(&pack, 0);
+
+                        // Calculate range lengths
+                        u32 totalCodepointCount = 0;
+                        assert(rangeCount);
+                        for (u32 i = 0; i < rangeCount; i++) {
+                            assert(ranges[i].end > ranges[i].begin);
+                            ranges[i]._count = ranges[i].end - ranges[i].begin + 1;
+                            totalCodepointCount += ranges[i]._count;
+                        }
+
+                        assert(totalCodepointCount == (result->glyphCount - 1));
+
+                        // TODO: Joint allocations
+                        stbtt_pack_range* stbttRanges = (stbtt_pack_range*)HeapAlloc(ResourceLoaderScratchHeap, sizeof(stbtt_pack_range) * rangeCount, true);
+                        stbtt_packedchar* chars = (stbtt_packedchar*)HeapAlloc(ResourceLoaderScratchHeap, sizeof(stbtt_packedchar) * totalCodepointCount, true);
+                        defer { if (stbttRanges) Free(stbttRanges); };
+                        defer { if (chars) Free(chars); };
+
+                        if (stbttRanges && chars) {
+                            u32 charDataOffset = 0;
+                            for (u32 i = 0; i < rangeCount; i++) {
+                                stbttRanges[i].font_size = height;
+                                stbttRanges[i].first_unicode_codepoint_in_range = ranges[i].begin;
+                                stbttRanges[i].num_chars = ranges[i]._count;
+                                stbttRanges[i].chardata_for_range = chars + charDataOffset;
+                                charDataOffset += ranges[i]._count;
+                            }
+
+                            stbtt_PackFontRanges(&pack, data, 0, stbttRanges, rangeCount);
                             stbtt_PackEnd(&pack);
+
+                            //result.glyphs = (GlyphInfo*)HeapAlloc(ResourceLoaderScratchHeap, sizeof(GlyphInfo) * totalCodepointCount + 1, false);
+                            //memset(result.glyphIndexTable, 0, sizeof(u16) * array_count(result.glyphIndexTable));
+                            //result->glyphCount = totalCodepointCount;
+
+                            u16 dummyCodepoint = ranges[0].begin;
+                            auto dummyChar = chars;
+                            result->glyphs[0].codepoint = dummyCodepoint;
+                            result->glyphs[0].x0 = dummyChar->x0 / (f32)result->bitmapSize;
+                            result->glyphs[0].y0 = dummyChar->y0 / (f32)result->bitmapSize;
+                            result->glyphs[0].x1 = dummyChar->x1 / (f32)result->bitmapSize;
+                            result->glyphs[0].y1 = dummyChar->y1 / (f32)result->bitmapSize;
+                            result->glyphs[0].xOff = dummyChar->xoff * scale;
+                            result->glyphs[0].yOff = dummyChar->yoff * scale;
+                            result->glyphs[0].xAdvance = dummyChar->xadvance * scale;
+                            result->glyphs[0].xOff2 = dummyChar->xoff2 * scale;
+                            result->glyphs[0].yOff2 = dummyChar->yoff2 * scale;
+
+                            u32 k = 1;
+                            for (u32 i = 0; i < rangeCount; i++) {
+                                auto range = ranges + i;
+                                for (u32 j = 0; j < range->_count; j++) {
+                                    auto c = chars + (k - 1);
+
+                                    //TODO: Mind overflow
+                                    u16 codepoint = range->begin + j;
+
+                                    result->glyphs[k].codepoint = codepoint;
+                                    result->glyphs[k].x0 = c->x0 / (f32)result->bitmapSize;
+                                    result->glyphs[k].y0 = c->y0 / (f32)result->bitmapSize;
+                                    result->glyphs[k].x1 = c->x1 / (f32)result->bitmapSize;
+                                    result->glyphs[k].y1 = c->y1 / (f32)result->bitmapSize;
+                                    result->glyphs[k].xOff = c->xoff * scale;
+                                    result->glyphs[k].yOff = c->yoff * scale;
+                                    result->glyphs[k].xAdvance = c->xadvance * scale;
+                                    result->glyphs[k].xOff2 = c->xoff2 * scale;
+                                    result->glyphs[k].yOff2 = c->yoff2 * scale;
+
+                                    result->glyphIndexTable[codepoint] = (u16)k;
+                                    k++;
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
-    return result;
 }

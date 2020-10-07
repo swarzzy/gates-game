@@ -14,6 +14,7 @@ struct GameContext {
     DrawList drawList;
     TextureID testTexture;
     TextureID fontAtlas;
+    BakeFontResult font;
 };
 
 void GameInit();

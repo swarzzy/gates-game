@@ -140,6 +140,10 @@ namespace U32 {
     constexpr u32 Max = 0xffffffff;
 }
 
+namespace U16 {
+    constexpr u16 Max = 0xffff;
+}
+
 namespace U64 {
     constexpr u64 Max = UINT64_MAX;
 }

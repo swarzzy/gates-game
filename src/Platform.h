@@ -80,11 +80,43 @@ struct LoadImageResult {
 
 static_assert((sizeof(LoadImageResult) % 4) == 0);
 
-struct BakeFontResult {
-    void* bitmap;
+struct GlyphInfo {
+    f32 x0;
+    f32 y0;
+    f32 x1;
+    f32 y1;
+    f32 xOff;
+    f32 yOff;
+    f32 xAdvance;
+    f32 xOff2;
+    f32 yOff2;
+    u16 codepoint;
 };
 
-typedef BakeFontResult(ResourceLoaderBakeFontFn)(const char* filename, Allocator* allocator, f32 height, u32 bitmapDim);
+struct BakeFontResult {
+    u8* bitmap;
+    u16 bitmapSize;
+    u16 glyphIndexTable[U16::Max];
+    GlyphInfo* glyphs;
+    u32 glyphCount;
+};
+
+struct CodepointRange {
+    u32 begin;
+    u32 end;
+    u32 _count; // Do not fill. Used internally
+};
+
+inline u32 CalcGlyphTableLength(CodepointRange* ranges, u32 rangeCount) {
+    u32 totalCodepointCount = 0;
+    for (u32 i = 0; i < rangeCount; i++) {
+        assert(ranges[i].end > ranges[i].begin);
+        totalCodepointCount += ranges[i].end - ranges[i].begin + 1;
+    }
+    return totalCodepointCount + 1; // One for dummy char
+}
+
+typedef void(ResourceLoaderBakeFontFn)(BakeFontResult* result, const char* filename, Allocator* allocator, f32 height, CodepointRange* ranges, u32 rangeCount);
 
 typedef void(ResourceLoaderInvokeFn)(ResourceLoaderCommand command, void* args, void* result);
 

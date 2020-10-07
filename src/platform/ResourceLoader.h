@@ -8,4 +8,4 @@ extern PlatformHeap* ResourceLoaderScratchHeap;
 
 void __cdecl ResourceLoaderInvoke(ResourceLoaderCommand command, void* _args, void* result);
 LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 forceBPP, Allocator* allocator);
-BakeFontResult ResourceLoaderBakeFont(const char* filename, Allocator* allocator, f32 height, u32 bitmapDim);
+void ResourceLoaderBakeFont(BakeFontResult* result, const char* filename, Allocator* allocator, f32 height, CodepointRange* ranges, u32 rangeCount);

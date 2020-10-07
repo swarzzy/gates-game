@@ -53,11 +53,13 @@ struct DrawList {
     GrowableArray<u32> indexBuffer;
 };
 
+
 void DrawListInit(DrawList* list, u32 capacity, Allocator allocator);
 
 void DrawListClear(DrawList* list);
 
 void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, v4 color);
+void DrawListPushGlyph(DrawList* list, v2 min, v2 max, v2 uv0, v2 uv1, f32 z, v4 color, TextureID atlas);
 void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, TextureID texture);
 void DrawListPushQuadAlphaMask(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, TextureID texture, v4 color);
 
