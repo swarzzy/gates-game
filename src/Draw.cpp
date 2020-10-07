@@ -23,7 +23,7 @@ void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, v2 uv0, v2 uv1
     list->vertexBuffer.PushBack(Vertex(V3(rt, z), texBlend, color, uv2));
     list->vertexBuffer.PushBack(Vertex(V3(lt, z), texBlend, color, uv3));
 
-    auto indexOffset = list->indexBuffer.Count();;
+    auto indexOffset = list->indexBuffer.Count();
 
     list->indexBuffer.PushBack(vertexOffset + 0);
     list->indexBuffer.PushBack(vertexOffset + 1);
@@ -56,4 +56,22 @@ void DrawListPushQuadAlphaMask(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z
 
 void DrawListPushGlyph(DrawList* list, v2 min, v2 max, v2 uv0, v2 uv1, f32 z, v4 color, TextureID atlas) {
     DrawListPushQuad(list, min, V2(max.x, min.y), max, V2(min.x, max.y), uv0, V2(uv1.x, uv0.y), uv1, V2(uv0.x, uv1.y), z, color, atlas, 1.0f, TextureMode::AlphaMask);
+}
+
+void DrawText(DrawList* list, Font* font, const wchar_t* string, v2 p, f32 z, v4 color) {
+    v2 advance = p;
+    for (const wchar_t* at = string; *at; at++) {
+        wchar_t ch = *at;
+        assert((u32)ch < array_count(font->glyphIndexTable));
+        auto glyphIndex = font->glyphIndexTable[(u16)ch];
+        auto glyph = font->glyphs + glyphIndex;
+
+        v2 minUV = V2(glyph->uv0.x, glyph->uv1.y);
+        v2 maxUV = V2(glyph->uv1.x, glyph->uv0.y);
+
+        v2 min = V2(advance.x + glyph->quadMin.x, advance.y - glyph->quadMax.y);
+        v2 max = V2(advance.x + glyph->quadMax.x, advance.y - glyph->quadMin.y);
+        DrawListPushGlyph(list, min, max, minUV, maxUV, z, color, font->atlas);
+        advance.x += glyph->xAdvance;
+    }
 }

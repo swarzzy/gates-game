@@ -60,7 +60,7 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
     return header;
 }
 
-void ResourceLoaderBakeFont(BakeFontResult* result, const char* filename, Allocator* allocator, f32 height, CodepointRange* ranges, u32 rangeCount) {
+void ResourceLoaderBakeFont(Font* result, const char* filename, Allocator* allocator, f32 height, CodepointRange* ranges, u32 rangeCount) {
     assert(result->bitmap);
     assert(result->glyphs);
     auto fileSize = DebugGetFileSize(filename);
@@ -73,10 +73,14 @@ void ResourceLoaderBakeFont(BakeFontResult* result, const char* filename, Alloca
                 stbtt_fontinfo font;
                 if (stbtt_InitFont(&font, data, 0)) {
                     auto scale = stbtt_ScaleForPixelHeight(&font, height);
+                    int ascent = 0;
+                    int descent = 0;
+                    int lineGap = 0;
+                    stbtt_GetFontVMetrics(&font, &ascent, &descent, &lineGap);
                     stbtt_pack_context pack;
                     //result.bitmap = allocator->Alloc(sizeof(u8) * bitmapDim * bitmapDim, false);
                     if (stbtt_PackBegin(&pack, (unsigned char*)result->bitmap, result->bitmapSize, result->bitmapSize, 0, 1, nullptr)) {
-                        stbtt_PackSetOversampling(&pack, 1, 1);
+                        stbtt_PackSetOversampling(&pack, 2, 2);
                         stbtt_PackSetSkipMissingCodepoints(&pack, 0);
 
                         // Calculate range lengths
@@ -109,22 +113,24 @@ void ResourceLoaderBakeFont(BakeFontResult* result, const char* filename, Alloca
                             stbtt_PackFontRanges(&pack, data, 0, stbttRanges, rangeCount);
                             stbtt_PackEnd(&pack);
 
-                            //result.glyphs = (GlyphInfo*)HeapAlloc(ResourceLoaderScratchHeap, sizeof(GlyphInfo) * totalCodepointCount + 1, false);
-                            //memset(result.glyphIndexTable, 0, sizeof(u16) * array_count(result.glyphIndexTable));
-                            //result->glyphCount = totalCodepointCount;
+                            result->ascent = (f32)ascent * scale;
+                            result->descent = (f32)descent * scale;
+                            result->lineGap = (f32)lineGap * scale;
+
+                            result->height = height;
 
                             u16 dummyCodepoint = ranges[0].begin;
                             auto dummyChar = chars;
                             result->glyphs[0].codepoint = dummyCodepoint;
-                            result->glyphs[0].x0 = dummyChar->x0 / (f32)result->bitmapSize;
-                            result->glyphs[0].y0 = dummyChar->y0 / (f32)result->bitmapSize;
-                            result->glyphs[0].x1 = dummyChar->x1 / (f32)result->bitmapSize;
-                            result->glyphs[0].y1 = dummyChar->y1 / (f32)result->bitmapSize;
-                            result->glyphs[0].xOff = dummyChar->xoff * scale;
-                            result->glyphs[0].yOff = dummyChar->yoff * scale;
-                            result->glyphs[0].xAdvance = dummyChar->xadvance * scale;
-                            result->glyphs[0].xOff2 = dummyChar->xoff2 * scale;
-                            result->glyphs[0].yOff2 = dummyChar->yoff2 * scale;
+                            result->glyphs[0].uv0.x = dummyChar->x0 / (f32)result->bitmapSize;
+                            result->glyphs[0].uv0.y = dummyChar->y0 / (f32)result->bitmapSize;
+                            result->glyphs[0].uv1.x = dummyChar->x1 / (f32)result->bitmapSize;
+                            result->glyphs[0].uv1.y = dummyChar->y1 / (f32)result->bitmapSize;
+                            result->glyphs[0].quadMin.x = dummyChar->xoff;
+                            result->glyphs[0].quadMin.y = dummyChar->yoff;
+                            result->glyphs[0].quadMax.x = dummyChar->xoff2;
+                            result->glyphs[0].quadMax.y = dummyChar->yoff2;
+                            result->glyphs[0].xAdvance = dummyChar->xadvance;
 
                             u32 k = 1;
                             for (u32 i = 0; i < rangeCount; i++) {
@@ -136,15 +142,15 @@ void ResourceLoaderBakeFont(BakeFontResult* result, const char* filename, Alloca
                                     u16 codepoint = range->begin + j;
 
                                     result->glyphs[k].codepoint = codepoint;
-                                    result->glyphs[k].x0 = c->x0 / (f32)result->bitmapSize;
-                                    result->glyphs[k].y0 = c->y0 / (f32)result->bitmapSize;
-                                    result->glyphs[k].x1 = c->x1 / (f32)result->bitmapSize;
-                                    result->glyphs[k].y1 = c->y1 / (f32)result->bitmapSize;
-                                    result->glyphs[k].xOff = c->xoff * scale;
-                                    result->glyphs[k].yOff = c->yoff * scale;
-                                    result->glyphs[k].xAdvance = c->xadvance * scale;
-                                    result->glyphs[k].xOff2 = c->xoff2 * scale;
-                                    result->glyphs[k].yOff2 = c->yoff2 * scale;
+                                    result->glyphs[k].uv0.x = c->x0 / (f32)result->bitmapSize;
+                                    result->glyphs[k].uv0.y = c->y0 / (f32)result->bitmapSize;
+                                    result->glyphs[k].uv1.x = c->x1 / (f32)result->bitmapSize;
+                                    result->glyphs[k].uv1.y = c->y1 / (f32)result->bitmapSize;
+                                    result->glyphs[k].quadMin.x = c->xoff;// * scale;
+                                    result->glyphs[k].quadMin.y = c->yoff;// * scale;
+                                    result->glyphs[k].quadMax.x = c->xoff2;// * scale;
+                                    result->glyphs[k].quadMax.y = c->yoff2;// * scale;
+                                    result->glyphs[k].xAdvance = c->xadvance;// * scale;
 
                                     result->glyphIndexTable[codepoint] = (u16)k;
                                     k++;

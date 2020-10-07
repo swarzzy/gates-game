@@ -37,7 +37,7 @@ ImGuiContext* InitImGuiForGL3(PlatformHeap* heap, SDL_Window* window, SDL_GLCont
 void ImGuiNewFrameForGL3(SDL_Window* window, u32 wWindow, u32 hWindow) {
     // TODO: Remove this temporary gl calls
     glViewport(0, 0, (int)wWindow, (int)hWindow);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     ImGui_ImplOpenGL3_NewFrame();

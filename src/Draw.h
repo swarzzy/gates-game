@@ -4,6 +4,8 @@
 
 #include "GrowableArray.h"
 
+struct Font;
+
 enum struct TextureFilter : u32 {
     None = 0, Bilinear, Trilinear, Anisotropic, Default = Bilinear
 };
@@ -62,6 +64,7 @@ void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, v4 colo
 void DrawListPushGlyph(DrawList* list, v2 min, v2 max, v2 uv0, v2 uv1, f32 z, v4 color, TextureID atlas);
 void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, TextureID texture);
 void DrawListPushQuadAlphaMask(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, TextureID texture, v4 color);
+void DrawText(DrawList* list, Font* font, const wchar_t* string, v2 p, f32 z, v4 color);
 
 // TODO: Calling convention
 // TODO: Single call

@@ -14,7 +14,7 @@ struct GameContext {
     DrawList drawList;
     TextureID testTexture;
     TextureID fontAtlas;
-    BakeFontResult font;
+    Font font;
 };
 
 void GameInit();
@@ -30,7 +30,6 @@ const InputState* GetInput();
 bool ImGuiAvailable();
 
 LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 forceBPP, Allocator allocator);
-BakeFontResult* ResourceLoaderBakeFont(const char* filename, Allocator* allocator, u32 height, u32 bitmapDim);
 
 void* HeapAllocAPI(uptr size, b32 clear, uptr alignment, void* data);
 void HeapFreeAPI(void* ptr, void* data);
