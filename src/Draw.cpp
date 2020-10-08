@@ -58,20 +58,75 @@ void DrawListPushGlyph(DrawList* list, v2 min, v2 max, v2 uv0, v2 uv1, f32 z, v4
     DrawListPushQuad(list, min, V2(max.x, min.y), max, V2(min.x, max.y), uv0, V2(uv1.x, uv0.y), uv1, V2(uv0.x, uv1.y), z, color, atlas, 1.0f, TextureMode::AlphaMask);
 }
 
-void DrawText(DrawList* list, Font* font, const wchar_t* string, v2 p, f32 z, v4 color) {
-    v2 advance = p;
-    for (const wchar_t* at = string; *at; at++) {
-        wchar_t ch = *at;
-        assert((u32)ch < array_count(font->glyphIndexTable));
-        auto glyphIndex = font->glyphIndexTable[(u16)ch];
-        auto glyph = font->glyphs + glyphIndex;
+void DrawText(DrawList* list, Font* font, const char16* string, v2 p, f32 z, v4 color, v2 pixelSize, v2 anchor) {
+    Rectangle2 bbox = CalcTextBoundingBox(font, string, pixelSize);
+    v2 dim = V2(bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y);
+    f32 lineHeight = (font->ascent - font->descent + font->lineGap) * pixelSize.y;
 
-        v2 minUV = V2(glyph->uv0.x, glyph->uv1.y);
-        v2 maxUV = V2(glyph->uv1.x, glyph->uv0.y);
+    v2 begin = p;
+    // Put cursor to left bottom corner
+    begin.y -= (font->ascent + font->lineGap) * pixelSize.y - dim.y;
+    // Apply anchor
+    begin -= Hadamard(dim, anchor);
 
-        v2 min = V2(advance.x + glyph->quadMin.x, advance.y - glyph->quadMax.y);
-        v2 max = V2(advance.x + glyph->quadMax.x, advance.y - glyph->quadMin.y);
-        DrawListPushGlyph(list, min, max, minUV, maxUV, z, color, font->atlas);
-        advance.x += glyph->xAdvance;
+    v2 advance = begin;
+
+    for (const char16* at = string; *at; at++) {
+        char16 ch = *at;
+        if (ch == u'\n') {
+            advance.x = begin.x;
+            advance.y -= lineHeight;
+        } else {
+            assert((u32)ch < array_count(font->glyphIndexTable));
+            auto glyphIndex = font->glyphIndexTable[(u16)ch];
+            auto glyph = font->glyphs + glyphIndex;
+
+            v2 minUV = V2(glyph->uv0.x, glyph->uv1.y);
+            v2 maxUV = V2(glyph->uv1.x, glyph->uv0.y);
+
+            v2 min = V2(advance.x + glyph->quadMin.x * pixelSize.x, advance.y - glyph->quadMax.y * pixelSize.y);
+            v2 max = V2(advance.x + glyph->quadMax.x * pixelSize.x, advance.y - glyph->quadMin.y * pixelSize.y);
+            DrawListPushGlyph(list, min, max, minUV, maxUV, z, color, font->atlas);
+            advance.x += glyph->xAdvance * pixelSize.x;
+        }
     }
+}
+
+Rectangle2 CalcTextBoundingBox(Font* font, const char16* string, v2 pixelSize, v2 anchor) {
+    Rectangle2 result;
+    v2 begin = V2(0.0f);
+    v2 end = V2(0.0f);
+    v2 advance = V2(0.0f);
+    f32 lineHeight = (font->ascent - font->descent + font->lineGap) * pixelSize.y;
+    advance.y -= (font->ascent + font->lineGap) * pixelSize.y;
+    for (const char16* at = string; *at; at++) {
+        char16 ch = *at;
+        if (ch == u'\n') {
+            if (advance.x > end.x) {
+                end.x = advance.x;
+            }
+
+            advance.x = 0.0f;
+            advance.y -= lineHeight;
+        } else {
+            assert((u32)ch < array_count(font->glyphIndexTable));
+            auto glyphIndex = font->glyphIndexTable[(u16)ch];
+            auto glyph = font->glyphs + glyphIndex;
+            advance.x += glyph->xAdvance * pixelSize.x;
+        }
+    }
+
+    if (advance.x > end.x) {
+        end.x = advance.x;
+    }
+
+    end.y = advance.y + font->descent * pixelSize.y;
+
+    v2 min = V2(Min(begin.x, end.x), Min(-begin.y, -end.y));
+    v2 max = V2(Max(begin.x, end.x), Max(-begin.y, -end.y));
+    v2 dim = V2(max.x - min.x, max.y - min.y);
+    result.min = min - Hadamard(dim, anchor);
+    result.max = max - Hadamard(dim, anchor);
+
+    return result;
 }

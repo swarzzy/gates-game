@@ -132,9 +132,16 @@ void RendererInit(Renderer* renderer) {
     GL.glUseProgram(0);
 }
 
-void RendererBeginFrame(const m4x4* projection, v4 clearColor) {
+void RenderSetCamera(m4x4* projection) {
+    auto renderer = GetRenderer();
+    GL.glUseProgram(renderer->standardShader.handle);
+    GL.glUniformMatrix4fv(renderer->standardShader.MVP, 1, false, projection->data);
 
+    GL.glUseProgram(renderer->alphaMaskShader.handle);
+    GL.glUniformMatrix4fv(renderer->alphaMaskShader.MVP, 1, false, projection->data);
 }
+
+void RenderEndPass() {}
 
 void RenderDrawList(DrawList* list) {
     auto renderer = GetRenderer();
@@ -153,16 +160,6 @@ void RenderDrawList(DrawList* list) {
         GL.glVertexAttribPointer(0, 4, GL_FLOAT, false, sizeof(Vertex), 0);
         GL.glVertexAttribPointer(1, 4, GL_FLOAT, false, sizeof(Vertex), (void*)sizeof(v4));
         GL.glVertexAttribPointer(2, 2, GL_FLOAT, false, sizeof(Vertex), (void*)(sizeof(v4) * 2));
-
-        u32 w = GlobalContext.state.windowWidth;
-        u32 h = GlobalContext.state.windowHeight;
-        auto mvp = OrthoGLRH(0.0f, (f32)w, 0.0f, (f32)h, -1.0f, 1.0f);
-
-        GL.glUseProgram(renderer->standardShader.handle);
-        GL.glUniformMatrix4fv(renderer->standardShader.MVP, 1, false, mvp.data);
-
-        GL.glUseProgram(renderer->alphaMaskShader.handle);
-        GL.glUniformMatrix4fv(renderer->alphaMaskShader.MVP, 1, false, mvp.data);
 
         for (auto& cmd : list->commandBuffer) {
             GLuint textureSlot = 0;

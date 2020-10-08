@@ -244,6 +244,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     context->state.rendererAPI.RenderDrawList = RenderDrawList;
     context->state.rendererAPI.UploadTexture = RendererUploadTexture;
+    context->state.rendererAPI.SetCamera = RenderSetCamera;
+
 
     context->state.ResourceLoaderInvoke = ResourceLoaderInvoke;
     context->state.resourceLoaderAPI.BakeFont = ResourceLoaderBakeFont;

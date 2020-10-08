@@ -1,4 +1,6 @@
 #include "Game.h"
+#undef UNICODE
+#undef _UNICODE
 
 void GameInit() {
     auto context = GetContext();
@@ -17,16 +19,16 @@ void GameInit() {
     ranges[1].begin = 0x0410;
     ranges[1].end = 0x044f;
 
-    context->font.bitmap = (u8*)Platform.HeapAlloc(context->mainHeap, sizeof(u8) * 512 * 512, false);
-    context->font.bitmapSize = 512;
+    context->font.bitmapSize = 1024;
+    context->font.bitmap = (u8*)Platform.HeapAlloc(context->mainHeap, sizeof(u8) * context->font.bitmapSize * context->font.bitmapSize, false);
 
     uptr glyphTableLength = CalcGlyphTableLength(ranges, array_count(ranges));
 
     context->font.glyphs = (GlyphInfo*)Platform.HeapAlloc(context->mainHeap, (u32)sizeof(GlyphInfo) * (u32)glyphTableLength, false);
     context->font.glyphCount = (u32)glyphTableLength;
 
-    ResourceLoader.BakeFont(&context->font, "../res/fonts/Merriweather-Regular.ttf", &allocator, 16, ranges, array_count(ranges));
-    TextureID atlas = Renderer.UploadTexture(0, 512, 512, TextureFormat::R8, TextureFilter::Bilinear, TextureWrapMode::Repeat, context->font.bitmap);
+    ResourceLoader.BakeFont(&context->font, "../res/fonts/Merriweather-Regular.ttf", &allocator, 25, ranges, array_count(ranges));
+    TextureID atlas = Renderer.UploadTexture(0, 1024, 1024, TextureFormat::R8, TextureFilter::Bilinear, TextureWrapMode::Repeat, context->font.bitmap);
     context->font.atlas = atlas;
     assert(atlas);
     context->fontAtlas = atlas;
@@ -43,13 +45,36 @@ void GameRender() {
     auto context = GetContext();
     auto list = &context->drawList;
 
-    DrawListPushQuad(list, V2(1.0f, 1.0f), V2(2.0f, 1.0f), V2(2.0f, 2.0f), V2(1.0f, 2.0f), 0.0f, V4(1.0f, 0.0f, 0.0f, 1.0f));
-    DrawListPushQuadAlphaMask(list, V2(3.0f, 3.0f), V2(5.0f, 3.0f), V2(5.0f, 5.0f), V2(3.0f, 5.0f), 0.0f, context->fontAtlas, V4(1.0f));
+    auto platform = GetPlatform();
+
+    u32 wWindow = platform->windowWidth;
+    u32 hWindow = platform->windowHeight;
+    u32 wCanvas = 1280;
+    u32 hCanvas = 720;
+    f32 wPixel = (f32)wCanvas / wWindow;
+    f32 hPixel = (f32)hCanvas / hWindow;
+    v2 pixelSize = V2(wPixel, hPixel);
+
+    auto proj = OrthoGLRH(0.0f, (f32)wCanvas, 0.0f, (f32)hCanvas, -1.0f, 1.0f);
+    Renderer.SetCamera(&proj);
+
+    //DrawListPushQuad(list, V2(1.0f, 1.0f), V2(2.0f, 1.0f), V2(2.0f, 2.0f), V2(1.0f, 2.0f), 0.0f, V4(1.0f, 0.0f, 0.0f, 1.0f));
+    // DrawListPushQuadAlphaMask(list, V2(3.0f, 3.0f), V2(500.0f, 3.0f), V2(500.0f, 500.0f), V2(3.0f, 500.0f), 0.0f, context->fontAtlas, V4(0.0f, 0.0f, 0.0f, 0.0f));
 
     //   auto glyph = context->font.glyphs[context->font.glyphIndexTable[0x0428]];
     //   DrawListPushGlyph(list, V2(6.0f), V2(7.0f), V2(glyph.x0, glyph.y1), V2(glyph.x1, glyph.y0), 0.0f, V4(1.0f), context->fontAtlas);
 
-    DrawText(list, &context->font, L"Hellyyo", V2(450.0f, 100.0f), 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f));
+    const char16* string = u"H\nellyyo I'am text\nText on a new string\nHere is mooore text!";
+
+
+    auto bbox = CalcTextBoundingBox(&context->font, string, pixelSize, V2(0.5f));
+    f32 h = bbox.max.y - bbox.min.y;
+    bbox.min += V2(400.0f, 200.0f);// - V2(0.0f, h);
+    bbox.max += V2(400.0f, 200.0f);// - V2(0.0f, h);
+    DrawListPushQuad(list, V2(bbox.min.x, bbox.min.y), V2(bbox.max.x, bbox.min.y), V2(bbox.max.x, bbox.max.y), V2(bbox.min.x, bbox.max.y), 0.0f, V4(1.0f, 0.0f, 0.0f, 0.3f));
+
+    DrawText(list, &context->font, string, V2(400.0f, 200.0f), 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.5f));
+    DrawListPushQuad(list, V2(400.0f, 200.0f), V2(405.0f, 200.0f), V2(405.0f, 205.0f), V2(400.0f, 205.0f), 0.0f, V4(0.0f, 0.0f, 1.0f, 1.0f));
 
     Renderer.RenderDrawList(list);
     DrawListClear(list);
