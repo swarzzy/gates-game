@@ -64,18 +64,18 @@ void GameRender() {
     //   auto glyph = context->font.glyphs[context->font.glyphIndexTable[0x0428]];
     //   DrawListPushGlyph(list, V2(6.0f), V2(7.0f), V2(glyph.x0, glyph.y1), V2(glyph.x1, glyph.y0), 0.0f, V4(1.0f), context->fontAtlas);
 
-    const char16* string = u"H\nellyyo I'am text\nText on a new string\nHere is mooore text!";
+    const char16* string = u"Lorem\nipsum\ndolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.";
     const char16* string1 = u"Here if more text\nWith multiple lines\nOh! Another line";
 
 
 
-    auto bbox = CalcTextBoundingBox(&context->font, string, pixelSize, V2(0.5f));
+    auto bbox = CalcTextBoundingBox(&context->font, string, pixelSize, V2(0.0f), 300.0f );
     f32 h = bbox.max.y - bbox.min.y;
     bbox.min += V2(400.0f, 200.0f);// - V2(0.0f, h);
     bbox.max += V2(400.0f, 200.0f);// - V2(0.0f, h);
     DrawListPushQuad(list, V2(bbox.min.x, bbox.min.y), V2(bbox.max.x, bbox.min.y), V2(bbox.max.x, bbox.max.y), V2(bbox.min.x, bbox.max.y), 0.0f, V4(1.0f, 0.0f, 0.0f, 0.3f));
 
-    DrawText(list, &context->font, string, V2(400.0f, 200.0f), 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.5f));
+    DrawText(list, &context->font, string, V2(400.0f, 200.0f), 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f), 300.0f);
     DrawText(list, &context->font, string1, V2(200.0f, 500.0f), 0.0f, V4(1.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f));
     DrawListPushQuad(list, V2(400.0f, 200.0f), V2(405.0f, 200.0f), V2(405.0f, 205.0f), V2(400.0f, 205.0f), 0.0f, V4(0.0f, 0.0f, 1.0f, 1.0f));
 

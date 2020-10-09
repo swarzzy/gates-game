@@ -45,6 +45,14 @@ bool IsSpace(char c) {
     return result;
 }
 
+bool IsSpace(char16 c) {
+    bool result = false;
+    if (c == u' ' || c == u'\f' || c == u'\n' || c == u'\r' || c == u'\t' || c == u'\v') {
+        result = true;
+    }
+    return result;
+}
+
 struct FloatParseResult {
     b32 succeed;
     f32 value;

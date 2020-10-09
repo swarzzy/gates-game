@@ -133,6 +133,7 @@ namespace F32 {
     constexpr f32 Pi = 3.14159265358979323846f;
     constexpr f32 Eps = 0.000001f;
     constexpr f32 Nan = NAN;
+    constexpr f32 Infinity = INFINITY;
     constexpr f32 Max = FLT_MAX;
     constexpr f32 Min = FLT_MIN;
 };
