@@ -53,6 +53,8 @@ struct DrawList {
     GrowableArray<DrawCommand> commandBuffer;
     GrowableArray<Vertex> vertexBuffer;
     GrowableArray<u32> indexBuffer;
+    b32 pendingCommand;
+    DrawCommand scratchCommand;
 };
 
 // TODO: Move somewhere else

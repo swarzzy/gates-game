@@ -17,6 +17,8 @@
 #define WriteFence() (_WriteBarrier(), _mm_sfence())
 #define ReadFence() (_ReadBarrier(), _mm_lfence())
 
+#define forceinline __forceinline
+
 #elif defined(__clang__)
 #define COMPILER_CLANG
 
@@ -26,6 +28,8 @@
 // TODO: Fences
 #define WriteFence() do {} while(false) //((__asm__("" ::: "memory")), _mm_sfence())
 #define ReadFence() do {} while(false) //((__asm__("" ::: "memory")), _mm_lfence())
+
+#define forceinline __attribute__((always_inline))
 
 #else
 #error Unsupported compiler

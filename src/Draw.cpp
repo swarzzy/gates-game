@@ -16,7 +16,59 @@ void DrawListClear(DrawList* list) {
     list->indexBuffer.Clear();
 }
 
+void DrawListBeginBatch(DrawList* list, TextureMode mode, TextureID texture = 0) {
+    assert(!list->pendingCommand);
+    // TODO: Make shure command are cleared or all fields will be overwriten
+    list->pendingCommand = true;
+    list->scratchCommand.vertexBufferOffset = list->vertexBuffer.Count();
+    list->scratchCommand.indexBufferOffset = list->indexBuffer.Count();
+    list->scratchCommand.textureMode = mode;
+    list->scratchCommand.texture = texture;
+}
+
+forceinline void DrawListPushVertexBatch(DrawList* list, Vertex vertex) {
+    assert(list->pendingCommand);
+    list->vertexBuffer.PushBack(vertex);
+}
+
+forceinline void DrawListPushIndexBatch(DrawList* list, u32 index) {
+    assert(list->pendingCommand);
+    list->indexBuffer.PushBack(index);
+}
+
+forceinline void DrawListPushQuadBatch(DrawList* list, v2 min, v2 max, f32 z, v2 uv0, v2 uv1, v4 color, f32 blend) {
+    assert(list->pendingCommand);
+
+    auto vertexOffset = list->vertexBuffer.Count();
+    list->vertexBuffer.PushBack(Vertex(V3(min.x, min.y, z), blend, color, V2(uv0.x, uv0.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(max.x, min.y, z), blend, color, V2(uv1.x, uv0.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(max.x, max.y, z), blend, color, V2(uv1.x, uv1.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(min.x, max.y, z), blend, color, V2(uv0.x, uv1.y)));
+
+    auto indexOffset = list->indexBuffer.Count();
+
+    list->indexBuffer.PushBack(vertexOffset + 0);
+    list->indexBuffer.PushBack(vertexOffset + 1);
+    list->indexBuffer.PushBack(vertexOffset + 2);
+    list->indexBuffer.PushBack(vertexOffset + 2);
+    list->indexBuffer.PushBack(vertexOffset + 3);
+    list->indexBuffer.PushBack(vertexOffset + 0);
+}
+
+
+void DrawListEndBatch(DrawList* list) {
+    assert(list->pendingCommand);
+    u32 indexCount = list->indexBuffer.Count() - list->scratchCommand.indexBufferOffset;
+    list->scratchCommand.indexCount = indexCount;
+
+    list->commandBuffer.PushBack(list->scratchCommand);
+
+    list->pendingCommand = false;
+}
+
 void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, v2 uv0, v2 uv1, v2 uv2, v2 uv3, f32 z, v4 color, TextureID texture, f32 texBlend, TextureMode mode) {
+    assert(!list->pendingCommand);
+
     auto vertexOffset = list->vertexBuffer.Count();
     list->vertexBuffer.PushBack(Vertex(V3(lb, z), texBlend, color, uv0));
     list->vertexBuffer.PushBack(Vertex(V3(rb, z), texBlend, color, uv1));
@@ -71,6 +123,8 @@ void DrawText(DrawList* list, Font* font, const char16* string, v2 p, f32 z, v4 
 
     v2 advance = begin;
 
+    DrawListBeginBatch(list, TextureMode::AlphaMask, font->atlas);
+
     for (const char16* at = string; *at; at++) {
         char16 ch = *at;
         if (ch == u'\n') {
@@ -86,10 +140,13 @@ void DrawText(DrawList* list, Font* font, const char16* string, v2 p, f32 z, v4 
 
             v2 min = V2(advance.x + glyph->quadMin.x * pixelSize.x, advance.y - glyph->quadMax.y * pixelSize.y);
             v2 max = V2(advance.x + glyph->quadMax.x * pixelSize.x, advance.y - glyph->quadMin.y * pixelSize.y);
-            DrawListPushGlyph(list, min, max, minUV, maxUV, z, color, font->atlas);
+            DrawListPushQuadBatch(list, min, max, z, minUV, maxUV, color, 1.0f);
+
             advance.x += glyph->xAdvance * pixelSize.x;
         }
     }
+
+    DrawListEndBatch(list);
 }
 
 Rectangle2 CalcTextBoundingBox(Font* font, const char16* string, v2 pixelSize, v2 anchor) {
