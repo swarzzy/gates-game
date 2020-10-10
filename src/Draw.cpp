@@ -126,23 +126,46 @@ forceinline GlyphInfo* GetGlyph(Font* font, u16 codepoint) {
     return glyph;
 }
 
-void DrawText(DrawList* list, Font* font, const char16* string, v2 p, f32 z, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth) {
-    Rectangle2 bbox = CalcTextBoundingBox(font, string, pixelSize, {}, maxWidth);
-    v2 dim = V2(bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y);
+void DrawTextV2(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align) {
     f32 lineHeight = (font->ascent - font->descent + font->lineGap) * pixelSize.y;
+
+    v2 textDim = CalcTextSizeUnscaled(font, string, maxWidth);
+    textDim = Hadamard(textDim, pixelSize);
+
+    //v2 origin = Hadamard(p.xy, pixelSize);
+
+    v2 cursor = p.xy - Hadamard(textDim, anchor);
+    cursor.y += textDim.y;
+    cursor.y -= (font->ascent + font->lineGap) * pixelSize.y;
+
+    auto at = string;
+    while (*at) {
+        auto[lineDim, strOffset] = CalcSingleLineBondingBoxUnscaled(font, at, maxWidth);
+        lineDim = Hadamard(lineDim, pixelSize);
+        if (align == TextAlign::Center) {
+            cursor.x = p.x + (textDim.x - lineDim.x) * 0.5f;
+        } else {
+            cursor.x = p.x;
+        }
+        uptr drawOffset = DrawTextLine(list, font, at, cursor, p.z, color, pixelSize, anchor, maxWidth);
+        assert(drawOffset == strOffset);
+        cursor.y -= lineHeight;
+        at += strOffset;
+    }
+}
+
+uptr DrawTextLine(DrawList* list, Font* font, const char16* string, v2 p, f32 z, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth) {
     f32 maxWidthS = maxWidth * pixelSize.x;
 
     v2 begin = p;
-    // Put cursor to left bottom corner
-    begin.y -= (font->ascent + font->lineGap) * pixelSize.y - dim.y;
-    // Apply anchor
-    begin -= Hadamard(dim, anchor);
 
-    v2 advance = begin;
+    f32 xAdvance = begin.x;
+    f32 yPos = begin.y;
 
     DrawListBeginBatch(list, TextureMode::AlphaMask, font->atlas);
 
     const char16* at = string;
+    f32 lastWordEndAdvance = 0.0f;
     while (*at) {
         auto wordBegin = at;
         auto wordEnd = at;
@@ -160,44 +183,52 @@ void DrawText(DrawList* list, Font* font, const char16* string, v2 p, f32 z, v4 
             wordEnd++;
         }
 
-        // wordEnd points on space after word or \0
+        bool end = false;
 
+        // wordEnd points on space after word or \0
         if (wordAdvance <= maxWidthS) {
             // If the word is shorter that maxWidth then fit it on
-            // a current position or on a new linw
-            if ((advance.x + wordAdvance - begin.x) > maxWidthS) {
-                advance.y -= lineHeight;
-                advance.x = begin.x;
+            // a current position or on a new line
+            if ((xAdvance + wordAdvance - begin.x) > maxWidthS) {
+                at = wordBegin;
+                xAdvance = lastWordEndAdvance;
+                end = true;
+                break;
             }
 
             for (const char16* c = wordBegin; c != wordEnd; c++) {
                 auto glyph = GetGlyph(font, (u16)(*c));
-                PushGlyphInternal(list, glyph, advance, pixelSize, z, color);
-                advance.x += glyph->xAdvance * pixelSize.x;
+                PushGlyphInternal(list, glyph, V2(xAdvance, yPos), pixelSize, z, color);
+                xAdvance += glyph->xAdvance * pixelSize.x;
             }
         } else {
             // Otherwise if the word is longer than maxWidth
             // then wrap it on a new line
             for (const char16* c = wordBegin; c != wordEnd; c++) {
                 auto glyph = GetGlyph(font, (u16)(*c));
-                auto newAdvanceX = advance.x + glyph->xAdvance * pixelSize.x;
+                auto newAdvanceX = xAdvance + glyph->xAdvance * pixelSize.x;
                 if (newAdvanceX - begin.x > maxWidthS) {
-                    advance.x = begin.x;
-                    advance.y -= lineHeight;
+                    at = c;
+                    end = true;
+                    break;
                 }
-                PushGlyphInternal(list, glyph, advance, pixelSize, z, color);
-                advance.x += glyph->xAdvance * pixelSize.x;
+                PushGlyphInternal(list, glyph, V2(xAdvance, yPos), pixelSize, z, color);
+                xAdvance += glyph->xAdvance * pixelSize.x;
             }
+        }
+
+        if (end) {
+            break;
         }
 
         if (*wordEnd) {
             if (*wordEnd == '\n') {
-                advance.y -= lineHeight;
-                advance.x = begin.x;
+                at = wordEnd;
+                break;
             } else {
                 auto glyph = GetGlyph(font, (u16)(*wordEnd));
-                PushGlyphInternal(list, glyph, advance, pixelSize, z, color);
-                advance.x += glyph->xAdvance * pixelSize.x;
+                PushGlyphInternal(list, glyph, V2(xAdvance, yPos), pixelSize, z, color);
+                xAdvance += glyph->xAdvance * pixelSize.x;
             }
             wordEnd++;
         }
@@ -206,19 +237,17 @@ void DrawText(DrawList* list, Font* font, const char16* string, v2 p, f32 z, v4 
     }
 
     DrawListEndBatch(list);
+
+    uptr result = (uptr)(at - string);
+    return result;
 }
 
-Rectangle2 CalcTextBoundingBox(Font* font, const char16* string, v2 pixelSize, v2 anchor, f32 maxWidth) {
-    Rectangle2 result;
-    //v2 begin = V2(0.0f);
-    v2 end = V2(0.0f);
-    v2 advance = V2(0.0f);
-    f32 lineHeight = (font->ascent - font->descent + font->lineGap) * pixelSize.y;
-    f32 maxWidthS = maxWidth * pixelSize.x;
+Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char16* string, f32 maxWidth) {
+    f32 advance = 0.0f;
+    f32 lineHeight = font->ascent - font->descent + font->lineGap;
 
-    advance.y -= (font->ascent + font->lineGap) * pixelSize.y;
-
-    const char16* at = string;
+    auto at = string;
+    f32 lastWordEndAdvance = 0.0f;
     while (*at) {
         auto wordBegin = at;
         auto wordEnd = at;
@@ -230,46 +259,51 @@ Rectangle2 CalcTextBoundingBox(Font* font, const char16* string, v2 pixelSize, v
             if (IsSpace(*wordEnd)) break;
 
             auto glyph = GetGlyph(font, (u16)(*wordEnd));
-
-            wordAdvance += glyph->xAdvance * pixelSize.x;
+            wordAdvance += glyph->xAdvance;
 
             wordEnd++;
         }
 
-        // wordEnd points on space after word or \0
+        bool end = false;
 
-        if (wordAdvance <= maxWidthS) {
+        // wordEnd points on space after word or \0
+        if (wordAdvance <= maxWidth) {
             // If the word is shorter that maxWidth then fit it on
             // a current position or on a new linw
-            if ((advance.x + wordAdvance) > maxWidthS) {
-                if (advance.x > end.x) end.x = advance.x;
-                advance.y -= lineHeight;
-                advance.x = 0.0f;
+            if ((advance + wordAdvance) > maxWidth) {
+                at = wordBegin;
+                advance = lastWordEndAdvance;
+                end = true;
+                break;
             }
-            advance.x += wordAdvance;
+            advance += wordAdvance;
         } else {
             // Otherwise if the word is longer than maxWidth
             // then wrap it on a new line
             for (const char16* c = wordBegin; c != wordEnd; c++) {
                 auto glyph = GetGlyph(font, (u16)(*c));
-                auto newAdvanceX = advance.x + glyph->xAdvance * pixelSize.x;
-                if (newAdvanceX  > maxWidthS) {
-                    if (advance.x > end.x) end.x = advance.x;
-                    advance.x = 0.0f;
-                    advance.y -= lineHeight;
+                auto newAdvanceX = advance + glyph->xAdvance;
+                if (newAdvanceX > maxWidth) {
+                    at = c;
+                    end = true;
+                    break;
                 }
-                advance.x += glyph->xAdvance * pixelSize.x;
+                advance += glyph->xAdvance;
             }
+        }
+
+        if (end) {
+            break;
         }
 
         if (*wordEnd) {
             if (*wordEnd == '\n') {
-                if (advance.x > end.x) end.x = advance.x;
-                advance.y -= lineHeight;
-                advance.x = 0.0f;
+                at = wordEnd;
+                break;
             } else {
                 auto glyph = GetGlyph(font, (u16)(*wordEnd));
-                advance.x += glyph->xAdvance * pixelSize.x;
+                lastWordEndAdvance = advance;
+                advance += glyph->xAdvance;
             }
             wordEnd++;
         }
@@ -277,18 +311,23 @@ Rectangle2 CalcTextBoundingBox(Font* font, const char16* string, v2 pixelSize, v
         at = wordEnd;
     }
 
-    end.y = advance.y + font->descent * pixelSize.y;
+    v2 result = V2(advance, lineHeight);
+    return MakeTuple(result, (uptr)(at - string));
+}
 
-    v2 min = V2(0.0f);
-    v2 max = V2(end.x, -end.y);
-    v2 dim = V2(max.x - min.x, max.y - min.y);
-    result.min = min - Hadamard(dim, anchor);
-    result.max = max - Hadamard(dim, anchor);
+v2 CalcTextSizeUnscaled(Font* font, const char16* string, f32 maxWidth) {
+    f32 width = 0.0f;
+    f32 height = 0.0f;
 
-    //result.min.x /= pixelSize.x;
-    //result.min.y /= pixelSize.y;
-    //result.max.x /= pixelSize.x;
-    //result.max.y /= pixelSize.y;
+    auto at = string;
+    while (*at) {
+        auto[lineDim, strOffset] = CalcSingleLineBondingBoxUnscaled(font, at, maxWidth);
+        width = Max(width, lineDim.x);
+        height += lineDim.y;
+        at += strOffset;
+    }
+
+    v2 result = V2(width, height);
 
     return result;
 }

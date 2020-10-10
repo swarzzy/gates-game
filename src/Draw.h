@@ -63,6 +63,10 @@ struct Rectangle2 {
     v2 max;
 };
 
+enum struct TextAlign {
+    Left, Center
+};
+
 void DrawListInit(DrawList* list, u32 capacity, Allocator allocator);
 
 void DrawListClear(DrawList* list);
@@ -73,6 +77,10 @@ void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, Texture
 void DrawListPushQuadAlphaMask(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, TextureID texture, v4 color);
 void DrawText(DrawList* list, Font* font, const char16* string, v2 p, f32 z, v4 color, v2 pixelSize, v2 anchor = {}, f32 maxWidth = F32::Infinity);
 Rectangle2 CalcTextBoundingBox(Font* font, const char16* string, v2 pixelSize, v2 anchor = {}, f32 maxWidth = F32::Infinity);
+Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char16* string, f32 maxWidth);
+uptr DrawTextLine(DrawList* list, Font* font, const char16* string, v2 p, f32 z, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth);
+v2 CalcTextSizeUnscaled(Font* font, const char16* string, f32 maxWidth);
+void DrawTextV2(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align);
 
 // TODO: Calling convention
 // TODO: Single call
