@@ -106,17 +106,13 @@ void DrawListPushQuadAlphaMask(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z
     DrawListPushQuad(list, lb, rb, rt, lt, V2(0.0f), V2(1.0f, 0.0f), V2(1.0f), V2(0.0f, 1.0f), z, color, texture, 1.0f, TextureMode::AlphaMask);
 }
 
-void DrawListPushGlyph(DrawList* list, v2 min, v2 max, v2 uv0, v2 uv1, f32 z, v4 color, TextureID atlas) {
-    DrawListPushQuad(list, min, V2(max.x, min.y), max, V2(min.x, max.y), uv0, V2(uv1.x, uv0.y), uv1, V2(uv0.x, uv1.y), z, color, atlas, 1.0f, TextureMode::AlphaMask);
-}
-
-forceinline void PushGlyphInternal(DrawList* list, GlyphInfo* glyph, v2 advance, v2 pixelSize, f32 z, v4 color) {
+forceinline void PushGlyphInternal(DrawList* list, GlyphInfo* glyph, v3 p, v2 pixelSize, v4 color) {
     v2 minUV = V2(glyph->uv0.x, glyph->uv1.y);
     v2 maxUV = V2(glyph->uv1.x, glyph->uv0.y);
 
-    v2 min = V2(advance.x + glyph->quadMin.x * pixelSize.x, advance.y - glyph->quadMax.y * pixelSize.y);
-    v2 max = V2(advance.x + glyph->quadMax.x * pixelSize.x, advance.y - glyph->quadMin.y * pixelSize.y);
-    DrawListPushQuadBatch(list, min, max, z, minUV, maxUV, color, 1.0f);
+    v2 min = Hadamard(V2(p.x + glyph->quadMin.x, p.y - glyph->quadMax.y), pixelSize);
+    v2 max = Hadamard(V2(p.x + glyph->quadMax.x, p.y - glyph->quadMin.y), pixelSize);
+    DrawListPushQuadBatch(list, min, max, p.z, minUV, maxUV, color, 1.0f);
 }
 
 forceinline GlyphInfo* GetGlyph(Font* font, u16 codepoint) {
@@ -126,38 +122,38 @@ forceinline GlyphInfo* GetGlyph(Font* font, u16 codepoint) {
     return glyph;
 }
 
-void DrawTextV2(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align) {
-    f32 lineHeight = (font->ascent - font->descent + font->lineGap) * pixelSize.y;
+// TODO: Maybe it is worth to cache text positioning data when we calculate it first time
+void DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align) {
+    v3 posPx = V3(p.x / pixelSize.x, p.y / pixelSize.y, p.z);
+    // Currently width assumed to be in pixels
+    f32 maxWidthPx = maxWidth;// / pixelSize.x;
 
-    v2 textDim = CalcTextSizeUnscaled(font, string, maxWidth / pixelSize.x);
-    //textDim = Hadamard(textDim, pixelSize);
+    f32 lineHeight = font->ascent - font->descent + font->lineGap;
 
-    //v2 origin = Hadamard(p.xy, pixelSize);
+    v2 textDim = CalcTextSizeUnscaled(font, string, maxWidthPx);
 
-    v2 cursor = p.xy - Hadamard(textDim, anchor);
+    v2 cursor = posPx.xy - Hadamard(textDim, anchor);
     cursor.y += textDim.y;
-    cursor.y -= (font->ascent + font->lineGap) * pixelSize.y;
+    cursor.y -= font->ascent + font->lineGap;
 
     auto at = string;
     while (*at) {
-        auto[lineDim, strOffset] = CalcSingleLineBondingBoxUnscaled(font, at, maxWidth / pixelSize.x);
-        //lineDim = Hadamard(lineDim, pixelSize);
+        auto[lineDim, strOffset] = CalcSingleLineBondingBoxUnscaled(font, at, maxWidthPx);
         if (align == TextAlign::Center) {
-            cursor.x = p.x + (textDim.x - lineDim.x) * 0.5f;
+            cursor.x = posPx.x + (textDim.x - lineDim.x) * 0.5f;
         } else {
-            cursor.x = p.x;
+            cursor.x = posPx.x;
         }
-        uptr drawOffset = DrawTextLine(list, font, at, cursor, p.z, color, pixelSize, anchor, maxWidth);
+        uptr drawOffset = DrawTextLine(list, font, at, V3(cursor, posPx.z), color, pixelSize, anchor, maxWidthPx);
         assert(drawOffset == strOffset);
         cursor.y -= lineHeight;
         at += strOffset;
     }
 }
 
-uptr DrawTextLine(DrawList* list, Font* font, const char16* string, v2 p, f32 z, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth) {
-    f32 maxWidthS = maxWidth;
-
-    v2 begin = p;
+uptr DrawTextLine(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth) {
+    v2 begin = p.xy;
+    f32 z = p.z;
 
     f32 xAdvance = begin.x;
     f32 yPos = begin.y;
@@ -178,7 +174,7 @@ uptr DrawTextLine(DrawList* list, Font* font, const char16* string, v2 p, f32 z,
 
             auto glyph = GetGlyph(font, (u16)(*wordEnd));
 
-            wordAdvance += glyph->xAdvance * pixelSize.x;
+            wordAdvance += glyph->xAdvance;
 
             wordEnd++;
         }
@@ -186,10 +182,10 @@ uptr DrawTextLine(DrawList* list, Font* font, const char16* string, v2 p, f32 z,
         bool end = false;
 
         // wordEnd points on space after word or \0
-        if (wordAdvance <= maxWidthS) {
+        if (wordAdvance <= maxWidth) {
             // If the word is shorter that maxWidth then fit it on
             // a current position or on a new line
-            if ((xAdvance + wordAdvance - begin.x) > maxWidthS) {
+            if ((xAdvance + wordAdvance - begin.x) > maxWidth) {
                 at = wordBegin;
                 xAdvance = lastWordEndAdvance;
                 end = true;
@@ -198,22 +194,22 @@ uptr DrawTextLine(DrawList* list, Font* font, const char16* string, v2 p, f32 z,
 
             for (const char16* c = wordBegin; c != wordEnd; c++) {
                 auto glyph = GetGlyph(font, (u16)(*c));
-                PushGlyphInternal(list, glyph, V2(xAdvance, yPos), pixelSize, z, color);
-                xAdvance += glyph->xAdvance * pixelSize.x;
+                PushGlyphInternal(list, glyph, V3(xAdvance, yPos, z), pixelSize, color);
+                xAdvance += glyph->xAdvance;
             }
         } else {
             // Otherwise if the word is longer than maxWidth
             // then wrap it on a new line
             for (const char16* c = wordBegin; c != wordEnd; c++) {
                 auto glyph = GetGlyph(font, (u16)(*c));
-                auto newAdvanceX = xAdvance + glyph->xAdvance * pixelSize.x;
-                if (newAdvanceX - begin.x > maxWidthS) {
+                auto newAdvanceX = xAdvance + glyph->xAdvance;
+                if (newAdvanceX - begin.x > maxWidth) {
                     at = c;
                     end = true;
                     break;
                 }
-                PushGlyphInternal(list, glyph, V2(xAdvance, yPos), pixelSize, z, color);
-                xAdvance += glyph->xAdvance * pixelSize.x;
+                PushGlyphInternal(list, glyph, V3(xAdvance, yPos, z), pixelSize, color);
+                xAdvance += glyph->xAdvance;
             }
         }
 
@@ -227,8 +223,8 @@ uptr DrawTextLine(DrawList* list, Font* font, const char16* string, v2 p, f32 z,
                 break;
             } else {
                 auto glyph = GetGlyph(font, (u16)(*wordEnd));
-                PushGlyphInternal(list, glyph, V2(xAdvance, yPos), pixelSize, z, color);
-                xAdvance += glyph->xAdvance * pixelSize.x;
+                PushGlyphInternal(list, glyph, V3(xAdvance, yPos, z), pixelSize, color);
+                xAdvance += glyph->xAdvance;
             }
             wordEnd++;
         }
