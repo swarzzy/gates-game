@@ -129,8 +129,8 @@ forceinline GlyphInfo* GetGlyph(Font* font, u16 codepoint) {
 void DrawTextV2(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align) {
     f32 lineHeight = (font->ascent - font->descent + font->lineGap) * pixelSize.y;
 
-    v2 textDim = CalcTextSizeUnscaled(font, string, maxWidth);
-    textDim = Hadamard(textDim, pixelSize);
+    v2 textDim = CalcTextSizeUnscaled(font, string, maxWidth / pixelSize.x);
+    //textDim = Hadamard(textDim, pixelSize);
 
     //v2 origin = Hadamard(p.xy, pixelSize);
 
@@ -140,8 +140,8 @@ void DrawTextV2(DrawList* list, Font* font, const char16* string, v3 p, v4 color
 
     auto at = string;
     while (*at) {
-        auto[lineDim, strOffset] = CalcSingleLineBondingBoxUnscaled(font, at, maxWidth);
-        lineDim = Hadamard(lineDim, pixelSize);
+        auto[lineDim, strOffset] = CalcSingleLineBondingBoxUnscaled(font, at, maxWidth / pixelSize.x);
+        //lineDim = Hadamard(lineDim, pixelSize);
         if (align == TextAlign::Center) {
             cursor.x = p.x + (textDim.x - lineDim.x) * 0.5f;
         } else {
@@ -155,7 +155,7 @@ void DrawTextV2(DrawList* list, Font* font, const char16* string, v3 p, v4 color
 }
 
 uptr DrawTextLine(DrawList* list, Font* font, const char16* string, v2 p, f32 z, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth) {
-    f32 maxWidthS = maxWidth * pixelSize.x;
+    f32 maxWidthS = maxWidth;
 
     v2 begin = p;
 
