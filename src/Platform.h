@@ -92,12 +92,11 @@ struct GlyphInfo {
 struct Font {
     TextureID atlas;
     // Should be filled by caller
-    u8* bitmap;
-    u32 bitmapSize;
+
     GlyphInfo* glyphs;
     u32 glyphCount;
-
-    // Filled by bake procedure
+    u32 bitmapSize;
+    u8* bitmap;
     f32 height;
     f32 ascent;
     f32 descent;
@@ -120,12 +119,15 @@ inline u32 CalcGlyphTableLength(CodepointRange* ranges, u32 rangeCount) {
     return totalCodepointCount + 1; // One for dummy char
 }
 
-typedef void(ResourceLoaderBakeFontFn)(Font* result, const char* filename, Allocator* allocator, f32 height, CodepointRange* ranges, u32 rangeCount);
+typedef bool(ResourceLoaderBakeFontFn)(Font* result, const char* filename, Allocator* allocator, u32 bitmapDim, f32 height, CodepointRange* ranges, u32 rangeCount);
+typedef bool(ResourceLoaderLoadFontBMFn)(Font* result, const char* filename, Allocator* allocator);
+
 
 typedef void(ResourceLoaderInvokeFn)(ResourceLoaderCommand command, void* args, void* result);
 
 struct ResourceLoaderAPI {
     ResourceLoaderBakeFontFn* BakeFont;
+    ResourceLoaderLoadFontBMFn* LoadFontBM;
 };
 
 // NOTE: Functions that platform passes to the game

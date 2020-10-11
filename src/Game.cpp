@@ -20,15 +20,17 @@ void GameInit() {
     ranges[1].end = 0x044f;
 
     context->font.bitmapSize = 1024;
-    context->font.bitmap = (u8*)Platform.HeapAlloc(context->mainHeap, sizeof(u8) * context->font.bitmapSize * context->font.bitmapSize, false);
+    //context->font.bitmap = (u8*)Platform.HeapAlloc(context->mainHeap, sizeof(u8) * context->font.bitmapSize * context->font.bitmapSize, false);
 
-    uptr glyphTableLength = CalcGlyphTableLength(ranges, array_count(ranges));
+    //uptr glyphTableLength = CalcGlyphTableLength(ranges, array_count(ranges));
 
-    context->font.glyphs = (GlyphInfo*)Platform.HeapAlloc(context->mainHeap, (u32)sizeof(GlyphInfo) * (u32)glyphTableLength, false);
-    context->font.glyphCount = (u32)glyphTableLength;
+    //context->font.glyphs = (GlyphInfo*)Platform.HeapAlloc(context->mainHeap, (u32)sizeof(GlyphInfo) * (u32)glyphTableLength, false);
+    //context->font.glyphCount = (u32)glyphTableLength;
 
-    ResourceLoader.BakeFont(&context->font, "../res/fonts/Merriweather-Regular.ttf", &allocator, 25, ranges, array_count(ranges));
-    TextureID atlas = Renderer.UploadTexture(0, 1024, 1024, TextureFormat::R8, TextureFilter::Bilinear, TextureWrapMode::Repeat, context->font.bitmap);
+    //ResourceLoader.BakeFont(&context->font, "../res/fonts/Merriweather-Regular.ttf", &allocator, 512, 18, ranges, array_count(ranges));
+    ResourceLoader.LoadFontBM(&context->font, "../res/fonts/merriweather_14.fnt", &allocator);
+
+    TextureID atlas = Renderer.UploadTexture(0, 512, 512, TextureFormat::R8, TextureFilter::Bilinear, TextureWrapMode::Repeat, context->font.bitmap);
     context->font.atlas = atlas;
     assert(atlas);
     context->fontAtlas = atlas;
@@ -82,7 +84,7 @@ void GameRender() {
 
     //string[strOffset] = 0;
 
-    DrawListPushQuad(list, V2(100.0f, 200.0f), V2(100.0f + textDim.x, 200.0f), V2(100.0f + textDim.x, 200.0f + textDim.y), V2(100.0f, 200.0f + textDim.y), 0.0f, V4(1.0f, 0.0f, 0.0f, 0.3f));
+    //DrawListPushQuad(list, V2(100.0f, 200.0f), V2(100.0f + textDim.x, 200.0f), V2(100.0f + textDim.x, 200.0f + textDim.y), V2(100.0f, 200.0f + textDim.y), 0.0f, V4(1.0f, 0.0f, 0.0f, 0.3f));
     //DrawText(list, &context->font, string, V2(100.0f, 200.0f), 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f));
     //DrawTextLine(list, &context->font, string, V2(100.0f, 200.0f), 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f), 220.0f, textDim);
     DrawText(list, &context->font, string, V3(100.0f, 200.0f, 0.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f), width, TextAlign::Left);

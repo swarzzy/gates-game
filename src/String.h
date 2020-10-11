@@ -117,3 +117,42 @@ bool PrettySize(char* buffer, u32 bufferSize, uptr bytes) {
     }
     return result;
 }
+
+struct SplitFilePathResult {
+    char* directory;
+    char* filename;
+};
+
+SplitFilePathResult SplitFilePath(char* path) {
+    SplitFilePathResult result {};
+    auto pathLength = (uptr)strlen(path);
+    uptr splitPos = 0;
+    for (uptr i = pathLength - 1; i > 0; i--) {
+        if (path[i] == '/' || path[i] == '\\') {
+            splitPos = i;
+            break;
+        }
+    }
+    if (splitPos == pathLength - 1) {
+        result.directory = path;
+    } else if (splitPos > 0) {
+        path[splitPos] = 0;
+        result.directory = path;
+        result.filename = path + (splitPos + 1);
+    } else {
+        result.filename = path + 1;
+    }
+    return result;
+}
+
+i32 FindLastDirSeparator(const char* path) {
+    auto pathLength = (i32)strlen(path);
+    i32 splitPos = -1;
+    for (i32 i = pathLength - 1; i > 0; i--) {
+        if (path[i] == '/' || path[i] == '\\') {
+            splitPos = i;
+            break;
+        }
+    }
+    return splitPos;
+}

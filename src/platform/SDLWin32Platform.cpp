@@ -41,6 +41,9 @@ static void* GlobalGameData;
 
 PlatformHeap* ResourceLoaderScratchHeap;
 
+void* HeapAllocAPI(uptr size, b32 clear, uptr alignment, void* data) { return HeapAlloc((PlatformHeap*)data, (usize)size, clear); }
+void HeapFreeAPI(void* ptr, void* data) { Free(ptr); }
+
 #define GL (((const Win32Context* )&GlobalContext)->sdl.gl.functions.fn)
 
 f64 Win32GetTimeStamp() {
@@ -249,6 +252,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     context->state.ResourceLoaderInvoke = ResourceLoaderInvoke;
     context->state.resourceLoaderAPI.BakeFont = ResourceLoaderBakeFont;
+    context->state.resourceLoaderAPI.LoadFontBM = ResourceLoaderLoadFontBM;
+
 
     RendererInit(&context->renderer);
 
