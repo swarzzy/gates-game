@@ -38,7 +38,7 @@ struct Vertex {
 typedef u64 TextureID;
 
 enum struct TextureMode : u32 {
-    Color, AlphaMask
+    Color, AlphaMask, DistanceField
 };
 
 struct DrawCommand {
@@ -47,6 +47,7 @@ struct DrawCommand {
     u32 indexCount;
     TextureMode textureMode;
     TextureID texture;
+    v2 distanceFieldParams;
 };
 
 struct DrawList {
@@ -77,9 +78,9 @@ void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, Texture
 void DrawListPushQuadAlphaMask(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, TextureID texture, v4 color);
 
 Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char16* string, f32 maxWidth);
-uptr DrawTextLine(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth);
+void DrawTextLine(DrawList* list, Font* font, const char16* string, u32 count, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, f32 fontScale);
 v2 CalcTextSizeUnscaled(Font* font, const char16* string, f32 maxWidth);
-void DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align);
+void DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align, f32 fontScale = 1.0f);
 
 // TODO: Calling convention
 // TODO: Single call

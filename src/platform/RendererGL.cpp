@@ -77,6 +77,36 @@ void main() {
     FragmentColor = color;
 })";
 
+const char* DistanceFieldShaderFrag = R"(
+#version 330 core
+
+out vec4 FragmentColor;
+
+in vec4 VertexColor;
+in vec2 UV;
+
+uniform sampler2D uTexture;
+
+uniform vec2 uParams;
+
+#define SDF_TWO 1
+
+void main() {
+    float distance = texture(uTexture, UV).r;
+
+#if SDF_ONE
+    float w = fwidth(distance);
+    float alpha = smoothstep(0.5f - w, 0.5f + w, distance);
+#endif
+#if SDF_TWO
+    float alpha = min((distance - uParams.x) * uParams.y, 1.0f);
+#endif
+
+    vec4 color = vec4(VertexColor.xyz, alpha);
+    FragmentColor = color;
+})";
+
+
 
 void RendererInit(Renderer* renderer) {
     _GlobalRenderer = renderer;
@@ -106,6 +136,7 @@ void RendererInit(Renderer* renderer) {
     GL.glGenBuffers(1, &renderer->indexBuffer);
     assert(renderer->indexBuffer);
 
+    // Snadard
     renderer->standardShader.handle = CompileGLSL("StandardShader", StandardShaderVert, StandardShaderFrag);
     assert(renderer->standardShader.handle);
 
@@ -118,6 +149,7 @@ void RendererInit(Renderer* renderer) {
     GL.glUseProgram(renderer->standardShader.handle);
     GL.glUniform1i(renderer->standardShader.uTexture, renderer->standardShader.textureSampler);
 
+    // Alpha mask
     renderer->alphaMaskShader.handle = CompileGLSL("AlphaMask", AlphaMaskShaderVert, AlphaMaskShaderFrag);
     assert(renderer->alphaMaskShader.handle);
 
@@ -129,6 +161,21 @@ void RendererInit(Renderer* renderer) {
 
     GL.glUseProgram(renderer->alphaMaskShader.handle);
     GL.glUniform1i(renderer->alphaMaskShader.uTexture, renderer->alphaMaskShader.textureSampler);
+
+    // Distance field
+    renderer->distanceFieldShader.handle = CompileGLSL("DisanceField", AlphaMaskShaderVert, DistanceFieldShaderFrag);
+    assert(renderer->distanceFieldShader.handle);
+
+    BindShaderUniform(&renderer->distanceFieldShader, MVP);
+    BindShaderUniform(&renderer->distanceFieldShader, uTexture);
+    BindShaderUniform(&renderer->distanceFieldShader, uParams);
+
+    renderer->distanceFieldShader.textureSampler = 0;
+    renderer->distanceFieldShader.textureSlot = GL_TEXTURE0;
+
+    GL.glUseProgram(renderer->distanceFieldShader.handle);
+    GL.glUniform1i(renderer->distanceFieldShader.uTexture, renderer->distanceFieldShader.textureSampler);
+
     GL.glUseProgram(0);
 }
 
@@ -139,6 +186,9 @@ void RenderSetCamera(m4x4* projection) {
 
     GL.glUseProgram(renderer->alphaMaskShader.handle);
     GL.glUniformMatrix4fv(renderer->alphaMaskShader.MVP, 1, false, projection->data);
+
+    GL.glUseProgram(renderer->distanceFieldShader.handle);
+    GL.glUniformMatrix4fv(renderer->distanceFieldShader.MVP, 1, false, projection->data);
 }
 
 void RenderEndPass() {}
@@ -166,6 +216,11 @@ void RenderDrawList(DrawList* list) {
             switch (cmd.textureMode) {
             case TextureMode::Color: { GL.glUseProgram(renderer->standardShader.handle); textureSlot = renderer->standardShader.textureSlot; } break;
             case TextureMode::AlphaMask: { GL.glUseProgram(renderer->alphaMaskShader.handle); textureSlot = renderer->alphaMaskShader.textureSlot; } break;
+            case TextureMode::DistanceField: {
+                GL.glUseProgram(renderer->distanceFieldShader.handle);
+                textureSlot = renderer->distanceFieldShader.textureSlot;
+                GL.glUniform2fv(renderer->distanceFieldShader.uParams, 1, cmd.distanceFieldParams.data);
+            } break;
             invalid_default();
             }
 

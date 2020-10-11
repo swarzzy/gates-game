@@ -16,14 +16,15 @@ void DrawListClear(DrawList* list) {
     list->indexBuffer.Clear();
 }
 
-void DrawListBeginBatch(DrawList* list, TextureMode mode, TextureID texture = 0) {
+DrawCommand* DrawListBeginBatch(DrawList* list, TextureMode mode, TextureID texture = 0) {
     assert(!list->pendingCommand);
-    // TODO: Make shure command are cleared or all fields will be overwriten
     list->pendingCommand = true;
+    memset(&list->scratchCommand, 0, sizeof(DrawCommand));
     list->scratchCommand.vertexBufferOffset = list->vertexBuffer.Count();
     list->scratchCommand.indexBufferOffset = list->indexBuffer.Count();
     list->scratchCommand.textureMode = mode;
     list->scratchCommand.texture = texture;
+    return &list->scratchCommand;
 }
 
 forceinline void DrawListPushVertexBatch(DrawList* list, Vertex vertex) {
@@ -106,12 +107,12 @@ void DrawListPushQuadAlphaMask(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z
     DrawListPushQuad(list, lb, rb, rt, lt, V2(0.0f), V2(1.0f, 0.0f), V2(1.0f), V2(0.0f, 1.0f), z, color, texture, 1.0f, TextureMode::AlphaMask);
 }
 
-forceinline void PushGlyphInternal(DrawList* list, GlyphInfo* glyph, v3 p, v2 pixelSize, v4 color) {
+forceinline void PushGlyphInternal(DrawList* list, GlyphInfo* glyph, v3 p, v2 pixelSize, v4 color, f32 fontScale) {
     v2 minUV = V2(glyph->uv0.x, glyph->uv1.y);
     v2 maxUV = V2(glyph->uv1.x, glyph->uv0.y);
 
-    v2 min = Hadamard(V2(p.x + glyph->quadMin.x, p.y - glyph->quadMax.y), pixelSize);
-    v2 max = Hadamard(V2(p.x + glyph->quadMax.x, p.y - glyph->quadMin.y), pixelSize);
+    v2 min = Hadamard(V2(p.x + glyph->quadMin.x * fontScale, p.y - glyph->quadMax.y * fontScale), pixelSize);
+    v2 max = Hadamard(V2(p.x + glyph->quadMax.x * fontScale, p.y - glyph->quadMin.y * fontScale), pixelSize);
     DrawListPushQuadBatch(list, min, max, p.z, minUV, maxUV, color, 1.0f);
 }
 
@@ -123,119 +124,53 @@ forceinline GlyphInfo* GetGlyph(Font* font, u16 codepoint) {
 }
 
 // TODO: Maybe it is worth to cache text positioning data when we calculate it first time
-void DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align) {
+void DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align, f32 fontScale) {
     v3 posPx = V3(p.x / pixelSize.x, p.y / pixelSize.y, p.z);
     // Currently width assumed to be in pixels
     f32 maxWidthPx = maxWidth;// / pixelSize.x;
+    f32 maxWidthScaled = maxWidthPx / fontScale;// / pixelSize.x;
 
-    f32 lineHeight = font->ascent - font->descent + font->lineGap;
+    f32 lineHeight = (font->ascent - font->descent + font->lineGap) * fontScale;
 
-    v2 textDim = CalcTextSizeUnscaled(font, string, maxWidthPx);
+    v2 textDim = CalcTextSizeUnscaled(font, string, maxWidthScaled) * fontScale;
 
     v2 cursor = posPx.xy - Hadamard(textDim, anchor);
     cursor.y += textDim.y;
-    cursor.y -= font->ascent + font->lineGap;
+    cursor.y -= (font->ascent + font->lineGap) * fontScale;
+
+    auto command = DrawListBeginBatch(list, TextureMode::DistanceField, font->atlas);
+    command->distanceFieldParams.x = 1.0f / 2.5f;
+    command->distanceFieldParams.y = 8.0f * fontScale;
 
     auto at = string;
     while (*at) {
-        auto[lineDim, strOffset] = CalcSingleLineBondingBoxUnscaled(font, at, maxWidthPx);
+        auto[lineDim, strOffset] = CalcSingleLineBondingBoxUnscaled(font, at, maxWidthScaled);
         if (align == TextAlign::Center) {
-            cursor.x = posPx.x + (textDim.x - lineDim.x) * 0.5f;
+            cursor.x = posPx.x + (textDim.x - lineDim.x * fontScale) * 0.5f;
         } else {
             cursor.x = posPx.x;
         }
-        uptr drawOffset = DrawTextLine(list, font, at, V3(cursor, posPx.z), color, pixelSize, anchor, maxWidthPx);
-        assert(drawOffset == strOffset);
+        DrawTextLine(list, font, at, (u32)strOffset, V3(cursor, posPx.z), color, pixelSize, anchor, maxWidthPx, fontScale);
         cursor.y -= lineHeight;
         at += strOffset;
     }
+    DrawListEndBatch(list);
 }
 
-uptr DrawTextLine(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth) {
+void DrawTextLine(DrawList* list, Font* font, const char16* string, u32 count, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, f32 fontScale) {
     v2 begin = p.xy;
     f32 z = p.z;
 
     f32 xAdvance = begin.x;
     f32 yPos = begin.y;
 
-    DrawListBeginBatch(list, TextureMode::AlphaMask, font->atlas);
-
-    const char16* at = string;
-    f32 lastWordEndAdvance = 0.0f;
-    while (*at) {
-        auto wordBegin = at;
-        auto wordEnd = at;
-        auto wordAdvance = 0.0f;
-
-        // Find a word
-        while (true) {
-            if (*wordEnd == 0) break;
-            if (IsSpace(*wordEnd)) break;
-
-            auto glyph = GetGlyph(font, (u16)(*wordEnd));
-
-            wordAdvance += glyph->xAdvance;
-
-            wordEnd++;
-        }
-
-        bool end = false;
-
-        // wordEnd points on space after word or \0
-        if (wordAdvance <= maxWidth) {
-            // If the word is shorter that maxWidth then fit it on
-            // a current position or on a new line
-            if ((xAdvance + wordAdvance - begin.x) > maxWidth) {
-                at = wordBegin;
-                xAdvance = lastWordEndAdvance;
-                end = true;
-                break;
-            }
-
-            for (const char16* c = wordBegin; c != wordEnd; c++) {
-                auto glyph = GetGlyph(font, (u16)(*c));
-                PushGlyphInternal(list, glyph, V3(xAdvance, yPos, z), pixelSize, color);
-                xAdvance += glyph->xAdvance;
-            }
-        } else {
-            // Otherwise if the word is longer than maxWidth
-            // then wrap it on a new line
-            for (const char16* c = wordBegin; c != wordEnd; c++) {
-                auto glyph = GetGlyph(font, (u16)(*c));
-                auto newAdvanceX = xAdvance + glyph->xAdvance;
-                if (newAdvanceX - begin.x > maxWidth) {
-                    at = c;
-                    end = true;
-                    break;
-                }
-                PushGlyphInternal(list, glyph, V3(xAdvance, yPos, z), pixelSize, color);
-                xAdvance += glyph->xAdvance;
-            }
-        }
-
-        if (end) {
-            break;
-        }
-
-        if (*wordEnd) {
-            if (*wordEnd == '\n') {
-                at = wordEnd;
-                break;
-            } else {
-                auto glyph = GetGlyph(font, (u16)(*wordEnd));
-                PushGlyphInternal(list, glyph, V3(xAdvance, yPos, z), pixelSize, color);
-                xAdvance += glyph->xAdvance;
-            }
-            wordEnd++;
-        }
-
-        at = wordEnd;
+    for (u32 i = 0; i < count; i++) {
+        char16 c = string[i];
+        auto glyph = GetGlyph(font, (u16)c);
+        auto newAdvanceX = xAdvance + glyph->xAdvance * fontScale;
+        PushGlyphInternal(list, glyph, V3(xAdvance, yPos, z), pixelSize, color, fontScale);
+        xAdvance += glyph->xAdvance * fontScale;
     }
-
-    DrawListEndBatch(list);
-
-    uptr result = (uptr)(at - string);
-    return result;
 }
 
 Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char16* string, f32 maxWidth) {

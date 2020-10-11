@@ -28,7 +28,7 @@ void GameInit() {
     //context->font.glyphCount = (u32)glyphTableLength;
 
     //ResourceLoader.BakeFont(&context->font, "../res/fonts/Merriweather-Regular.ttf", &allocator, 512, 18, ranges, array_count(ranges));
-    ResourceLoader.LoadFontBM(&context->font, "../res/fonts/merriweather_14.fnt", &allocator);
+    ResourceLoader.LoadFontBM(&context->font, "../res/fonts/merriweather_sdf.fnt", &allocator);
 
     TextureID atlas = Renderer.UploadTexture(0, 512, 512, TextureFormat::R8, TextureFilter::Bilinear, TextureWrapMode::Repeat, context->font.bitmap);
     context->font.atlas = atlas;
@@ -77,17 +77,18 @@ void GameRender() {
     //lineDim.y *= pixelSize.y;
 
     f32 width = 300.0f;
+    f32 scale = 1.0f;
 
-    auto textDim = CalcTextSizeUnscaled(&context->font, string, width);
-    textDim.x *= pixelSize.x;
-    textDim.y *= pixelSize.y;
+    auto textDim = CalcTextSizeUnscaled(&context->font, string, width / scale);
+    textDim.x *= pixelSize.x * scale;
+    textDim.y *= pixelSize.y * scale;
 
     //string[strOffset] = 0;
 
     //DrawListPushQuad(list, V2(100.0f, 200.0f), V2(100.0f + textDim.x, 200.0f), V2(100.0f + textDim.x, 200.0f + textDim.y), V2(100.0f, 200.0f + textDim.y), 0.0f, V4(1.0f, 0.0f, 0.0f, 0.3f));
     //DrawText(list, &context->font, string, V2(100.0f, 200.0f), 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f));
     //DrawTextLine(list, &context->font, string, V2(100.0f, 200.0f), 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f), 220.0f, textDim);
-    DrawText(list, &context->font, string, V3(100.0f, 200.0f, 0.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f), width, TextAlign::Left);
+    DrawText(list, &context->font, string, V3(100.0f, 200.0f, 0.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f), width, TextAlign::Left, scale);
     DrawListPushQuad(list, V2(100.0f, 200.0f), V2(105.0f, 200.0f), V2(104.0f, 205.0f), V2(100.0f, 205.0f), 0.0f, V4(0.0f, 0.0f, 1.0f, 1.0f));
 
 

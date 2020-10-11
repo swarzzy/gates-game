@@ -20,11 +20,21 @@ struct AlphaMaskShader {
     GLuint textureSlot;
 };
 
+struct DistanceFieldShader {
+    GLuint handle;
+    GLint MVP;
+    GLuint uTexture;
+    GLuint uParams;
+    u32 textureSampler;
+    GLuint textureSlot;
+};
+
 struct Renderer {
     GLuint vertexBuffer;
     GLuint indexBuffer;
     StandardShader standardShader;
     AlphaMaskShader alphaMaskShader;
+    DistanceFieldShader distanceFieldShader;
 };
 
 void RendererInit(Renderer* renderer);
