@@ -177,6 +177,7 @@ b32 DebugCopyFile(const char* source, const char* dest, b32 overwrite) {
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int showCmd)
 {
+    SetProcessDPIAware();
 #if defined(ENABLE_CONSOLE)
     AllocConsole();
     freopen("CONOUT$", "w", stdout);

@@ -289,24 +289,24 @@ bool ParseCharEntryBM(char** text, BMFontDesc* font, GlyphInfo* info) {
     u32 height = 0;
     i32 xOffset = 0;
     i32 yOffset = 0;
-    u32 xAdvance = 0;
+    i32 xAdvance = 0;
     if (!ParseBMEntryU32(*text, "x=", &x)) return false;
     if (!ParseBMEntryU32(*text, "y=", &y)) return false;
     if (!ParseBMEntryU32(*text, "width=", &width)) return false;
     if (!ParseBMEntryU32(*text, "height=", &height)) return false;
     if (!ParseBMEntryI32(*text, "xoffset=", &xOffset)) return false;
     if (!ParseBMEntryI32(*text, "yoffset=", &yOffset)) return false;
-    if (!ParseBMEntryU32(*text, "xadvance=", &xAdvance)) return false;
+    if (!ParseBMEntryI32(*text, "xadvance=", &xAdvance)) return false;
 
     info->uv0.x = (f32)x / font->scaleW;
     info->uv0.y = (f32)y / font->scaleH;
     info->uv1.x = ((f32)x + (f32)width) / font->scaleW;
     info->uv1.y = ((f32)y + (f32)height) / font->scaleH;
-    info->quadMin.x = 0.0f;//(f32)xOffset;
+    info->quadMin.x = (f32)xOffset;
     info->quadMin.y = (f32)yOffset - font->base;
-    info->quadMax.x = (f32)width;//(f32)xOffset + (f32)width;
+    info->quadMax.x = (f32)width + (f32)xOffset;//(f32)xOffset + (f32)width;
     info->quadMax.y = (f32)yOffset + (f32)height - font->base;
-    info->xAdvance = (f32)xAdvance;
+    info->xAdvance = (f32)Max(xAdvance, 0);
 
     while (**text && (**text != '\n')) (*text)++;
     (*text)++;

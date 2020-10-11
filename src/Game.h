@@ -15,6 +15,7 @@ struct GameContext {
     TextureID testTexture;
     TextureID fontAtlas;
     Font font;
+    Font sdfFont;
 };
 
 void GameInit();

@@ -89,14 +89,17 @@ uniform sampler2D uTexture;
 
 uniform vec2 uParams;
 
-#define SDF_TWO 1
+#define SDF_ONE 1
 
 void main() {
     float distance = texture(uTexture, UV).r;
 
 #if SDF_ONE
-    float w = fwidth(distance);
-    float alpha = smoothstep(0.5f - w, 0.5f + w, distance);
+    float s = distance - 0.5;
+    float v = s / fwidth(s);
+    float alpha = clamp(v + 0.5, 0.0, 1.0);
+    //float w = fwidth(distance) * uParams.x + uParams.y;
+    //float alpha = smoothstep(0.5f - w, 0.5f + w, distance);
 #endif
 #if SDF_TWO
     float alpha = min((distance - uParams.x) * uParams.y, 1.0f);

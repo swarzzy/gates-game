@@ -138,9 +138,10 @@ void DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, 
     cursor.y += textDim.y;
     cursor.y -= (font->ascent + font->lineGap) * fontScale;
 
-    auto command = DrawListBeginBatch(list, TextureMode::DistanceField, font->atlas);
-    command->distanceFieldParams.x = 1.0f / 2.5f;
-    command->distanceFieldParams.y = 8.0f * fontScale;
+    auto command = DrawListBeginBatch(list, font->sdf ? TextureMode::DistanceField : TextureMode::AlphaMask, font->atlas);
+    if (font->sdf) {
+        command->distanceFieldParams = font->sdfParams;
+    }
 
     auto at = string;
     while (*at) {
@@ -214,7 +215,7 @@ Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char16* strin
             for (const char16* c = wordBegin; c != wordEnd; c++) {
                 auto glyph = GetGlyph(font, (u16)(*c));
                 auto newAdvanceX = advance + glyph->xAdvance;
-                if (newAdvanceX > maxWidth) {
+                if (advance != 0.0f && newAdvanceX > maxWidth) {
                     at = c;
                     end = true;
                     break;

@@ -1,8 +1,10 @@
 #define __CLANG_FLOAT_H
 #include "Common.h"
+#include "Globals.h"
 #include "Platform.h"
 #include "Math.h"
 #include "Console.h"
+#include "DebugOverlay.h"
 
 #include "../ext/imgui-1.78/imgui.h"
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -93,9 +95,14 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         GameUpdate();
     } break;
     case GameInvoke::Render: {
+        if (KeyPressed(Key::F1)) {
+            Global_ShowDebugOverlay = !Global_ShowDebugOverlay;
+        }
 
-        bool show_demo_window = true;
-        ImGui::ShowDemoWindow(&show_demo_window);
+        //bool show_demo_window = true;
+        //ImGui::ShowDemoWindow(&show_demo_window);
+
+        BeginDebugOverlay();
 
         GameRender();
     } break;
@@ -120,6 +127,7 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
 #include "Game.cpp"
 #include "Console.cpp"
 #include "Draw.cpp"
+#include "DebugOverlay.cpp"
 
 #include "../ext/imgui-1.78/imconfig.h"
 #include "../ext/imgui-1.78/imgui.cpp"

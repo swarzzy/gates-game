@@ -90,8 +90,10 @@ struct GlyphInfo {
 };
 
 struct Font {
-    TextureID atlas;
     // Should be filled by caller
+    TextureID atlas;
+    b32 sdf;
+    v2 sdfParams;
 
     GlyphInfo* glyphs;
     u32 glyphCount;
@@ -103,6 +105,15 @@ struct Font {
     f32 lineGap;
     u16 glyphIndexTable[U16::Max];
 };
+
+void FontFreeResources(Font* font, Allocator allocator) {
+    if (font->glyphs) {
+        allocator.Dealloc(font->glyphs);
+    }
+    if (font->bitmap) {
+        allocator.Dealloc(font->bitmap);
+    }
+}
 
 struct CodepointRange {
     u32 begin;
