@@ -364,7 +364,7 @@ bool ResourceLoaderLoadFontBM(Font* result, const char* filename, Allocator* all
                             int n;
                             int width;
                             int height;
-                            data = stbi_load(bitmapName, &width, &height, &n, 1);
+                            auto imageData = stbi_load(bitmapName, &width, &height, &n, 1);
 
                             if (alloc) {
                                 // NOTE: Converting const ptr to nonconst might cause
@@ -372,9 +372,9 @@ bool ResourceLoaderLoadFontBM(Font* result, const char* filename, Allocator* all
                                 Free(const_cast<char*>(bitmapName));
                             }
 
-                            if (data && width == result->bitmapSize && height == result->bitmapSize) {
-                                memcpy(result->bitmap, data, sizeof(u8) * desc.scaleW * desc.scaleW);
-                                stbi_image_free(data);
+                            if (imageData && width == result->bitmapSize && height == result->bitmapSize) {
+                                memcpy(result->bitmap, imageData, sizeof(u8) * desc.scaleW * desc.scaleW);
+                                stbi_image_free(imageData);
                                 f32 pixelSize = 1.0f / desc.scaleW;
                                 result->height = (f32)desc.size;
                                 result->ascent = (f32)desc.base;

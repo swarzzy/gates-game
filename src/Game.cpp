@@ -91,7 +91,11 @@ void GameRender() {
 
 
     DrawText(list, &context->font, string, V3(200.0f, 350.0f, 0.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.5f), width, TextAlign::Center, 1.0f);
-    DrawText(list, &context->sdfFont, string, V3(700.0f, 350.0f, 0.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.5f), width, TextAlign::Center, scaleSDF);
+    i32 enable = false;
+    DEBUG_OVERLAY_SLIDER(enable, 0, 1);
+    if (enable) {
+        DrawText(list, &context->sdfFont, string, V3(700.0f, 350.0f, 0.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.5f), width, TextAlign::Center, scaleSDF);
+    }
 
     //string[strOffset] = 0;
 

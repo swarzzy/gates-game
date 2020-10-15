@@ -2,6 +2,8 @@
 
 struct PlatformHeap;
 
+void MiMallocInit();
+
 PlatformHeap* CreateHeap();
 
 void* HeapAlloc(PlatformHeap* heap, usize size, bool zero);

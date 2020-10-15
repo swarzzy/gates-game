@@ -5,6 +5,8 @@
 #include "Console.h"
 #include "Draw.h"
 
+typedef void(PrintferFn)();
+
 // NOTE: All global game stuff lives here
 struct GameContext {
     PlatformHeap* mainHeap;
@@ -16,6 +18,7 @@ struct GameContext {
     TextureID fontAtlas;
     Font font;
     Font sdfFont;
+    PrintferFn* printfer;
 };
 
 void GameInit();

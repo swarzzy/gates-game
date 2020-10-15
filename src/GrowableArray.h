@@ -13,8 +13,8 @@ template<typename T>
 struct GrowableArray {
     u32 size = 0;
     u32 capacity = 0;
-    Allocator allocator = {};
     T* data = nullptr;
+    Allocator allocator = {};
 
     inline GrowableArray(Allocator alloc) : allocator(alloc) {}
 

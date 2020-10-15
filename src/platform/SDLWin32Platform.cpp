@@ -183,6 +183,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     freopen("CONOUT$", "w", stdout);
 #endif
 
+    MiMallocInit();
+
     auto context = &GlobalContext;
 
     // NOTE(swarzzy): Setting granularity of windows scheduler
