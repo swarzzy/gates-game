@@ -4,8 +4,44 @@
 #include "Platform.h"
 #include "Console.h"
 #include "Draw.h"
+#include "HashMap.h"
+#include "String.h"
 
-typedef void(PrintferFn)();
+struct ProcedureName {
+    const char* name;
+};
+
+// [https://cseweb.ucsd.edu/~kube/cls/100/Lectures/lec16/lec16-16.html]
+u32 ProcedureHash(void* value) {
+    auto key = (ProcedureName*)value;
+    const char* str = key->name;
+
+    i32 hash = 0;
+    while (*str != 0) {
+        hash = (hash << 4) + *(str++);
+        i32 g = hash & 0xf0000000;
+        if (g != 0) hash ^= g >> 24;
+        hash &= ~g;
+    }
+
+    return hash;
+}
+
+bool ProcedureCompare(void* aa, void* bb) {
+    auto a = (ProcedureName*)aa;
+    auto b = (ProcedureName*)bb;
+    return StringsAreEqual(a->name, b->name);
+}
+
+template <typename Proc>
+struct Callback {
+    typedef Proc ProcType;
+    u32 dispatchTableIndex;
+};
+
+#define InvokeCallback(callback, ...) ((decltype(callback)::ProcType*)(GlobalProcedureDispatchTable[callback.dispatchTableIndex]))(##__VA_ARGS__)
+
+typedef void(TestCallbackFn)();
 
 // NOTE: All global game stuff lives here
 struct GameContext {
@@ -18,7 +54,8 @@ struct GameContext {
     TextureID fontAtlas;
     Font font;
     Font sdfFont;
-    PrintferFn* printfer;
+    Callback<TestCallbackFn> testCallback;
+    HashMap<ProcedureName, u32, ProcedureHash, ProcedureCompare> procedureNameTable;
 };
 
 void GameInit();
@@ -43,3 +80,18 @@ inline bool KeyDown(Key key) { return GetInput()->keys[(u32)key].pressedNow; }
 inline bool KeyPressed(Key key) { return (GetInput()->keys[(u32)key].pressedNow) && !(GetInput()->keys[(u32)key].wasPressed); }
 inline bool MouseButtonDown(MouseButton button) { return GetInput()->mouseButtons[(u32)button].pressedNow; }
 inline bool MouseButtonPressed(MouseButton button) { return GetInput()->mouseButtons[(u32)button].pressedNow && !GetInput()->mouseButtons[(u32)button].wasPressed; }
+
+// TODO: Compiler time validation on procedure
+#define MakeCallback(procedure) _MakeCallback<decltype(procedure)>(#procedure)
+template <typename Proc>
+Callback<Proc> _MakeCallback(const char* name) {
+    auto context = GetContext();
+    ProcedureName procName = { name };
+    auto bucket = HashMapGet(&context->procedureNameTable, &procName);
+    assert(bucket);
+    return Callback<Proc> { *bucket };
+}
+
+struct Type {
+    const char* name;
+};

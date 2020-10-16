@@ -18,6 +18,9 @@ inline void AssertHandler(void* data, const char* file, const char* func, u32 li
     debug_break();
 }
 
+extern void* GlobalProcedureDispatchTable[];
+extern const u32 GlobalProcedureDispatchTableCount;
+
 // Setup logger and assert handler
 LoggerFn* GlobalLogger = LogMessageAPI;
 void* GlobalLoggerData = nullptr;
@@ -46,6 +49,23 @@ const InputState* GetInput() { return &_GlobalPlatformState->input; }
 void* HeapAllocAPI(uptr size, b32 clear, uptr alignment, void* data) { return Platform.HeapAlloc((PlatformHeap*)data, (usize)size, clear); }
 void HeapFreeAPI(void* ptr, void* data) { Platform.Free(ptr); }
 
+void Foo() {}
+void TestCallback() {
+    printf("Test callback!\n");
+}
+
+void RegisterCallback(const char* name, u32 index) {
+    auto context = GetContext();
+    auto allocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
+    u32 nameSize = (u32)strlen(name) + 1;
+    auto allocatedName = (char*)allocator.Alloc(nameSize, false);
+    memcpy(allocatedName, name, nameSize);
+    ProcedureName procName = { allocatedName };
+    u32* slot = HashMapAdd(&context->procedureNameTable, &procName);
+    assert(slot);
+    *slot = index;
+}
+
 // NOTE: Game DLL entry point. Will be called by the platform layer.
 extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platform, GameInvoke invoke, void** data) {
     switch (invoke) {
@@ -65,15 +85,23 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
 
         auto context = (GameContext*)Platform.HeapAlloc(mainHeap, sizeof(GameContext), true);
         assert(context);
+
         context->mainHeap = mainHeap;
         *data = context;
         _GlobalGameContext = context;
+
+        auto procNameTableAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
+        context->procedureNameTable = HashMap<ProcedureName, u32, ProcedureHash, ProcedureCompare>::Make(procNameTableAllocator);
+
+        RegisterCallback("TestCallback", 0);
 
         InitLogger(&context->logger, mainHeap);
         GlobalLoggerData = &context->logger;
         InitConsole(&context->console, &context->logger, mainHeap, context);
 
         GameInit();
+
+        context->testCallback = MakeCallback(TestCallback);
     } break;
     case GameInvoke::Reload: {
         _GlobalImGuiAvailable = platform->imguiContext ? true : false;
@@ -93,6 +121,8 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
     } break;
     case GameInvoke::Update: {
         GameUpdate();
+        auto context = GetContext();
+        InvokeCallback(context->testCallback);
     } break;
     case GameInvoke::Render: {
         if (KeyPressed(Key::F1)) {
@@ -128,6 +158,13 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
 #include "Console.cpp"
 #include "Draw.cpp"
 #include "DebugOverlay.cpp"
+#include "HashMap.cpp"
+
+void* GlobalProcedureDispatchTable[] = {
+    TestCallback
+};
+
+const u32 GlobalProcedureDispatchTableCount = array_count(GlobalProcedureDispatchTable);
 
 #include "../ext/imgui-1.78/imconfig.h"
 #include "../ext/imgui-1.78/imgui.cpp"
