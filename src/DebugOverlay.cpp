@@ -111,6 +111,13 @@ void DebugOverlayPushVar(const char* title, u32 var) {
     DebugOverlayPushInternal(buffer);
 }
 
+void DebugOverlayPushVar(const char* title, i32 var) {
+    CHECK_IMGUI();
+    char buffer[128];
+    sprintf_s(buffer, 128, "%s: x: %ld", title, (long)var);
+    DebugOverlayPushInternal(buffer);
+}
+
 void DebugOverlayPushVar(const char* title, f32 var) {
     CHECK_IMGUI();
     char buffer[128];

@@ -5,9 +5,9 @@ void DrawListInit(DrawList* list, u32 capacity, Allocator allocator) {
     assert(!list->vertexBuffer.Capacity());
     assert(!list->indexBuffer.Capacity());
 
-    list->commandBuffer = GrowableArray<DrawCommand>(allocator);
-    list->vertexBuffer = GrowableArray<Vertex>(allocator);
-    list->indexBuffer = GrowableArray<u32>(allocator);
+    list->commandBuffer.Init(allocator);
+    list->vertexBuffer.Init(allocator);
+    list->indexBuffer.Init(allocator);
 }
 
 void DrawListClear(DrawList* list) {
@@ -16,7 +16,7 @@ void DrawListClear(DrawList* list) {
     list->indexBuffer.Clear();
 }
 
-DrawCommand* DrawListBeginBatch(DrawList* list, TextureMode mode, TextureID texture = 0) {
+DrawCommand* DrawListBeginBatch(DrawList* list, TextureMode mode, TextureID texture) {
     assert(!list->pendingCommand);
     list->pendingCommand = true;
     memset(&list->scratchCommand, 0, sizeof(DrawCommand));
@@ -98,6 +98,11 @@ void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, v2 uv0, v2 uv1
 void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, v4 color) {
     DrawListPushQuad(list, lb, rb, rt, lt, V2(0.0f), V2(1.0f, 0.0f), V2(1.0f), V2(0.0f, 1.0f), z, color, 0, 0.0f, TextureMode::Color);
 }
+
+void DrawListPushRect(DrawList* list, v2 min, v2 max, f32 z, v4 color) {
+    DrawListPushQuad(list, min, V2(max.x, min.y), max, V2(min.x, max.y), z, color);
+}
+
 
 void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, TextureID texture) {
     DrawListPushQuad(list, lb, rb, rt, lt, V2(0.0f), V2(1.0f, 0.0f), V2(1.0f), V2(0.0f, 1.0f), z, {}, texture, 1.0f, TextureMode::Color);

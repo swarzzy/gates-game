@@ -345,6 +345,7 @@ struct PlatformState
     f32 deltaTime;
     u32 windowWidth;
     u32 windowHeight;
+    f32 pixelsPerCentimeter;
 };
 
 inline const char* ToString(Key keycode) {

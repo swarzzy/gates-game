@@ -4,6 +4,8 @@
 
 #include "ResourceLoader.h"
 
+#include "shellscalingapi.h"
+
 // Enforcing unicode
 #if !defined(UNICODE)
 #define UNICODE
@@ -177,7 +179,7 @@ b32 DebugCopyFile(const char* source, const char* dest, b32 overwrite) {
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int showCmd)
 {
-    SetProcessDPIAware();
+    SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
 #if defined(ENABLE_CONSOLE)
     AllocConsole();
     freopen("CONOUT$", "w", stdout);
@@ -196,6 +198,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     context->state.windowWidth = DefaultWindowWidth;
     context->state.windowHeight = DefaultWindowHeight;
+
+    f32 defaultWindowsDpi = 96.0f;
+    f32 cmInInch = 2.54f;
+    f32 cmPerPixel = cmInInch / defaultWindowsDpi;
+    context->state.pixelsPerCentimeter = 1.0f / cmPerPixel;
 
     SDLInit(&context->sdl, &context->state, OPENGL_MAJOR_VERSION, OPENGL_MINOR_VERSION);
 
@@ -301,6 +308,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         for (u32 mbIndex = 0; mbIndex < array_count(context->state.input.mouseButtons); mbIndex++) {
             context->state.input.mouseButtons[mbIndex].wasPressed = context->state.input.mouseButtons[mbIndex].pressedNow;
         }
+
+        context->state.input.scrollFrameOffset = 0;
+        context->state.input.mouseFrameOffsetX = 0;
+        context->state.input.mouseFrameOffsetY = 0;
 
         ImGuiEndFrameForGL3();
 

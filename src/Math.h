@@ -121,6 +121,7 @@ constexpr v2 V2(f32 x, f32 y) { return v2{x, y}; }
 constexpr v2 V2(f32 val) { return v2{val, val}; }
 constexpr v2 V2(v3 v) { return v2{v.x, v.y}; }
 constexpr v2 V2(v4 v) { return v2{v.x, v.y}; }
+constexpr v2 V2(iv2 v) { return v2{(f32)v.x, (f32)v.y}; }
 
 constexpr v3 V3(f32 x, f32 y, f32 z) { return v3{x, y, z}; }
 constexpr v3 V3(f32 val) { return v3{val, val, val}; }

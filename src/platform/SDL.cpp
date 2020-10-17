@@ -66,6 +66,9 @@ OpenGLLoadResult SDLLoadOpenGL(SDLContext* sdlContext) {
 }
 
 void SDLGatherMouseMovement(SDLContext* context, PlatformState* platform) {
+    platform->input.mouseFrameOffsetX = 0;
+    platform->input.mouseFrameOffsetY = 0;
+
     if (platform->input.activeApp) {
         int mousePositionX;
         int mousePositionY;
@@ -216,7 +219,7 @@ void SDLInit(SDLContext* context, const PlatformState* platform, i32 glMajorVers
 
 #undef sdl_gl_attrib_check
 
-    auto windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL;
+    auto windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI;
     context->window = SDL_CreateWindow("Ping pong", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, platform->windowWidth, platform->windowHeight, windowFlags);
     if (!context->window) {
         panic("[SDL] Failed to create window: %s", SDL_GetError());

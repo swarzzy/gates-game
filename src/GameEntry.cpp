@@ -128,6 +128,7 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
 #include "Console.cpp"
 #include "Draw.cpp"
 #include "DebugOverlay.cpp"
+#include "Canvas.cpp"
 
 #include "../ext/imgui-1.78/imconfig.h"
 #include "../ext/imgui-1.78/imgui.cpp"

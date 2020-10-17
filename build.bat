@@ -19,14 +19,14 @@ set CommonCompilerFlags=/Gm- /fp:fast /GR- /nologo /diagnostics:classic /WX /std
 set DebugCompilerFlags=/Od /RTC1 /MTd /Fd%BinOutDir%\
 set ReleaseCompilerFlags=/O2 /MT
 set SDLDependencies=shell32.lib version.lib imm32.lib ole32.lib oleaut32.lib advapi32.lib setupapi.lib
-set PlatformLinkerFlags=/INCREMENTAL:NO /OPT:REF /NOIMPLIB %SDLDependencies% %ArchLibs% user32.lib gdi32.lib opengl32.lib winmm.lib /OUT:%BinOutDir%\win32_gl3_gates.exe /PDB:%BinOutDir%\win32_gl3_gates.pdb %ArchLinkerFlags%
+set PlatformLinkerFlags=/INCREMENTAL:NO /OPT:REF /NOIMPLIB %SDLDependencies% %ArchLibs% user32.lib gdi32.lib opengl32.lib winmm.lib Shcore.lib /OUT:%BinOutDir%\win32_gl3_gates.exe /PDB:%BinOutDir%\win32_gl3_gates.pdb %ArchLinkerFlags%
 set GameLinkerFlags=/INCREMENTAL:NO /OPT:REF /DLL /OUT:%BinOutDir%\gates.dll  /PDB:%BinOutDir%\gates_%PdbMangleVal%.pdb %ArchLinkerFlags%
 rem set GameLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /DLL /OUT:%BinOutDir%\pong.dll  /PDB:%BinOutDir%\pong.pdb
 
 set ConfigCompilerFlags=%DebugCompilerFlags%
 
 echo Building platform...
-cl /DPLATFORM_CODE /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/platform/SDLWin32Platform.cpp /link %PlatformLinkerFlags%
+rem cl /DPLATFORM_CODE /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/platform/SDLWin32Platform.cpp /link %PlatformLinkerFlags%
 
 echo Building game...
 cl /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/GameEntry.cpp /link %GameLinkerFlags%

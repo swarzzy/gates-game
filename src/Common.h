@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdarg.h>
 #include <math.h>
+#include <string.h>
 
 #if defined(_MSC_VER)
 #define COMPILER_MSVC

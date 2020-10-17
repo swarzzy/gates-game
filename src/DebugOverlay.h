@@ -11,6 +11,7 @@ void DebugOverlayPushVar(const char* title, iv3 var);
 void DebugOverlayPushVar(const char* title, v3 var);
 void DebugOverlayPushVar(const char* title, v4 var);
 void DebugOverlayPushVar(const char* title, u32 var);
+void DebugOverlayPushVar(const char* title, i32 var);
 void DebugOverlayPushVar(const char* title, f32 var);
 void DebugOverlayPushSlider(const char* title, f32* var, f32 min, f32 max);
 void DebugOverlayPushSlider(const char* title, i32* var, i32 min, i32 max);

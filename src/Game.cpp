@@ -7,7 +7,9 @@ f32 DefaultFontHeight = 24.0f;
 
 void GameInit() {
     auto context = GetContext();
-    DrawListInit(&context->drawList, 256, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
+    auto allocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
+    context->deskCanvas = CreateCanvas(allocator);
+    //DrawListInit(&context->drawList, 256, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
 
     auto image = ResourceLoaderLoadImage("../res/alpha_test.png", true, 4, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
     TextureID texture = Renderer.UploadTexture(0, image->width, image->height, TextureFormat::RGBA8, TextureFilter::Bilinear, TextureWrapMode::Repeat, image->bits);
@@ -18,8 +20,6 @@ void GameInit() {
     ranges[0].end = 126;
     ranges[1].begin = 0x0410;
     ranges[1].end = 0x044f;
-
-    auto allocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
 
     auto f1 = ResourceLoader.BakeFont(&context->font, "../res/fonts/Merriweather-Regular.ttf", &allocator, 512, DefaultFontHeight, ranges, array_count(ranges));
     auto f2 = ResourceLoader.LoadFontBM(&context->sdfFont, "../res/fonts/merriweather_sdf.fnt", &allocator);
@@ -34,6 +34,12 @@ void GameInit() {
 
     TextureID sdfFontAtlas = Renderer.UploadTexture(0, context->sdfFont.bitmapSize, context->sdfFont.bitmapSize, TextureFormat::R8, TextureFilter::Bilinear, TextureWrapMode::Repeat, context->sdfFont.bitmap);
     context->sdfFont.atlas = sdfFontAtlas;
+
+    context->elements[0] = CreateElement(IV2(2, 2), ElementType::And);
+    context->elements[1] = CreateElement(IV2(6, 10), ElementType::Or);
+    context->elements[2] = CreateElement(IV2(-6, -10), ElementType::Not);
+
+    context->elementCount = 3;
 }
 
 void GameReload() {
@@ -43,24 +49,140 @@ void GameUpdate() {
 
 }
 
+void DrawElement(Canvas* canvas, Desk* desk, Element* element, f32 alpha) {
+    DeskPosition maxP = MakeDeskPosition(element->p.cell + element->dim);
+    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(element->p.cell));
+    v2 max = DeskPositionRelative(desk->origin, maxP);
+    DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(element->color.xyz, alpha));
+    for (u32 pinIndex = 0; pinIndex < element->pinCount; pinIndex++) {
+        ElementPin* pin = element->pins + pinIndex;
+        v4 color {};
+        switch (pin->type) {
+        case PinType::Input: { color = V4(0.0f, 0.9f, 0.0f, alpha); } break;
+        case PinType::Output: { color = V4(0.9f, 0.9f, 0.0f, alpha); } break;
+            invalid_default();
+        }		(char16)codepoint	identifier "codepoint" is undefined	
+
+
+        v2 pinMin = V2(pin->relativeP) * DeskCellSize + min - V2(0.1);
+        v2 pinMax = V2(pin->relativeP) * DeskCellSize + min + V2(0.1);
+        DrawListPushRect(&canvas->drawList, pinMin, pinMax, 0.0f, color);
+    }
+}
+
 void GameRender() {
     auto context = GetContext();
-    auto list = &context->drawList;
+    auto input = GetInput();
 
-    auto platform = GetPlatform();
+    auto deskCanvas = &context->deskCanvas;
+    auto desk = &context->desk;
 
-    u32 wWindow = platform->windowWidth;
-    u32 hWindow = platform->windowHeight;
-    u32 wCanvas = 1280;
-    u32 hCanvas = 720;
-    f32 wPixel = (f32)wCanvas / wWindow;
-    f32 hPixel = (f32)hCanvas / hWindow;
-    v2 pixelSize = V2(wPixel, hPixel);
+    f32 scaleSpeed = 0.1f;
 
-    auto proj = OrthoGLRH(0.0f, (f32)wCanvas, 0.0f, (f32)hCanvas, -1.0f, 1.0f);
-    Renderer.SetCamera(&proj);
+    DEBUG_OVERLAY_SLIDER(deskCanvas->scale, 0.1f, 3.0f);
+
+    v2 mousePBeforeScale = Hadamard(V2(input->mouseX, input->mouseY), deskCanvas->sizeCm);
+    deskCanvas->scale = Max(0.1f, deskCanvas->scale + input->scrollFrameOffset *  (scaleSpeed * deskCanvas->scale));
+
+    BeginCanvas(deskCanvas);
+
+    v2 mousePosition = Hadamard(V2(input->mouseX, input->mouseY), deskCanvas->sizeCm);
+
+    v2 scaleOffset = mousePosition - mousePBeforeScale;
+    desk->origin = DeskPositionOffset(desk->origin, -scaleOffset);
+
+    if (MouseButtonPressed(MouseButton::Right) && context->ghostElementEnabled) {
+        context->ghostElementEnabled = false;
+    }
+
+    if (KeyPressed(Key::_1)) {
+        context->ghostElement = CreateElement(IV2(0), ElementType::And);
+        context->ghostElementEnabled = true;
+    } else if (KeyPressed(Key::_2)) {
+        context->ghostElement = CreateElement(IV2(0), ElementType::Or);
+        context->ghostElementEnabled = true;
+    } else if (KeyPressed(Key::_3)) {
+        context->ghostElement = CreateElement(IV2(0), ElementType::Not);
+        context->ghostElementEnabled = true;
+    }
+
+    if (context->ghostElementEnabled) {
+        DeskPosition mouseDeskP = DeskPositionOffset(desk->origin, mousePosition);
+        DeskPosition offP = DeskPositionOffset(mouseDeskP, -V2(context->ghostElement.dim) * 0.5f * DeskCellSize);
+        context->ghostElement.p = offP;
+
+        if (MouseButtonPressed(MouseButton::Left)) {
+            context->elements[context->elementCount++] = context->ghostElement;
+        }
+
+        if (MouseButtonPressed(MouseButton::Right)) {
+            context->ghostElementEnabled = false;
+        }
+    }
 
 
+    DEBUG_OVERLAY_TRACE(deskCanvas->sizeCm.x);
+    DEBUG_OVERLAY_TRACE(deskCanvas->sizeCm.y);
+    DEBUG_OVERLAY_TRACE(deskCanvas->sizePx.x);
+    DEBUG_OVERLAY_TRACE(deskCanvas->sizePx.y);
+    DEBUG_OVERLAY_TRACE(input->mouseFrameOffsetX);
+    DEBUG_OVERLAY_TRACE(input->mouseFrameOffsetY);
+    DEBUG_OVERLAY_TRACE(input->scrollFrameOffset);
+
+    if (MouseButtonDown(MouseButton::Middle)) {
+        v2 offset = Hadamard(V2(input->mouseFrameOffsetX, input->mouseFrameOffsetY), deskCanvas->sizeCm);
+        desk->origin = DeskPositionOffset(desk->origin, -offset);
+        //context->deskPosition += Hadamard(V2(input->mouseFrameOffsetX, input->mouseFrameOffsetY), deskCanvas->sizeCm);
+    }
+
+    DeskPosition begin = desk->origin;
+    DeskPosition end = DeskPositionOffset(desk->origin, deskCanvas->sizeCm);
+
+    DrawListBeginBatch(&deskCanvas->drawList, TextureMode::Color);
+    u32 vertLines = 0;
+    u32 horzLines = 0;
+
+    DEBUG_OVERLAY_TRACE(begin.cell.x);
+    DEBUG_OVERLAY_TRACE(end.cell.x);
+
+    for (i32 x = begin.cell.x - 1; x != (end.cell.x + 1); x++) {
+        f32 thickness = 1.0f * deskCanvas->cmPerPixel;
+        v2 min = V2(DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(x, 0))).x - thickness * 0.5f, 0.0f);
+        v2 max = V2(DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(x, 0))).x + thickness * 0.5f, deskCanvas->sizeCm.y);
+        DrawListPushQuadBatch(&deskCanvas->drawList, min, max, 0.0f, V2(0.0f), V2(0.0f), V4(0.6f, 0.6f, 0.6f, 1.0f), 0.0f);
+        vertLines++;
+    }
+
+    for (i32 y = begin.cell.y - 1; y != (end.cell.y + 1); y++) {
+        f32 thickness = 1.0f * deskCanvas->cmPerPixel;
+        v2 min = V2(0.0f, DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(0, y))).y - thickness * 0.5f);
+        v2 max = V2(deskCanvas->sizeCm.x, DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(0, y))).y + thickness * 0.5f);
+        DrawListPushQuadBatch(&deskCanvas->drawList, min, max, 0.0f, V2(0.0f), V2(0.0f), V4(0.6f, 0.6f, 0.6f, 1.0f), 0.0f);
+        horzLines++;
+    }
+
+    DEBUG_OVERLAY_TRACE(vertLines);
+    DEBUG_OVERLAY_TRACE(horzLines);
+
+    DrawListEndBatch(&deskCanvas->drawList);
+
+    DEBUG_OVERLAY_TRACE(desk->origin.cell.x);
+    DEBUG_OVERLAY_TRACE(desk->origin.cell.y);
+
+    for (u32 i = 0; i < context->elementCount; i++) {
+        Element* element = context->elements + i;
+        DrawElement(deskCanvas, desk, element, 1.0f);
+    }
+
+    if (context->ghostElementEnabled) {
+        DrawElement(deskCanvas, desk, &context->ghostElement, 0.5f);
+    }
+
+    EndCanvas(deskCanvas);
+
+
+
+#if 0
     const char16* string = u"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.";
 
     f32 width = 300.0f;
@@ -104,9 +226,9 @@ void GameRender() {
     //DrawTextLine(list, &context->font, string, V2(100.0f, 200.0f), 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f), 220.0f, textDim);
     //DrawText(list, &context->font, string, V3(100.0f, 200.0f, 0.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f), width, TextAlign::Left, scale);
     //DrawListPushQuad(list, V2(100.0f, 200.0f), V2(105.0f, 200.0f), V2(104.0f, 205.0f), V2(100.0f, 205.0f), 0.0f, V4(0.0f, 0.0f, 1.0f, 1.0f));
-
-    Renderer.RenderDrawList(list);
-    DrawListClear(list);
+#endif
+    //Renderer.RenderDrawList(list);
+    //DrawListClear(list);
 
     if(KeyPressed(Key::Tilde)) {
         context->consoleEnabled = !context->consoleEnabled;
