@@ -9,9 +9,7 @@
 #include "Intrinsics.h"
 #include "Math.h"
 
-#include "RenderAPI.h"
-
-struct OpenGL;
+#include "Draw.h"
 
 #if defined(PLATFORM_WINDOWS)
 #define GAME_CODE_ENTRY __declspec(dllexport)
@@ -59,6 +57,89 @@ typedef PlatformHeap*(CreateHeapFn)();
 typedef void*(HeapAllocFn)(PlatformHeap* heap, usize size, bool zero);
 typedef void(FreeFn)(void* ptr);
 
+// Resources
+
+enum struct ResourceLoaderCommand: u32 {
+    Image, Font
+};
+
+struct LoadImageArgs {
+    const char* filename;
+    u32 forceBitsPerPixel;
+    Allocator* allocator;
+    b32 flipY;
+};
+
+struct LoadImageResult {
+    void* base;
+    void* bits;
+    u32 width;
+    u32 height;
+    u32 channels;
+};
+
+static_assert((sizeof(LoadImageResult) % 4) == 0);
+
+struct GlyphInfo {
+    v2 uv0;
+    v2 uv1;
+    v2 quadMin;
+    v2 quadMax;
+    f32 xAdvance;
+    u16 codepoint;
+};
+
+struct Font {
+    // Should be filled by caller
+    TextureID atlas;
+    b32 sdf;
+    v2 sdfParams;
+
+    GlyphInfo* glyphs;
+    u32 glyphCount;
+    u32 bitmapSize;
+    u8* bitmap;
+    f32 height;
+    f32 ascent;
+    f32 descent;
+    f32 lineGap;
+    u16 glyphIndexTable[U16::Max];
+};
+
+void FontFreeResources(Font* font, Allocator allocator) {
+    if (font->glyphs) {
+        allocator.Dealloc(font->glyphs);
+    }
+    if (font->bitmap) {
+        allocator.Dealloc(font->bitmap);
+    }
+}
+
+struct CodepointRange {
+    u32 begin;
+    u32 end;
+    u32 _count; // Do not fill. Used internally
+};
+
+inline u32 CalcGlyphTableLength(CodepointRange* ranges, u32 rangeCount) {
+    u32 totalCodepointCount = 0;
+    for (u32 i = 0; i < rangeCount; i++) {
+        assert(ranges[i].end > ranges[i].begin);
+        totalCodepointCount += ranges[i].end - ranges[i].begin + 1;
+    }
+    return totalCodepointCount + 1; // One for dummy char
+}
+
+typedef bool(ResourceLoaderBakeFontFn)(Font* result, const char* filename, Allocator* allocator, u32 bitmapDim, f32 height, CodepointRange* ranges, u32 rangeCount);
+typedef bool(ResourceLoaderLoadFontBMFn)(Font* result, const char* filename, Allocator* allocator);
+
+
+typedef void(ResourceLoaderInvokeFn)(ResourceLoaderCommand command, void* args, void* result);
+
+struct ResourceLoaderAPI {
+    ResourceLoaderBakeFontFn* BakeFont;
+    ResourceLoaderLoadFontBMFn* LoadFontBM;
+};
 
 // NOTE: Functions that platform passes to the game
 struct PlatformCalls
@@ -242,15 +323,21 @@ struct ImGuiContext;
 typedef void*(ImGuiAllocFn)(size_t size, void* data);
 typedef void(ImGuiFreeFn)(void* ptr, void* data);
 
+typedef void* STBAllocFn(usize size, void* data);
+typedef void* STBFreeFn(void* ptr, void* data);
+
 struct PlatformState
 {
     PlatformCalls functions;
     RendererAPI rendererAPI;
+    ResourceLoaderAPI resourceLoaderAPI;
+    ResourceLoaderInvokeFn* ResourceLoaderInvoke;
     // nullptr if imgui is disabled
     ImGuiContext* imguiContext;
     ImGuiAllocFn* ImGuiAlloc;
     ImGuiFreeFn* ImGuiFree;
     void* imguiAllocatorData;
+    PlatformHeap* stbHeap;
     InputState input;
     u64 tickCount;
     i32 fps;

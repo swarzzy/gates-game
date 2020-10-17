@@ -5,6 +5,8 @@
 #include "Console.h"
 #include "Draw.h"
 
+typedef void(PrintferFn)();
+
 // NOTE: All global game stuff lives here
 struct GameContext {
     PlatformHeap* mainHeap;
@@ -12,6 +14,11 @@ struct GameContext {
     Console console;
     bool consoleEnabled;
     DrawList drawList;
+    TextureID testTexture;
+    TextureID fontAtlas;
+    Font font;
+    Font sdfFont;
+    PrintferFn* printfer;
 };
 
 void GameInit();
@@ -25,6 +32,8 @@ const PlatformState* GetPlatform();
 GameContext* GetContext();
 const InputState* GetInput();
 bool ImGuiAvailable();
+
+LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 forceBPP, Allocator allocator);
 
 void* HeapAllocAPI(uptr size, b32 clear, uptr alignment, void* data);
 void HeapFreeAPI(void* ptr, void* data);

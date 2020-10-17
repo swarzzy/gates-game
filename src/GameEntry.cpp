@@ -1,8 +1,10 @@
 #define __CLANG_FLOAT_H
 #include "Common.h"
+#include "Globals.h"
 #include "Platform.h"
 #include "Math.h"
 #include "Console.h"
+#include "DebugOverlay.h"
 
 #include "../ext/imgui-1.78/imgui.h"
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -29,8 +31,8 @@ bool _GlobalImGuiAvailable;
 bool ImGuiAvailable() { return _GlobalImGuiAvailable; }
 
 #define Platform (*((const PlatformCalls*)(&_GlobalPlatformState->functions)))
+#define ResourceLoader (*((const ResourceLoaderAPI*)(&_GlobalPlatformState->resourceLoaderAPI)))
 #define Renderer (*((const RendererAPI*)(&_GlobalPlatformState->rendererAPI)))
-
 
 #include "Game.h"
 
@@ -93,9 +95,14 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
         GameUpdate();
     } break;
     case GameInvoke::Render: {
+        if (KeyPressed(Key::F1)) {
+            Global_ShowDebugOverlay = !Global_ShowDebugOverlay;
+        }
 
-        bool show_demo_window = true;
-        ImGui::ShowDemoWindow(&show_demo_window);
+        //bool show_demo_window = true;
+        //ImGui::ShowDemoWindow(&show_demo_window);
+
+        BeginDebugOverlay();
 
         GameRender();
     } break;
@@ -103,13 +110,34 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
     }
 }
 
+LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 forceBPP, Allocator allocator) {
+    LoadImageArgs args {};
+    args.filename = filename;
+    args.forceBitsPerPixel = forceBPP;
+    args.allocator = &allocator;
+    args.flipY = flipY;
+
+    LoadImageResult* result = nullptr;
+    GetPlatform()->ResourceLoaderInvoke(ResourceLoaderCommand::Image, &args, &result);
+
+    return result;
+}
+
 // NOTE(swarzzy): All game .cpp files should be included here
 #include "Game.cpp"
 #include "Console.cpp"
 #include "Draw.cpp"
+#include "DebugOverlay.cpp"
 
 #include "../ext/imgui-1.78/imconfig.h"
 #include "../ext/imgui-1.78/imgui.cpp"
 #include "../ext/imgui-1.78/imgui_draw.cpp"
 #include "../ext/imgui-1.78/imgui_widgets.cpp"
 #include "../ext/imgui-1.78/imgui_demo.cpp"
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#define STBTT_STATIC
+#define STBTT_malloc(x,u)   (Platform.HeapAlloc(GetPlatform()->stbHeap, (usize)(x), false))
+#define STBTT_free(x,u)     (Platform.Free(x))
+#define STBTT_assert(x)     assert(x)
+#include "../ext/stb_truetype-1.24/stb_truetype.h"

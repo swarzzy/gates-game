@@ -17,6 +17,8 @@
 #define WriteFence() (_WriteBarrier(), _mm_sfence())
 #define ReadFence() (_ReadBarrier(), _mm_lfence())
 
+#define forceinline __forceinline
+
 #elif defined(__clang__)
 #define COMPILER_CLANG
 
@@ -26,6 +28,8 @@
 // TODO: Fences
 #define WriteFence() do {} while(false) //((__asm__("" ::: "memory")), _mm_sfence())
 #define ReadFence() do {} while(false) //((__asm__("" ::: "memory")), _mm_lfence())
+
+#define forceinline __attribute__((always_inline))
 
 #else
 #error Unsupported compiler
@@ -101,6 +105,8 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
+typedef char16_t char16;
+
 typedef uintptr_t uptr;
 
 typedef u32 b32;
@@ -127,6 +133,7 @@ namespace F32 {
     constexpr f32 Pi = 3.14159265358979323846f;
     constexpr f32 Eps = 0.000001f;
     constexpr f32 Nan = NAN;
+    constexpr f32 Infinity = INFINITY;
     constexpr f32 Max = FLT_MAX;
     constexpr f32 Min = FLT_MIN;
 };
@@ -138,6 +145,10 @@ namespace I32 {
 
 namespace U32 {
     constexpr u32 Max = 0xffffffff;
+}
+
+namespace U16 {
+    constexpr u16 Max = 0xffff;
 }
 
 namespace U64 {
