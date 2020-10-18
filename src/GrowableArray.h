@@ -55,6 +55,7 @@ struct GrowableArray {
     inline void         Reserve(u32 newCapacity)            { if (newCapacity <= capacity) return; T* newData = (T*)allocator.Alloc(newCapacity * sizeof(T), false); if (data) { memcpy(newData, data, (size_t)size * sizeof(T)); allocator.Dealloc(data); } data = newData; capacity = newCapacity; }
 
     // NB: It is illegal to call push_back/push_front/insert with a reference pointing inside the ImVector data itself! e.g. v.push_back(v[10]) is forbidden.
+    inline T*           PushBack()                          { if (size == capacity) Reserve(_GrowCapacity(size + 1)); return data + size++; }
     inline void         PushBack(const T& v)                { if (size == capacity) Reserve(_GrowCapacity(size + 1)); memcpy(&data[size], &v, sizeof(v)); size++; }
     inline void         PopBack()                           { assert(size > 0); size--; }
     inline void         PushFront(const T& v)               { if (size == 0) PushBack(v); else Insert(data, v); }

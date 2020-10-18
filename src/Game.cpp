@@ -35,11 +35,13 @@ void GameInit() {
     TextureID sdfFontAtlas = Renderer.UploadTexture(0, context->sdfFont.bitmapSize, context->sdfFont.bitmapSize, TextureFormat::R8, TextureFilter::Bilinear, TextureWrapMode::Repeat, context->sdfFont.bitmap);
     context->sdfFont.atlas = sdfFontAtlas;
 
-    context->elements[0] = CreateElement(IV2(2, 2), ElementType::And);
-    context->elements[1] = CreateElement(IV2(6, 10), ElementType::Or);
-    context->elements[2] = CreateElement(IV2(-6, -10), ElementType::Not);
+    auto desk = &context->desk;
 
-    context->elementCount = 3;
+    InitDesk(desk, context->mainHeap);
+
+    CreateElement(desk, IV2(2, 2), ElementType::And);
+    CreateElement(desk, IV2(6, 10), ElementType::Or);
+    CreateElement(desk, IV2(-6, -10), ElementType::Not);
 }
 
 void GameReload() {
@@ -49,26 +51,34 @@ void GameUpdate() {
 
 }
 
-void DrawElement(Canvas* canvas, Desk* desk, Element* element, f32 alpha) {
-    DeskPosition maxP = MakeDeskPosition(element->p.cell + element->dim);
-    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(element->p.cell));
-    v2 max = DeskPositionRelative(desk->origin, maxP);
-    DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(element->color.xyz, alpha));
-    for (u32 pinIndex = 0; pinIndex < element->pinCount; pinIndex++) {
-        ElementPin* pin = element->pins + pinIndex;
-        v4 color {};
-        switch (pin->type) {
-        case PinType::Input: { color = V4(0.0f, 0.9f, 0.0f, alpha); } break;
-        case PinType::Output: { color = V4(0.9f, 0.9f, 0.0f, alpha); } break;
-            invalid_default();
-        }		(char16)codepoint	identifier "codepoint" is undefined	
+v4 GetPinColor(PinType type) {
+    v4 color {};
+    switch (type) {
+    case PinType::Input: { color = V4(0.0f, 0.9f, 0.0f, 1.0f); } break;
+    case PinType::Output: { color = V4(0.9f, 0.9f, 0.0f, 1.0f); } break;
+        invalid_default();
+    }
+    return color;
+}
 
+void DebugDrawDesk(Desk* desk, Canvas* canvas) {
+    DeskPosition begin = desk->origin;
+    DeskPosition end = DeskPositionOffset(desk->origin, canvas->sizeCm);
 
-        v2 pinMin = V2(pin->relativeP) * DeskCellSize + min - V2(0.1);
-        v2 pinMax = V2(pin->relativeP) * DeskCellSize + min + V2(0.1);
-        DrawListPushRect(&canvas->drawList, pinMin, pinMax, 0.0f, color);
+    for (i32 y = begin.cell.y - 1; y != (end.cell.y + 1); y++) {
+        for (i32 x = begin.cell.x - 1; x != (end.cell.x + 1); x++) {
+            iv2 p = IV2(x, y);
+            DeskCell* cell = GetDeskCell(desk, p, false);
+            if (cell && cell->element) {
+                Element* element = cell->element;
+                v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(p));
+                v2 max = DeskPositionRelative(desk->origin, MakeDeskPosition(p + 1));
+                DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(element->color.xyz, 1.0f));
+            }
+        }
     }
 }
+
 
 void GameRender() {
     auto context = GetContext();
@@ -96,13 +106,13 @@ void GameRender() {
     }
 
     if (KeyPressed(Key::_1)) {
-        context->ghostElement = CreateElement(IV2(0), ElementType::And);
+        InitElement(desk, &context->ghostElement, IV2(0), ElementType::And);
         context->ghostElementEnabled = true;
     } else if (KeyPressed(Key::_2)) {
-        context->ghostElement = CreateElement(IV2(0), ElementType::Or);
+        InitElement(desk, &context->ghostElement, IV2(0), ElementType::Or);
         context->ghostElementEnabled = true;
     } else if (KeyPressed(Key::_3)) {
-        context->ghostElement = CreateElement(IV2(0), ElementType::Not);
+        InitElement(desk, &context->ghostElement, IV2(0), ElementType::Not);
         context->ghostElementEnabled = true;
     }
 
@@ -112,14 +122,13 @@ void GameRender() {
         context->ghostElement.p = offP;
 
         if (MouseButtonPressed(MouseButton::Left)) {
-            context->elements[context->elementCount++] = context->ghostElement;
+            AddElement(desk, &context->ghostElement);
         }
 
         if (MouseButtonPressed(MouseButton::Right)) {
             context->ghostElementEnabled = false;
         }
     }
-
 
     DEBUG_OVERLAY_TRACE(deskCanvas->sizeCm.x);
     DEBUG_OVERLAY_TRACE(deskCanvas->sizeCm.y);
@@ -169,15 +178,15 @@ void GameRender() {
     DEBUG_OVERLAY_TRACE(desk->origin.cell.x);
     DEBUG_OVERLAY_TRACE(desk->origin.cell.y);
 
-    for (u32 i = 0; i < context->elementCount; i++) {
-        Element* element = context->elements + i;
-        DrawElement(deskCanvas, desk, element, 1.0f);
+    switch (context->drawMode) {
+    case DrawMode::Normal: { DrawDesk(desk, deskCanvas); } break;
+    case DrawMode::DeskDebug: { DebugDrawDesk(desk, deskCanvas); } break;
+    invalid_default();
     }
 
     if (context->ghostElementEnabled) {
-        DrawElement(deskCanvas, desk, &context->ghostElement, 0.5f);
+        DrawElement(desk, deskCanvas, &context->ghostElement, 0.5f);
     }
-
     EndCanvas(deskCanvas);
 
 
