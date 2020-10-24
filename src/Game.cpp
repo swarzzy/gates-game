@@ -69,11 +69,15 @@ void DebugDrawDesk(Desk* desk, Canvas* canvas) {
         for (i32 x = begin.cell.x - 1; x != (end.cell.x + 1); x++) {
             iv2 p = IV2(x, y);
             DeskCell* cell = GetDeskCell(desk, p, false);
-            if (cell && cell->element) {
-                Element* element = cell->element;
-                v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(p));
-                v2 max = DeskPositionRelative(desk->origin, MakeDeskPosition(p + 1));
-                DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(element->color.xyz, 1.0f));
+            if (cell && cell->element.id) {
+#if false
+                Element* element = FindElement(desk, cell->element);
+                if (element) {
+                    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(p));
+                    v2 max = DeskPositionRelative(desk->origin, MakeDeskPosition(p + 1));
+                    DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(element->color.xyz, 1.0f));
+                }
+#endif
             }
         }
     }
@@ -106,12 +110,15 @@ void GameRender() {
     }
 
     if (KeyPressed(Key::_1)) {
+        memset(&context->ghostElement, 0, sizeof(Element));
         InitElement(desk, &context->ghostElement, IV2(0), ElementType::And);
         context->ghostElementEnabled = true;
     } else if (KeyPressed(Key::_2)) {
+        memset(&context->ghostElement, 0, sizeof(Element));
         InitElement(desk, &context->ghostElement, IV2(0), ElementType::Or);
         context->ghostElementEnabled = true;
     } else if (KeyPressed(Key::_3)) {
+        memset(&context->ghostElement, 0, sizeof(Element));
         InitElement(desk, &context->ghostElement, IV2(0), ElementType::Not);
         context->ghostElementEnabled = true;
     }
@@ -122,7 +129,10 @@ void GameRender() {
         context->ghostElement.p = offP;
 
         if (MouseButtonPressed(MouseButton::Left)) {
-            AddElement(desk, &context->ghostElement);
+            Element* clone = (Element*)desk->deskAllocator.Alloc(sizeof(Element), false);
+            memcpy(clone, &context->ghostElement, sizeof(Element));
+            AddElement(desk, clone);
+            InitElement(desk, &context->ghostElement, context->ghostElement.p.cell, context->ghostElement.type);
         }
 
         if (MouseButtonPressed(MouseButton::Right)) {

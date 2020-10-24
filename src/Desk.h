@@ -20,7 +20,15 @@ struct ElementPin {
     iv2 relativeP;
 };
 
+#define InvalidElementID (ElementID {0})
+
+struct ElementID {
+    // TODO: 64 bit or freelist?
+    u32 id;
+};
+
 struct Element {
+    ElementID id;
     DeskPosition p;
     iv2 dim;
     v4 color;
@@ -32,7 +40,7 @@ struct Element {
 };
 
 struct DeskCell {
-    Element* element;
+    ElementID element;
 };
 
 struct DeskTile {
@@ -43,14 +51,19 @@ struct DeskTile {
 
 u32 DeskHash(void* arg);
 bool DeskCompare(void* a, void* b);
+u32 ElementHash(void* arg);
+bool ElementCompare(void* a, void* b);
 
 struct Desk {
     DeskPosition origin;
+    u32 elementSerialCount;
     u32 pinGeneration;
     PlatformHeap* deskHeap;
     Allocator deskAllocator;
     HashMap<iv2, DeskTile*, DeskHash, DeskCompare> tileHashMap;
-    GrowableArray<Element> elements;
+    // TODO: Just go crazy and ALLOCATE EVERY SINGLE ELEMENT IN THE HEAP.
+    // Eventually we will need more appropriate way to store elements
+    HashMap<ElementID, Element*, ElementHash, ElementCompare> elementsHashMap;
 };
 
 u32 GetPinUID(Desk* desk) {
@@ -58,6 +71,7 @@ u32 GetPinUID(Desk* desk) {
     return result;
 }
 
+ElementID GetElementID(Desk* desk);
 void InitDesk(Desk* desk, PlatformHeap* deskHeap);
 DeskTile* CreateDeskTile(Desk* desk, iv2 p);
 void InitElement(Desk* desk, Element* element, iv2 p, ElementType type);
@@ -65,6 +79,8 @@ Element* CreateElement(Desk* desk, iv2 p, ElementType type);
 ElementPin CreateElementPin(Desk* desk, iv2 relP, PinType type);
 
 bool AddElement(Desk* desk, Element* element);
+
+Element* FindElement(Desk* desk, ElementID id);
 
 DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create = false);
 DeskCell* GetDeskCell(DeskTile* tile, uv2 cell);

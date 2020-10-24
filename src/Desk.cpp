@@ -1,5 +1,23 @@
 #include "Desk.h"
 
+u32 ElementHash(void* arg) {
+    ElementID* id = (ElementID*)arg;
+    // TODO: Actual hashing
+    return id->id;
+}
+
+bool ElementCompare(void* a, void* b) {
+    ElementID* key1 = (ElementID*)a;
+    ElementID* key2 = (ElementID*)b;
+    bool result = key1->id == key2->id;
+    return result;
+}
+
+ElementID GetElementID(Desk* desk) {
+    ElementID id = { ++desk->elementSerialCount };
+    return id;
+}
+
 u32 DeskHash(void* arg) {
     iv2* key = (iv2*)arg;
     // TODO: Reasonable hashing
@@ -29,7 +47,7 @@ bool CanPlaceElement(Desk* desk, iv2 p, iv2 dim) {
             iv2 testP = IV2(p.x + x, p.y + y);
             DeskCell* cell = GetDeskCell(desk, testP, false);
             if (cell) {
-                if (cell->element) {
+                if (cell->element.id) {
                     return false;
                 }
             }
@@ -69,8 +87,8 @@ bool TryRegisterElementPlacement(Desk* desk, Element* element) {
                     iv2 testP = IV2(element->p.cell.x + x, element->p.cell.y + y);
                     DeskCell* cell = GetDeskCell(desk, testP, false);
                     assert(cell);
-                    assert(!cell->element);
-                    cell->element = element;
+                    assert(!cell->element.id);
+                    cell->element = element->id;
                 }
             }
             result = true;
@@ -85,14 +103,17 @@ void UnregisterElementPlcement(Desk* desk, Element* element) {
             // TODO: Optimize. Here is a lot of unnecessary hash lookups!
             iv2 testP = IV2(element->p.cell.x + x, element->p.cell.y + y);
             DeskCell* cell = GetDeskCell(desk, testP, false);
-            assert(cell->element == element);
-            cell->element = nullptr;
+            assert(cell->element.id == element->id.id);
+            cell->element = InvalidElementID;
         }
     }
 }
 
 void InitElement(Desk* desk, Element* element, iv2 p, ElementType type) {
-    memset(element, 0, sizeof(Element));
+    //memset(element, 0, sizeof(Element));
+    ElementID id = GetElementID(desk);
+    element->id = id;
+
     element->p = MakeDeskPosition(p);
     element->type = type;
 
@@ -131,35 +152,48 @@ bool AddElement(Desk* desk, Element* element) {
     bool result = false;
     if (CanPlaceElement(desk, element->p.cell, element->dim)) {
         if (ExpandDeskFor(desk, element->p.cell, element->dim)) {
-            Element* entry = desk->elements.PushBack();
-            *entry = *element;
-            bool registered = TryRegisterElementPlacement(desk, entry);
-            assert(registered);
-            result = true;
+            Element** entry = HashMapAdd(&desk->elementsHashMap, &element->id);
+            if (entry) {
+                if (TryRegisterElementPlacement(desk, element)) {
+                    *entry = element;
+                    result = true;
+                } else {
+                    unreachable();
+                }
+            }
         }
     }
+
     return result;
 }
 
 Element* CreateElement(Desk* desk, iv2 p, ElementType type) {
-    // TODO: Rewrite whole thing!!
-    Element* element = desk->elements.PushBack();
-
-    InitElement(desk, element, p, type);
-
-    if (!TryRegisterElementPlacement(desk, element)) {
-        desk->elements.PopBack();
-        element = nullptr;
+    Element* result = nullptr;
+    Element* element = (Element*)desk->deskAllocator.Alloc(sizeof(Element), true);
+    if (element) {
+        InitElement(desk, element, p, type);
+        if (AddElement(desk, element)) {
+            result = element;
+        }
     }
 
-    return element;
+    return result;
 }
 
 void InitDesk(Desk* desk, PlatformHeap* deskHeap) {
     desk->deskHeap = deskHeap;
     desk->deskAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, deskHeap);
     desk->tileHashMap = HashMap<iv2, DeskTile*, DeskHash, DeskCompare>::Make(desk->deskAllocator);
-    desk->elements.Init(desk->deskAllocator);
+    desk->elementsHashMap = HashMap<ElementID, Element*, ElementHash, ElementCompare>::Make(desk->deskAllocator);
+}
+
+Element* FindElement(Desk* desk, ElementID id) {
+    Element* result = nullptr;
+    Element** bucket = HashMapGet(&desk->elementsHashMap, &id);
+    if (bucket) {
+        result = *bucket;
+    }
+    return result;
 }
 
 DeskTile* CreateDeskTile(Desk* desk, iv2 p) {
@@ -210,10 +244,9 @@ DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create) {
 }
 
 void DrawDesk(Desk* desk, Canvas* canvas) {
-    for (u32 i = 0; i < desk->elements.Count(); i++) {
-        Element& element = desk->elements[i];
-        DrawElement(desk, canvas, &element, 1.0f);
-    }
+    ForEach(&desk->elementsHashMap, [&](auto it) {
+        DrawElement(desk, canvas, *it, 1.0f);
+    });
 }
 
 void DrawElement(Desk* desk, Canvas* canvas, Element* element, f32 alpha) {
