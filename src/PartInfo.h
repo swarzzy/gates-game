@@ -1,6 +1,7 @@
 #pragma once
 
 struct Desk;
+struct Wire;
 
 #define InvalidPartID (PartID {0})
 
@@ -17,10 +18,16 @@ struct NodeID {
     u32 id;
 };
 
+enum struct PinType {
+    Input, Output
+};
+
 struct Pin {
+    PinType type;
     iv2 pRelative;
     NodeID nodeId;
     u8 value;
+    Wire* wire;
 };
 
 struct Part {
@@ -35,8 +42,13 @@ struct Part {
     u32 inputCount;
     u32 outputCount;
 
-    Pin inputs[8];
-    Pin outputs[8];
+    union {
+        struct {
+            Pin inputs[8];
+            Pin outputs[8];
+        };
+        Pin pins[8 + 8];
+    };
 
     v4 activeColor;
     v4 inactiveColor;
@@ -50,11 +62,13 @@ struct PartInfo {
     PartFunctionFn* partFunctions[PartType::_Count];
 };
 
+Wire* WireParts(Desk* desk, Part* part0, Pin* pin0, Part* part1, Pin* pin1);
+
 void PartInfoInit(PartInfo* info);
 
 void InitPart(PartInfo* info, Part* element, iv2 p, PartType type);
 
-Pin CreatePin(i32 xRel, i32 yRel);
+Pin CreatePin(i32 xRel, i32 yRel, PinType type);
 
 inline v4 GetPartColor(Part* element) { return element->active ? element->activeColor : element->inactiveColor; }
 

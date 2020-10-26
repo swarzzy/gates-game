@@ -8,12 +8,6 @@
 struct Desk;
 struct PartID;
 
-enum struct PinType {
-    Input, Output
-};
-
-
-
 struct DeskCell {
     PartID element;
 };
@@ -35,6 +29,14 @@ struct Node {
     u8 value;
 };
 
+struct Wire {
+    u32 index;
+    Pin* pin0;
+    Pin* pin1;
+    DeskPosition p0;
+    DeskPosition p1;
+};
+
 struct Desk {
     DeskPosition origin;
     u32 nodeSerialCount;
@@ -46,6 +48,7 @@ struct Desk {
     // Eventually we will need more appropriate way to store elements
     HashMap<PartID, Part*, PartHash, PartCompare> partsHashMap;
     HashMap<NodeID, Node, NodeHash, NodeCompare> nodeTable;
+    GrowableArray<Wire> wires;
 };
 
 u32 GetPinUID(Desk* desk) {
@@ -81,3 +84,5 @@ bool ExpandDeskFor(Desk* desk, iv2 p, iv2 dim);
 
 void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha);
 void DrawDesk(Desk* desk, Canvas* canvas);
+
+DeskPosition ComputePinPosition(Part* part, Pin* pin);

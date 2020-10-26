@@ -55,6 +55,9 @@ void GameInit() {
 
     source->outputs[0].nodeId = node.id;
     led->inputs[0].nodeId = node.id;
+
+    Wire* wire = WireParts(desk, source, source->outputs, led, led->inputs);
+    assert(wire);
 }
 
 void GameReload() {
@@ -92,10 +95,41 @@ void DebugDrawDeskCell(Desk* desk, Canvas* canvas, DeskPosition p, v4 color) {
     DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
 }
 
-void PartProcessClick(Part* element, DeskPosition mouseP) {
-    switch (element->type) {
+void PinProcessClick(Part* part, u32 pinIndex, MouseButton button) {
+    auto context = GetContext();
+    if (button == MouseButton::Left) {
+        if (!context->pendingWire) {
+            Pin* pin = part->pins + pinIndex;
+            if (!pin->wire) {
+                context->pendingWire = true;
+                context->pendingWireBeginPin = pin;
+                context->pendingWireBeginPart = part;
+            }
+        } else {
+            Pin* pin = part->pins + pinIndex;
+            if (!pin->wire) {
+                context->pendingWire = false;
+                WireParts(&context->desk, context->pendingWireBeginPart, context->pendingWireBeginPin, part, pin);
+            }
+        }
+    } else if (button == MouseButton::Right) {
+        if (context->pendingWire) {
+            context->pendingWire = false;
+        }
+    }
+}
+
+void PartProcessClick(Part* part, DeskPosition mouseP, MouseButton button) {
+    for (u32 i = 0; i < (part->inputCount + part->outputCount); i++) {
+        Pin* pin = part->pins + i;
+        iv2 p = part->p.cell + pin->pRelative;
+        if (p == mouseP.cell) {
+            PinProcessClick(part, i, button);
+        }
+    }
+    switch (part->type) {
     case PartType::Source: {
-        element->active = !element->active;
+        part->active = !part->active;
     } break;
     default: {} break;
     }
@@ -171,13 +205,14 @@ void GameRender() {
     v2 mouseScreen = V2(input->mouseX, input->mouseY);
     v2 mouseCanvas = CanvasProjectScreenPos(deskCanvas, mouseScreen);
     DeskPosition mouseDesk = DeskPositionOffset(desk->origin, mouseCanvas);
-    if (MouseButtonPressed(MouseButton::Left)) {
+    if (MouseButtonPressed(MouseButton::Left) || MouseButtonPressed(MouseButton::Right)) {
+        MouseButton button = MouseButtonPressed(MouseButton::Left) ? MouseButton::Left : MouseButton::Right;
         DeskCell* mouseCell = GetDeskCell(desk, mouseDesk.cell, false);
         if (mouseCell) {
             if (mouseCell->element.id != 0) {
                 Part* element = FindPart(desk, mouseCell->element);
                 if (element) {
-                    PartProcessClick(element, mouseDesk);
+                    PartProcessClick(element, mouseDesk, button);
                 }
                 log_print("Mouse hit cell {%d, %d} with element %lu\n", mouseDesk.cell.x, mouseDesk.cell.y, mouseCell->element.id);
             } else {
@@ -217,7 +252,7 @@ void GameRender() {
         f32 thickness = 1.0f * deskCanvas->cmPerPixel;
         v2 min = V2(DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(x, 0))).x - thickness * 0.5f, 0.0f) - DeskCellHalfSize;
         v2 max = V2(DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(x, 0))).x + thickness * 0.5f, deskCanvas->sizeCm.y) - DeskCellHalfSize;
-        DrawListPushQuadBatch(&deskCanvas->drawList, min, max, 0.0f, V2(0.0f), V2(0.0f), V4(0.6f, 0.6f, 0.6f, 1.0f), 0.0f);
+        DrawListPushRectBatch(&deskCanvas->drawList, min, max, 0.0f, V2(0.0f), V2(0.0f), V4(0.6f, 0.6f, 0.6f, 1.0f), 0.0f);
         vertLines++;
     }
 
@@ -225,7 +260,7 @@ void GameRender() {
         f32 thickness = 1.0f * deskCanvas->cmPerPixel;
         v2 min = V2(0.0f, DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(0, y))).y - thickness * 0.5f) - DeskCellHalfSize;
         v2 max = V2(deskCanvas->sizeCm.x, DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(0, y))).y + thickness * 0.5f) - DeskCellHalfSize;
-        DrawListPushQuadBatch(&deskCanvas->drawList, min, max, 0.0f, V2(0.0f), V2(0.0f), V4(0.6f, 0.6f, 0.6f, 1.0f), 0.0f);
+        DrawListPushRectBatch(&deskCanvas->drawList, min, max, 0.0f, V2(0.0f), V2(0.0f), V4(0.6f, 0.6f, 0.6f, 1.0f), 0.0f);
         horzLines++;
     }
 
@@ -256,6 +291,26 @@ void GameRender() {
     if (context->ghostPartEnabled) {
         DrawPart(desk, deskCanvas, &context->ghostPart, 0.5f);
     }
+
+    // TODO: Culling
+    DrawListBeginBatch(&deskCanvas->drawList, TextureMode::Color);
+    f32 thickness = 0.1f;
+    for (u32 i = 0; i < desk->wires.Count(); i++) {
+        Wire* wire = desk->wires.Begin() + i;
+        v2 begin = DeskPositionRelative(desk->origin, wire->p0);
+        v2 end = DeskPositionRelative(desk->origin, wire->p1);
+        DrawSimpleLineBatch(&deskCanvas->drawList, begin, end, 0.0f, thickness, V4(0.2f, 0.2f, 0.2f, 1.0f));
+    }
+
+    if (context->pendingWire) {
+        DeskPosition p1 = ComputePinPosition(context->pendingWireBeginPart, context->pendingWireBeginPin);
+        v2 lineBeg = DeskPositionRelative(desk->origin, p1);
+        v2 lineEnd = mouseCanvas;
+        DrawSimpleLineBatch(&deskCanvas->drawList, lineBeg, lineEnd, 0.0f, thickness, V4(0.5f, 0.2f, 0.0f, 1.0f));
+    }
+
+    DrawListEndBatch(&deskCanvas->drawList);
+
     EndCanvas(deskCanvas);
 
 

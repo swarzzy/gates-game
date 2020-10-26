@@ -170,6 +170,7 @@ void InitDesk(Desk* desk, PlatformHeap* deskHeap) {
     desk->tileHashMap = HashMap<iv2, DeskTile*, DeskHash, DeskCompare>::Make(desk->deskAllocator);
     desk->partsHashMap = HashMap<PartID, Part*, PartHash, PartCompare>::Make(desk->deskAllocator);
     desk->nodeTable = HashMap<NodeID, Node, NodeHash, NodeCompare>::Make(desk->deskAllocator);
+    desk->wires.Init(desk->deskAllocator);
 }
 
 Part* FindPart(Desk* desk, PartID id) {
@@ -234,6 +235,17 @@ void DrawDesk(Desk* desk, Canvas* canvas) {
     });
 }
 
+DeskPosition ComputePinPosition(Part* part, Pin* pin) {
+    DeskPosition result {};
+    iv2 cell = part->p.cell + pin->pRelative;
+    switch (pin->type) {
+    case PinType::Input: { result = MakeDeskPosition(cell, V2(-DeskCellHalfSize, 0.0f)); } break;
+    case PinType::Output: { result = MakeDeskPosition(cell, V2(DeskCellHalfSize, 0.0f)); } break;
+        invalid_default();
+    }
+    return result;
+}
+
 void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha) {
     DeskPosition maxP = MakeDeskPosition(element->p.cell + element->dim);
     v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(element->p.cell)) - DeskCellHalfSize;
@@ -243,19 +255,19 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha) {
     for (u32 pinIndex = 0; pinIndex < element->inputCount; pinIndex++) {
         Pin* pin = element->inputs + pinIndex;
         v4 color = V4(0.0f, 0.9f, 0.0f, 1.0f);
-        v2 pinPos = DeskPositionRelative(desk->origin, MakeDeskPosition(element->p.cell + pin->pRelative));
-        pinPos.x -= DeskCellHalfSize;
-        v2 pinMin = pinPos - V2(0.1);
-        v2 pinMax = pinPos + V2(0.1);
+        DeskPosition pinPos = ComputePinPosition(element, pin);
+        v2 relPos = DeskPositionRelative(desk->origin, pinPos);
+        v2 pinMin = relPos - V2(0.1);
+        v2 pinMax = relPos + V2(0.1);
         DrawListPushRect(&canvas->drawList, pinMin, pinMax, 0.0f, color);
     }
     for (u32 pinIndex = 0; pinIndex < element->outputCount; pinIndex++) {
         Pin* pin = element->outputs + pinIndex;
         v4 color = V4(0.9f, 0.9f, 0.0f, 1.0f);
-        v2 pinPos = DeskPositionRelative(desk->origin, MakeDeskPosition(element->p.cell + pin->pRelative));
-        pinPos.x += DeskCellHalfSize;
-        v2 pinMin = pinPos - V2(0.1);
-        v2 pinMax = pinPos + V2(0.1);
+        DeskPosition pinPos = ComputePinPosition(element, pin);
+        v2 relPos = DeskPositionRelative(desk->origin, pinPos);
+        v2 pinMin = relPos - V2(0.1);
+        v2 pinMax = relPos + V2(0.1);
         DrawListPushRect(&canvas->drawList, pinMin, pinMax, 0.0f, color);
     }
 }

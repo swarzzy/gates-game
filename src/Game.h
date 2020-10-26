@@ -27,6 +27,9 @@ struct GameContext {
     PartInfo partInfo;
     Part ghostPart;
     b32 ghostPartEnabled;
+    bool pendingWire;
+    Part* pendingWireBeginPart;
+    Pin* pendingWireBeginPin;
 };
 
 void GameInit();

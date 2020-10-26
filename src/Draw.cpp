@@ -32,12 +32,34 @@ forceinline void DrawListPushVertexBatch(DrawList* list, Vertex vertex) {
     list->vertexBuffer.PushBack(vertex);
 }
 
+
 forceinline void DrawListPushIndexBatch(DrawList* list, u32 index) {
     assert(list->pendingCommand);
     list->indexBuffer.PushBack(index);
 }
 
-forceinline void DrawListPushQuadBatch(DrawList* list, v2 min, v2 max, f32 z, v2 uv0, v2 uv1, v4 color, f32 blend) {
+forceinline void DrawListPushQuadBatch(DrawList* list, v2 p0, v2 p1, v2 p2, v2 p3, f32 z, v2 uv0, v2 uv1, v4 color, f32 blend) {
+    assert(list->pendingCommand);
+
+    auto vertexOffset = list->vertexBuffer.Count();
+    list->vertexBuffer.PushBack(Vertex(V3(p0, z), blend, color, V2(uv0.x, uv0.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(p1, z), blend, color, V2(uv1.x, uv0.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(p2, z), blend, color, V2(uv1.x, uv1.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(p3, z), blend, color, V2(uv0.x, uv1.y)));
+
+    auto indexOffset = list->indexBuffer.Count();
+
+    list->indexBuffer.PushBack(vertexOffset + 0);
+    list->indexBuffer.PushBack(vertexOffset + 1);
+    list->indexBuffer.PushBack(vertexOffset + 2);
+    list->indexBuffer.PushBack(vertexOffset + 2);
+    list->indexBuffer.PushBack(vertexOffset + 3);
+    list->indexBuffer.PushBack(vertexOffset + 0);
+}
+
+
+// Leave this unrolled for speed in debug build
+forceinline void DrawListPushRectBatch(DrawList* list, v2 min, v2 max, f32 z, v2 uv0, v2 uv1, v4 color, f32 blend) {
     assert(list->pendingCommand);
 
     auto vertexOffset = list->vertexBuffer.Count();
@@ -56,6 +78,18 @@ forceinline void DrawListPushQuadBatch(DrawList* list, v2 min, v2 max, f32 z, v2
     list->indexBuffer.PushBack(vertexOffset + 0);
 }
 
+forceinline void DrawSimpleLineBatch(DrawList* list, v2 begin, v2 end, f32 z, f32 thickness, v4 color) {
+    v2 vec = Normalize(end - begin);
+    v2 perp = Perp(vec);
+    v2 offset = perp * thickness * 0.5f;
+
+    v2 p0 = begin + offset;
+    v2 p1 = begin - offset;
+    v2 p2 = end - offset;
+    v2 p3 = end + offset;
+
+    DrawListPushQuadBatch(list, p0, p1, p2, p3, z, {}, {}, color, 0.0f);
+}
 
 void DrawListEndBatch(DrawList* list) {
     assert(list->pendingCommand);
@@ -104,6 +138,7 @@ void DrawListPushRect(DrawList* list, v2 min, v2 max, f32 z, v4 color) {
 }
 
 
+// TODO: Maybe typo on texture mode here?
 void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, TextureID texture) {
     DrawListPushQuad(list, lb, rb, rt, lt, V2(0.0f), V2(1.0f, 0.0f), V2(1.0f), V2(0.0f, 1.0f), z, {}, texture, 1.0f, TextureMode::Color);
 }
@@ -118,7 +153,7 @@ forceinline void PushGlyphInternal(DrawList* list, GlyphInfo* glyph, v3 p, v2 pi
 
     v2 min = Hadamard(V2(p.x + glyph->quadMin.x * fontScale, p.y - glyph->quadMax.y * fontScale), pixelSize);
     v2 max = Hadamard(V2(p.x + glyph->quadMax.x * fontScale, p.y - glyph->quadMin.y * fontScale), pixelSize);
-    DrawListPushQuadBatch(list, min, max, p.z, minUV, maxUV, color, 1.0f);
+    DrawListPushRectBatch(list, min, max, p.z, minUV, maxUV, color, 1.0f);
 }
 
 forceinline GlyphInfo* GetGlyph(Font* font, u16 codepoint) {

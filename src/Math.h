@@ -170,6 +170,11 @@ constexpr m4x4 M4x4(f32 diag) { m4x4 result = {};  result._11 = diag; result._22
 m3x3 M3x3(m4x4 m) { m3x3 result; result._11 = m._11; result._12 = m._12; result._13 = m._13; result._21 = m._21; result._22 = m._22; result._23 = m._23; result._31 = m._31; result._32 = m._32; result._33 = m._33; return result; }
 m4x4 M4x4(m3x3 m) { m4x4 result = {}; result._11 = m._11; result._12 = m._12; result._13 = m._13; result._21 = m._21; result._22 = m._22; result._23 = m._23; result._31 = m._31; result._32 = m._32; result._33 = m._33; result._44 = 1.0f; return result; }
 
+v2 Perp(v2 v) {
+    v2 result = {-v.y, v.x};
+    return result;
+}
+
 template <typename T, u32 Size>
 bool operator==(Vector<T, Size> l, Vector<T, Size> r) {
     bool result = true;
