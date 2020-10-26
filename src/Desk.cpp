@@ -1,20 +1,33 @@
 #include "Desk.h"
 
-u32 ElementHash(void* arg) {
-    ElementID* id = (ElementID*)arg;
+u32 PartHash(void* arg) {
+    PartID* id = (PartID*)arg;
     // TODO: Actual hashing
     return id->id;
 }
 
-bool ElementCompare(void* a, void* b) {
-    ElementID* key1 = (ElementID*)a;
-    ElementID* key2 = (ElementID*)b;
+bool PartCompare(void* a, void* b) {
+    PartID* key1 = (PartID*)a;
+    PartID* key2 = (PartID*)b;
     bool result = key1->id == key2->id;
     return result;
 }
 
-ElementID GetElementID(Desk* desk) {
-    ElementID id = { ++desk->elementSerialCount };
+u32 NodeHash(void* arg) {
+    PartID* id = (PartID*)arg;
+    // TODO: Actual hashing
+    return id->id;
+}
+
+bool NodeCompare(void* a, void* b) {
+    NodeID* key1 = (NodeID*)a;
+    NodeID* key2 = (NodeID*)b;
+    bool result = key1->id == key2->id;
+    return result;
+}
+
+NodeID GetNodeID(Desk* desk) {
+    NodeID id = { ++desk->nodeSerialCount };
     return id;
 }
 
@@ -32,15 +45,24 @@ bool DeskCompare(void* a, void* b) {
     return result;
 }
 
-ElementPin CreateElementPin(Desk* desk, iv2 relP, PinType type) {
-    ElementPin pin {};
-    pin.type = type;
-    pin.relativeP = relP;
-    pin.uid = GetPinUID(desk);
-    return pin;
+AddNodeResult AddNode(Desk* desk) {
+    AddNodeResult result {};
+    NodeID id = GetNodeID(desk);
+    Node* entry = HashMapAdd(&desk->nodeTable, &id);
+    if (entry) {
+        memset(entry, 0, sizeof(Node));
+        result.id = id;
+        result.node = entry;
+    }
+    return result;
 }
 
-bool CanPlaceElement(Desk* desk, iv2 p, iv2 dim) {
+Node* FindNode(Desk* desk, NodeID id) {
+    Node* result = HashMapGet(&desk->nodeTable, &id);
+    return result;
+}
+
+bool CanPlacePart(Desk* desk, iv2 p, iv2 dim) {
     for (i32 y = 0; y < dim.y; y++) {
         for (i32 x = 0; x < dim.x; x++) {
             // TODO: Optimize. Here is a lot of unnecessary hash lookups!
@@ -77,9 +99,9 @@ bool ExpandDeskFor(Desk* desk, iv2 p, iv2 dim) {
     return result;
 }
 
-bool TryRegisterElementPlacement(Desk* desk, Element* element) {
+bool TryRegisterPartPlacement(Desk* desk, Part* element) {
     bool result = false;
-    if (CanPlaceElement(desk, element->p.cell, element->dim)) {
+    if (CanPlacePart(desk, element->p.cell, element->dim)) {
         if (ExpandDeskFor(desk, element->p.cell, element->dim)) {
             for (i32 y = 0; y < element->dim.y; y++) {
                 for (i32 x = 0; x < element->dim.x; x++) {
@@ -97,64 +119,26 @@ bool TryRegisterElementPlacement(Desk* desk, Element* element) {
     return result;
 }
 
-void UnregisterElementPlcement(Desk* desk, Element* element) {
+void UnregisterPartPlcement(Desk* desk, Part* element) {
     for (i32 y = 0; y < element->dim.y; y++) {
         for (i32 x = 0; x < element->dim.x; x++) {
             // TODO: Optimize. Here is a lot of unnecessary hash lookups!
             iv2 testP = IV2(element->p.cell.x + x, element->p.cell.y + y);
             DeskCell* cell = GetDeskCell(desk, testP, false);
             assert(cell->element.id == element->id.id);
-            cell->element = InvalidElementID;
+            cell->element = InvalidPartID;
         }
     }
 }
 
-void InitElement(Desk* desk, Element* element, iv2 p, ElementType type) {
-    //memset(element, 0, sizeof(Element));
-    ElementID id = GetElementID(desk);
-    element->id = id;
 
-    element->p = MakeDeskPosition(p);
-    element->type = type;
-
-    switch (element->type) {
-    case ElementType::And: {
-        element->color = V4(0.4f, 0.6f, 0.0f, 1.0f);
-        element->dim = IV2(2, 3);
-        element->inputs[0] = CreateElementPin(desk, IV2(0, 1), PinType::Input);
-        element->inputs[1] = CreateElementPin(desk, IV2(0, 2), PinType::Input);
-        element->outputs[0] = CreateElementPin(desk, IV2(2, 2), PinType::Output);
-        element->inputCount = 2;
-        element->outputCount = 1;
-    } break;
-    case ElementType::Or: {
-        element->color = V4(0.0f, 0.0f, 0.6f, 1.0f);
-        element->dim = IV2(2, 3);
-        element->inputs[0] = CreateElementPin(desk, IV2(0, 1), PinType::Input);
-        element->inputs[1] = CreateElementPin(desk, IV2(0, 2), PinType::Input);
-        element->outputs[0] = CreateElementPin(desk, IV2(2, 2), PinType::Output);
-        element->inputCount = 2;
-        element->outputCount = 1;
-    } break;
-    case ElementType::Not: {
-        element->color = V4(0.6f, 0.0f, 0.0f, 1.0f);
-        element->dim = IV2(2, 2);
-        element->inputs[0] = CreateElementPin(desk, IV2(0, 1), PinType::Input);
-        element->outputs[0] = CreateElementPin(desk, IV2(2, 1), PinType::Output);
-        element->inputCount = 1;
-        element->outputCount = 1;
-    } break;
-        invalid_default();
-    }
-}
-
-bool AddElement(Desk* desk, Element* element) {
+bool AddPart(Desk* desk, Part* element) {
     bool result = false;
-    if (CanPlaceElement(desk, element->p.cell, element->dim)) {
+    if (CanPlacePart(desk, element->p.cell, element->dim)) {
         if (ExpandDeskFor(desk, element->p.cell, element->dim)) {
-            Element** entry = HashMapAdd(&desk->elementsHashMap, &element->id);
+            Part** entry = HashMapAdd(&desk->partsHashMap, &element->id);
             if (entry) {
-                if (TryRegisterElementPlacement(desk, element)) {
+                if (TryRegisterPartPlacement(desk, element)) {
                     *entry = element;
                     result = true;
                 } else {
@@ -167,12 +151,12 @@ bool AddElement(Desk* desk, Element* element) {
     return result;
 }
 
-Element* CreateElement(Desk* desk, iv2 p, ElementType type) {
-    Element* result = nullptr;
-    Element* element = (Element*)desk->deskAllocator.Alloc(sizeof(Element), true);
+Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type) {
+    Part* result = nullptr;
+    Part* element = (Part*)desk->deskAllocator.Alloc(sizeof(Part), true);
     if (element) {
-        InitElement(desk, element, p, type);
-        if (AddElement(desk, element)) {
+        InitPart(info, element, p, type);
+        if (AddPart(desk, element)) {
             result = element;
         }
     }
@@ -184,12 +168,13 @@ void InitDesk(Desk* desk, PlatformHeap* deskHeap) {
     desk->deskHeap = deskHeap;
     desk->deskAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, deskHeap);
     desk->tileHashMap = HashMap<iv2, DeskTile*, DeskHash, DeskCompare>::Make(desk->deskAllocator);
-    desk->elementsHashMap = HashMap<ElementID, Element*, ElementHash, ElementCompare>::Make(desk->deskAllocator);
+    desk->partsHashMap = HashMap<PartID, Part*, PartHash, PartCompare>::Make(desk->deskAllocator);
+    desk->nodeTable = HashMap<NodeID, Node, NodeHash, NodeCompare>::Make(desk->deskAllocator);
 }
 
-Element* FindElement(Desk* desk, ElementID id) {
-    Element* result = nullptr;
-    Element** bucket = HashMapGet(&desk->elementsHashMap, &id);
+Part* FindPart(Desk* desk, PartID id) {
+    Part* result = nullptr;
+    Part** bucket = HashMapGet(&desk->partsHashMap, &id);
     if (bucket) {
         result = *bucket;
     }
@@ -244,28 +229,33 @@ DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create) {
 }
 
 void DrawDesk(Desk* desk, Canvas* canvas) {
-    ForEach(&desk->elementsHashMap, [&](auto it) {
-        DrawElement(desk, canvas, *it, 1.0f);
+    ForEach(&desk->partsHashMap, [&](auto it) {
+        DrawPart(desk, canvas, *it, 1.0f);
     });
 }
 
-void DrawElement(Desk* desk, Canvas* canvas, Element* element, f32 alpha) {
+void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha) {
     DeskPosition maxP = MakeDeskPosition(element->p.cell + element->dim);
-    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(element->p.cell));
-    v2 max = DeskPositionRelative(desk->origin, maxP);
-    DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(element->color.xyz, alpha));
+    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(element->p.cell)) - DeskCellHalfSize;
+    v2 max = DeskPositionRelative(desk->origin, maxP) - DeskCellHalfSize;
+    v4 color = V4(GetPartColor(element).xyz, alpha);
+    DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
     for (u32 pinIndex = 0; pinIndex < element->inputCount; pinIndex++) {
-        ElementPin* pin = element->inputs + pinIndex;
-        v4 color = GetPinColor(pin->type);
-        v2 pinMin = V2(pin->relativeP) * DeskCellSize + min - V2(0.1);
-        v2 pinMax = V2(pin->relativeP) * DeskCellSize + min + V2(0.1);
+        Pin* pin = element->inputs + pinIndex;
+        v4 color = V4(0.0f, 0.9f, 0.0f, 1.0f);
+        v2 pinPos = DeskPositionRelative(desk->origin, MakeDeskPosition(element->p.cell + pin->pRelative));
+        pinPos.x -= DeskCellHalfSize;
+        v2 pinMin = pinPos - V2(0.1);
+        v2 pinMax = pinPos + V2(0.1);
         DrawListPushRect(&canvas->drawList, pinMin, pinMax, 0.0f, color);
     }
     for (u32 pinIndex = 0; pinIndex < element->outputCount; pinIndex++) {
-        ElementPin* pin = element->outputs + pinIndex;
-        v4 color = V4(GetPinColor(pin->type).xyz, alpha);
-        v2 pinMin = V2(pin->relativeP) * DeskCellSize + min - V2(0.1);
-        v2 pinMax = V2(pin->relativeP) * DeskCellSize + min + V2(0.1);
+        Pin* pin = element->outputs + pinIndex;
+        v4 color = V4(0.9f, 0.9f, 0.0f, 1.0f);
+        v2 pinPos = DeskPositionRelative(desk->origin, MakeDeskPosition(element->p.cell + pin->pRelative));
+        pinPos.x += DeskCellHalfSize;
+        v2 pinMin = pinPos - V2(0.1);
+        v2 pinMax = pinPos + V2(0.1);
         DrawListPushRect(&canvas->drawList, pinMin, pinMax, 0.0f, color);
     }
 }

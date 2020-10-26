@@ -2,6 +2,8 @@
 #undef UNICODE
 #undef _UNICODE
 
+#include "Desk.h"
+
 CodepointRange ranges[2];
 f32 DefaultFontHeight = 24.0f;
 
@@ -36,12 +38,23 @@ void GameInit() {
     context->sdfFont.atlas = sdfFontAtlas;
 
     auto desk = &context->desk;
+    auto partInfo = &context->partInfo;
 
     InitDesk(desk, context->mainHeap);
+    PartInfoInit(&context->partInfo);
 
-    CreateElement(desk, IV2(2, 2), ElementType::And);
-    CreateElement(desk, IV2(6, 10), ElementType::Or);
-    CreateElement(desk, IV2(-6, -10), ElementType::Not);
+    CreatePart(desk, partInfo, IV2(2, 2), PartType::And);
+    CreatePart(desk, partInfo, IV2(6, 10), PartType::Or);
+    CreatePart(desk, partInfo, IV2(-6, -10), PartType::Not);
+
+    Part* source = CreatePart(desk, partInfo, IV2(10, 10), PartType::Source);
+    Part* led = CreatePart(desk, partInfo, IV2(20, 10), PartType::Led);
+
+    auto node = AddNode(desk);
+    assert(node.id.id);
+
+    source->outputs[0].nodeId = node.id;
+    led->inputs[0].nodeId = node.id;
 }
 
 void GameReload() {
@@ -49,16 +62,6 @@ void GameReload() {
 
 void GameUpdate() {
 
-}
-
-v4 GetPinColor(PinType type) {
-    v4 color {};
-    switch (type) {
-    case PinType::Input: { color = V4(0.0f, 0.9f, 0.0f, 1.0f); } break;
-    case PinType::Output: { color = V4(0.9f, 0.9f, 0.0f, 1.0f); } break;
-        invalid_default();
-    }
-    return color;
 }
 
 void DebugDrawDesk(Desk* desk, Canvas* canvas) {
@@ -70,16 +73,31 @@ void DebugDrawDesk(Desk* desk, Canvas* canvas) {
             iv2 p = IV2(x, y);
             DeskCell* cell = GetDeskCell(desk, p, false);
             if (cell && cell->element.id) {
-#if false
-                Element* element = FindElement(desk, cell->element);
+#if 1
+                Part* element = FindPart(desk, cell->element);
                 if (element) {
                     v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(p));
                     v2 max = DeskPositionRelative(desk->origin, MakeDeskPosition(p + 1));
-                    DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(element->color.xyz, 1.0f));
+                    DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(GetPartColor(element).xyz, 1.0f));
                 }
 #endif
             }
         }
+    }
+}
+
+void DebugDrawDeskCell(Desk* desk, Canvas* canvas, DeskPosition p, v4 color) {
+    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(p.cell)) - DeskCellHalfSize;
+    v2 max = DeskPositionRelative(desk->origin, MakeDeskPosition(p.cell + 1)) - DeskCellHalfSize;
+    DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
+}
+
+void PartProcessClick(Part* element, DeskPosition mouseP) {
+    switch (element->type) {
+    case PartType::Source: {
+        element->active = !element->active;
+    } break;
+    default: {} break;
     }
 }
 
@@ -90,6 +108,7 @@ void GameRender() {
 
     auto deskCanvas = &context->deskCanvas;
     auto desk = &context->desk;
+    auto partInfo = &context->partInfo;
 
     f32 scaleSpeed = 0.1f;
 
@@ -105,40 +124,68 @@ void GameRender() {
     v2 scaleOffset = mousePosition - mousePBeforeScale;
     desk->origin = DeskPositionOffset(desk->origin, -scaleOffset);
 
-    if (MouseButtonPressed(MouseButton::Right) && context->ghostElementEnabled) {
-        context->ghostElementEnabled = false;
+    if (MouseButtonPressed(MouseButton::Right) && context->ghostPartEnabled) {
+        context->ghostPartEnabled = false;
     }
 
     if (KeyPressed(Key::_1)) {
-        memset(&context->ghostElement, 0, sizeof(Element));
-        InitElement(desk, &context->ghostElement, IV2(0), ElementType::And);
-        context->ghostElementEnabled = true;
+        memset(&context->ghostPart, 0, sizeof(Part));
+        InitPart(partInfo, &context->ghostPart, IV2(0), PartType::And);
+        context->ghostPartEnabled = true;
     } else if (KeyPressed(Key::_2)) {
-        memset(&context->ghostElement, 0, sizeof(Element));
-        InitElement(desk, &context->ghostElement, IV2(0), ElementType::Or);
-        context->ghostElementEnabled = true;
+        memset(&context->ghostPart, 0, sizeof(Part));
+        InitPart(partInfo, &context->ghostPart, IV2(0), PartType::Or);
+        context->ghostPartEnabled = true;
     } else if (KeyPressed(Key::_3)) {
-        memset(&context->ghostElement, 0, sizeof(Element));
-        InitElement(desk, &context->ghostElement, IV2(0), ElementType::Not);
-        context->ghostElementEnabled = true;
+        memset(&context->ghostPart, 0, sizeof(Part));
+        InitPart(partInfo, &context->ghostPart, IV2(0), PartType::Not);
+        context->ghostPartEnabled = true;
+    } else if (KeyPressed(Key::_4)) {
+        memset(&context->ghostPart, 0, sizeof(Part));
+        InitPart(partInfo, &context->ghostPart, IV2(0), PartType::Led);
+        context->ghostPartEnabled = true;
+    } else if (KeyPressed(Key::_5)) {
+        memset(&context->ghostPart, 0, sizeof(Part));
+        InitPart(partInfo, &context->ghostPart, IV2(0), PartType::Source);
+        context->ghostPartEnabled = true;
     }
 
-    if (context->ghostElementEnabled) {
+    if (context->ghostPartEnabled) {
         DeskPosition mouseDeskP = DeskPositionOffset(desk->origin, mousePosition);
-        DeskPosition offP = DeskPositionOffset(mouseDeskP, -V2(context->ghostElement.dim) * 0.5f * DeskCellSize);
-        context->ghostElement.p = offP;
+        DeskPosition offP = DeskPositionOffset(mouseDeskP, -V2(context->ghostPart.dim) * 0.5f * DeskCellSize);
+        context->ghostPart.p = offP;
 
         if (MouseButtonPressed(MouseButton::Left)) {
-            Element* clone = (Element*)desk->deskAllocator.Alloc(sizeof(Element), false);
-            memcpy(clone, &context->ghostElement, sizeof(Element));
-            AddElement(desk, clone);
-            InitElement(desk, &context->ghostElement, context->ghostElement.p.cell, context->ghostElement.type);
+            Part* clone = (Part*)desk->deskAllocator.Alloc(sizeof(Part), false);
+            memcpy(clone, &context->ghostPart, sizeof(Part));
+            AddPart(desk, clone);
+            InitPart(partInfo, &context->ghostPart, context->ghostPart.p.cell, context->ghostPart.type);
         }
 
         if (MouseButtonPressed(MouseButton::Right)) {
-            context->ghostElementEnabled = false;
+            context->ghostPartEnabled = false;
         }
     }
+
+    // raycast
+    v2 mouseScreen = V2(input->mouseX, input->mouseY);
+    v2 mouseCanvas = CanvasProjectScreenPos(deskCanvas, mouseScreen);
+    DeskPosition mouseDesk = DeskPositionOffset(desk->origin, mouseCanvas);
+    if (MouseButtonPressed(MouseButton::Left)) {
+        DeskCell* mouseCell = GetDeskCell(desk, mouseDesk.cell, false);
+        if (mouseCell) {
+            if (mouseCell->element.id != 0) {
+                Part* element = FindPart(desk, mouseCell->element);
+                if (element) {
+                    PartProcessClick(element, mouseDesk);
+                }
+                log_print("Mouse hit cell {%d, %d} with element %lu\n", mouseDesk.cell.x, mouseDesk.cell.y, mouseCell->element.id);
+            } else {
+                log_print("Mouse hit cell {%d, %d}\n", mouseDesk.cell.x, mouseDesk.cell.y);
+            }
+        }
+    }
+
 
     DEBUG_OVERLAY_TRACE(deskCanvas->sizeCm.x);
     DEBUG_OVERLAY_TRACE(deskCanvas->sizeCm.y);
@@ -154,6 +201,8 @@ void GameRender() {
         //context->deskPosition += Hadamard(V2(input->mouseFrameOffsetX, input->mouseFrameOffsetY), deskCanvas->sizeCm);
     }
 
+    DebugDrawDeskCell(desk, deskCanvas, mouseDesk, V4(1.0f, 0.0f, 0.0f, 1.0f));
+
     DeskPosition begin = desk->origin;
     DeskPosition end = DeskPositionOffset(desk->origin, deskCanvas->sizeCm);
 
@@ -166,16 +215,16 @@ void GameRender() {
 
     for (i32 x = begin.cell.x - 1; x != (end.cell.x + 1); x++) {
         f32 thickness = 1.0f * deskCanvas->cmPerPixel;
-        v2 min = V2(DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(x, 0))).x - thickness * 0.5f, 0.0f);
-        v2 max = V2(DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(x, 0))).x + thickness * 0.5f, deskCanvas->sizeCm.y);
+        v2 min = V2(DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(x, 0))).x - thickness * 0.5f, 0.0f) - DeskCellHalfSize;
+        v2 max = V2(DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(x, 0))).x + thickness * 0.5f, deskCanvas->sizeCm.y) - DeskCellHalfSize;
         DrawListPushQuadBatch(&deskCanvas->drawList, min, max, 0.0f, V2(0.0f), V2(0.0f), V4(0.6f, 0.6f, 0.6f, 1.0f), 0.0f);
         vertLines++;
     }
 
     for (i32 y = begin.cell.y - 1; y != (end.cell.y + 1); y++) {
         f32 thickness = 1.0f * deskCanvas->cmPerPixel;
-        v2 min = V2(0.0f, DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(0, y))).y - thickness * 0.5f);
-        v2 max = V2(deskCanvas->sizeCm.x, DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(0, y))).y + thickness * 0.5f);
+        v2 min = V2(0.0f, DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(0, y))).y - thickness * 0.5f) - DeskCellHalfSize;
+        v2 max = V2(deskCanvas->sizeCm.x, DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(0, y))).y + thickness * 0.5f) - DeskCellHalfSize;
         DrawListPushQuadBatch(&deskCanvas->drawList, min, max, 0.0f, V2(0.0f), V2(0.0f), V4(0.6f, 0.6f, 0.6f, 1.0f), 0.0f);
         horzLines++;
     }
@@ -188,14 +237,24 @@ void GameRender() {
     DEBUG_OVERLAY_TRACE(desk->origin.cell.x);
     DEBUG_OVERLAY_TRACE(desk->origin.cell.y);
 
+    ForEach(&desk->partsHashMap, [&](Part** it) {
+        PartGatherSignals(desk, *it);
+    });
+    ForEach(&desk->partsHashMap, [&](Part** it) {
+        PartProcessSignals(partInfo, *it);
+    });
+    ForEach(&desk->partsHashMap, [&](Part** it) {
+        PartPropagateSignals(desk, *it);
+    });
+
     switch (context->drawMode) {
     case DrawMode::Normal: { DrawDesk(desk, deskCanvas); } break;
     case DrawMode::DeskDebug: { DebugDrawDesk(desk, deskCanvas); } break;
     invalid_default();
     }
 
-    if (context->ghostElementEnabled) {
-        DrawElement(desk, deskCanvas, &context->ghostElement, 0.5f);
+    if (context->ghostPartEnabled) {
+        DrawPart(desk, deskCanvas, &context->ghostPart, 0.5f);
     }
     EndCanvas(deskCanvas);
 

@@ -27,6 +27,11 @@ void BeginCanvas(Canvas* canvas) {
     //canvas->pixelSize.y = canvas->size.y / hWindow;
 }
 
+v2 CanvasProjectScreenPos(Canvas* canvas, v2 normalizedScreenPos) {
+    v2 result = Hadamard(normalizedScreenPos, canvas->sizeCm);
+    return result;
+}
+
 void EndCanvas(Canvas* canvas) {
     Renderer.RenderDrawList(&canvas->drawList);
     DrawListClear(&canvas->drawList);

@@ -44,6 +44,14 @@ DeskPosition DeskPositionNormalize(DeskPosition p) {
     return result;
 }
 
+DeskPosition DeskPositionAdd(DeskPosition a, DeskPosition b) {
+    DeskPosition result = a;
+    result.cell += b.cell;
+    result.offset += b.offset;
+    result = DeskPositionNormalize(result);
+    return result;
+}
+
 DeskPosition MakeDeskPosition(v2 offset) {
     DeskPosition result = DeskPositionNormalize(MakeDeskPosition({}, offset));
     return result;

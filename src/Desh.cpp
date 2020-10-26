@@ -1,5 +1,18 @@
 #include "Desk.h"
 
+u32 ElementHash(void* arg) {
+    ElementID* id = (ElementID*)arg;
+    // TODO: Actual hashing
+    return id->id;
+}
+
+bool ElementCompare(void* a, void* b) {
+    ElementID* key1 = (ElementID*)a;
+    ElementID* key2 = (ElementID*)b;
+    bool result = key1->id == key2->id;
+    return result
+}
+
 u32 DeskHash(void* arg) {
     iv2* key = (iv2*)arg;
     // TODO: Reasonable hashing
@@ -12,6 +25,11 @@ bool DeskCompare(void* a, void* b) {
     iv2* key2 = (iv2*)b;
     bool result = (key1.x == key2.x) && (key1.y == key2.y);
     return result;
+}
+
+ElementID GetElementID(Desk* desk) {
+    ElementID id = { desk->elementSerialCount++ };
+    return id;
 }
 
 ElementPin CreateElementPin(Desk* desk, iv2 relP, PinType type) {
@@ -140,6 +158,7 @@ void InitDesk(Desk* desk, PlatformHeap* deskHeap) {
     desk->heap = deskHeap;
     desk->deskAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, deskHeap);
     desk->tileHashMap = HashMap<iv3, DeskTile*, DeshHash, DeskCompare>::Make(desk->deskAllocator);
+    desk->elementsHashMap = HashMap<ElementID, Element* ElementHash, ElementCompare>::Make(desk->deskAllocator);
 }
 
 DeskTile* CreateDeskTile(Desk* desk, iv2 p) {

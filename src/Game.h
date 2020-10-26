@@ -24,8 +24,9 @@ struct GameContext {
     Font font;
     Font sdfFont;
     Desk desk;
-    Element ghostElement;
-    b32 ghostElementEnabled;
+    PartInfo partInfo;
+    Part ghostPart;
+    b32 ghostPartEnabled;
 };
 
 void GameInit();
