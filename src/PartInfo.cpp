@@ -38,9 +38,9 @@ void PartInfoInit(PartInfo* info) {
     andBlank->dim = IV2(3, 5);
     andBlank->inputCount = 2;
     andBlank->outputCount = 1;
-    andBlank->inputs[0] = CreatePin(0, 1, PinType::Input);
-    andBlank->inputs[1] = CreatePin(0, 3, PinType::Input);
-    andBlank->outputs[0] = CreatePin(2, 3, PinType::Output);
+    andBlank->inputs[0] = CreatePin(andBlank, -1, 1, PinType::Input);
+    andBlank->inputs[1] = CreatePin(andBlank, -1, 3, PinType::Input);
+    andBlank->outputs[0] = CreatePin(andBlank, 3, 3, PinType::Output);
     andBlank->activeColor = V4(0.4f, 0.6f, 0.0f, 1.0f);
     andBlank->inactiveColor = V4(0.4f, 0.6f, 0.0f, 1.0f);
 
@@ -49,9 +49,9 @@ void PartInfoInit(PartInfo* info) {
     orBlank->dim = IV2(3, 5);
     orBlank->inputCount = 2;
     orBlank->outputCount = 1;
-    orBlank->inputs[0] = CreatePin(0, 1, PinType::Input);
-    orBlank->inputs[1] = CreatePin(0, 3, PinType::Input);
-    orBlank->outputs[0] = CreatePin(2, 3, PinType::Output);
+    orBlank->inputs[0] = CreatePin(orBlank, -1, 1, PinType::Input);
+    orBlank->inputs[1] = CreatePin(orBlank, -1, 3, PinType::Input);
+    orBlank->outputs[0] = CreatePin(orBlank, 3, 3, PinType::Output);
     orBlank->activeColor = V4(0.0f, 0.0f, 0.6f, 1.0f);
     orBlank->inactiveColor = V4(0.0f, 0.0f, 0.6f, 1.0f);
 
@@ -60,8 +60,8 @@ void PartInfoInit(PartInfo* info) {
     notBlank->dim = IV2(3, 3);
     notBlank->inputCount = 1;
     notBlank->outputCount = 1;
-    notBlank->inputs[0] = CreatePin(0, 1, PinType::Input);
-    notBlank->outputs[0] = CreatePin(2, 1, PinType::Output);
+    notBlank->inputs[0] = CreatePin(notBlank, -1, 1, PinType::Input);
+    notBlank->outputs[0] = CreatePin(notBlank, 3, 1, PinType::Output);
     notBlank->activeColor = V4(0.6f, 0.0f, 0.0f, 1.0f);
     notBlank->inactiveColor = V4(0.6f, 0.0f, 0.0f, 1.0f);
 
@@ -69,7 +69,7 @@ void PartInfoInit(PartInfo* info) {
     ledBlank->type = PartType::Led;
     ledBlank->dim = IV2(3, 3);
     ledBlank->inputCount = 1;
-    ledBlank->inputs[0] = CreatePin(0, 1, PinType::Input);
+    ledBlank->inputs[0] = CreatePin(ledBlank, -1, 1, PinType::Input);
     ledBlank->activeColor = V4(0.9f, 0.0f, 0.0f, 1.0f);
     ledBlank->inactiveColor = V4(0.1f, 0.1f, 0.1f, 1.0f);
 
@@ -77,7 +77,7 @@ void PartInfoInit(PartInfo* info) {
     sourceBlank->type = PartType::Source;
     sourceBlank->dim = IV2(3, 3);
     sourceBlank->outputCount = 1;
-    sourceBlank->outputs[0] = CreatePin(2, 1, PinType::Output);
+    sourceBlank->outputs[0] = CreatePin(sourceBlank, 3, 1, PinType::Output);
     sourceBlank->activeColor = V4(0.7f, 0.7f, 0.0f, 1.0f);
     sourceBlank->inactiveColor = V4(0.0f, 0.0f, 0.5f, 1.0f);
 
@@ -93,10 +93,14 @@ PartID GetPartID(PartInfo* info) {
     return id;
 }
 
-void InitPart(PartInfo* info, Part* element, iv2 p, PartType type) {
-    *element = info->partBlanks[(u32)type];
-    element->id = GetPartID(info);
-    element->p = DeskPositionNormalize(MakeDeskPosition(p));
+void InitPart(PartInfo* info, Part* part, iv2 p, PartType type) {
+    *part = info->partBlanks[(u32)type];
+    part->id = GetPartID(info);
+    part->p = DeskPositionNormalize(MakeDeskPosition(p));
+    for (u32 i = 0; i < (array_count(part->inputs) + array_count(part->outputs)); i++) {
+        Pin* pin = part->pins + i;
+        pin->part = part;
+    }
 }
 
 void PartProcessSignals(PartInfo* info, Part* part) {
@@ -106,23 +110,24 @@ void PartProcessSignals(PartInfo* info, Part* part) {
     partFn(part);
 }
 
-Pin CreatePin(i32 xRel, i32 yRel, PinType type) {
+Pin CreatePin(Part* part, i32 xRel, i32 yRel, PinType type) {
     Pin pin {};
     pin.type = type;
+    pin.part = part;
     pin.pRelative = IV2(xRel, yRel);
     return pin;
 }
 
-Wire* WireParts(Desk* desk, Part* part0, Pin* pin0, Part* part1, Pin* pin1) {
+Wire* WirePins(Desk* desk, Pin* pin0, Pin* pin1) {
     Wire* result = nullptr;
     Wire* wire = desk->wires.PushBack();
     if (wire) {
         pin0->wire = wire;
         pin1->wire = wire;
         wire->pin0 = pin0;
-        wire->p0 = ComputePinPosition(part0, pin0);
+        wire->p0 = ComputePinPosition(pin0);
         wire->pin1 = pin1;
-        wire->p1 = ComputePinPosition(part1, pin1);
+        wire->p1 = ComputePinPosition(pin1);
         result = wire;
     }
     return result;

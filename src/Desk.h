@@ -7,9 +7,19 @@
 
 struct Desk;
 struct PartID;
+struct Wire;
+
+enum struct CellValue : u32 {
+    Empty = 0, Part, Pin, Wire
+};
 
 struct DeskCell {
-    PartID element;
+    CellValue value;
+    union {
+        Part* part;
+        Pin* pin;
+        Wire* wire;
+    };
 };
 
 struct DeskTile {
@@ -27,6 +37,11 @@ bool NodeCompare(void* a, void* b);
 
 struct Node {
     u8 value;
+};
+
+struct IRect {
+    iv2 min;
+    iv2 max;
 };
 
 struct Wire {
@@ -77,14 +92,14 @@ DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create = false);
 DeskCell* GetDeskCell(DeskTile* tile, uv2 cell);
 DeskTile* GetDeskTile(Desk* desk, iv2 tileP, bool create = false);
 
+IRect CalcPartBoundingBox(Part* part);
 bool TryRegisterPartPlacement(Desk* desk, Part* element);
 void UnregisterPartPlcement(Desk* desk, Part* element);
-bool CanPlacePart(Desk* desk, iv2 p, iv2 dim);
-bool ExpandDeskFor(Desk* desk, iv2 p, iv2 dim);
+bool CanPlacePart(Desk* desk, IRect box);
+bool ExpandDeskFor(Desk* desk, IRect box);
 
 void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha);
 void DrawDesk(Desk* desk, Canvas* canvas);
 
-DeskPosition ComputePinPosition(Part* part, Pin* pin);
-
+DeskPosition ComputePinPosition(Pin* pin);
 void PropagateSignals(Desk* desk);

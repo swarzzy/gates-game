@@ -56,7 +56,7 @@ void GameInit() {
     source->outputs[0].nodeId = node.id;
     led->inputs[0].nodeId = node.id;
 
-    Wire* wire = WireParts(desk, source, source->outputs, led, led->inputs);
+    Wire* wire = WirePins(desk, source->outputs, led->inputs);
     assert(wire);
 }
 
@@ -75,15 +75,28 @@ void DebugDrawDesk(Desk* desk, Canvas* canvas) {
         for (i32 x = begin.cell.x - 1; x != (end.cell.x + 1); x++) {
             iv2 p = IV2(x, y);
             DeskCell* cell = GetDeskCell(desk, p, false);
-            if (cell && cell->element.id) {
-#if 1
-                Part* element = FindPart(desk, cell->element);
-                if (element) {
-                    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(p));
-                    v2 max = DeskPositionRelative(desk->origin, MakeDeskPosition(p + 1));
-                    DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(GetPartColor(element).xyz, 1.0f));
+            if (cell) {
+                if (cell->value == CellValue::Part) {
+                    Part* part = cell->part;
+                    assert(part);
+                    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(p)) - DeskCellHalfSize;
+                    v2 max = DeskPositionRelative(desk->origin, MakeDeskPosition(p + 1)) - DeskCellHalfSize;
+                    DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(GetPartColor(part).xyz, 1.0f));
+                } else if (cell->value == CellValue::Pin) {
+                    Pin* pin = cell->pin;
+                    assert(pin);
+                    v4 color = V4(0.0f, 0.0f, 0.0f, 1.0f);
+
+                    switch (pin->type) {
+                    case PinType::Input: { color = V4(0.0f, 0.9f, 0.0f, 1.0f); } break;
+                    case PinType::Output: { color = V4(0.9f, 0.9f, 0.0f, 1.0f); } break;
+                    invalid_default();
+                    }
+
+                    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(p)) - DeskCellHalfSize;
+                    v2 max = DeskPositionRelative(desk->origin, MakeDeskPosition(p + 1)) - DeskCellHalfSize;
+                    DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
                 }
-#endif
             }
         }
     }
@@ -95,43 +108,24 @@ void DebugDrawDeskCell(Desk* desk, Canvas* canvas, DeskPosition p, v4 color) {
     DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
 }
 
-void PinProcessClick(Part* part, u32 pinIndex, MouseButton button) {
+void PinProcessClick(Pin* pin, DeskPosition mouseP, MouseButton button) {
     auto context = GetContext();
     if (button == MouseButton::Left) {
         if (!context->pendingWire) {
-            Pin* pin = part->pins + pinIndex;
             if (!pin->wire) {
                 context->pendingWire = true;
                 context->pendingWireBeginPin = pin;
-                context->pendingWireBeginPart = part;
             }
         } else {
-            Pin* pin = part->pins + pinIndex;
             if (!pin->wire && pin != context->pendingWireBeginPin) {
                 context->pendingWire = false;
-                WireParts(&context->desk, context->pendingWireBeginPart, context->pendingWireBeginPin, part, pin);
+                WirePins(&context->desk, context->pendingWireBeginPin, pin);
             }
         }
     }
 }
 
 void PartProcessClick(Part* part, DeskPosition mouseP, MouseButton button) {
-    // TODO: rework pins
-    for (u32 i = 0; i < part->inputCount; i++) {
-        Pin* pin = part->inputs + i;
-        iv2 p = part->p.cell + pin->pRelative;
-        if (p == mouseP.cell) {
-            PinProcessClick(part, i, button);
-        }
-    }
-    for (u32 i = 0; i < part->outputCount; i++) {
-        Pin* pin = part->outputs + i;
-        iv2 p = part->p.cell + pin->pRelative;
-        if (p == mouseP.cell) {
-            PinProcessClick(part, array_count(part->inputs) + i, button);
-        }
-    }
-
     switch (part->type) {
     case PartType::Source: {
         part->active = !part->active;
@@ -166,6 +160,11 @@ void GameRender() {
     if (MouseButtonPressed(MouseButton::Right) && context->ghostPartEnabled) {
         context->ghostPartEnabled = false;
     }
+
+    // Path stuff
+
+    iv2 origin = IV2(1, 1);
+    iv2 dest = IV2(20, 30);
 
     if (KeyPressed(Key::_1)) {
         memset(&context->ghostPart, 0, sizeof(Part));
@@ -202,8 +201,8 @@ void GameRender() {
         if (MouseButtonPressed(MouseButton::Left)) {
             Part* clone = (Part*)desk->deskAllocator.Alloc(sizeof(Part), false);
             memcpy(clone, &context->ghostPart, sizeof(Part));
+            InitPart(partInfo, clone, context->ghostPart.p.cell, context->ghostPart.type);
             AddPart(desk, clone);
-            InitPart(partInfo, &context->ghostPart, context->ghostPart.p.cell, context->ghostPart.type);
         }
     }
 
@@ -215,14 +214,12 @@ void GameRender() {
         MouseButton button = MouseButtonPressed(MouseButton::Left) ? MouseButton::Left : MouseButton::Right;
         DeskCell* mouseCell = GetDeskCell(desk, mouseDesk.cell, false);
         if (mouseCell) {
-            if (mouseCell->element.id != 0) {
-                Part* element = FindPart(desk, mouseCell->element);
-                if (element) {
-                    PartProcessClick(element, mouseDesk, button);
+            if (mouseCell->value != CellValue::Empty) {
+                switch (mouseCell->value) {
+                case CellValue::Part: { assert(mouseCell->part); PartProcessClick(mouseCell->part, mouseDesk, button); } break;
+                case CellValue::Pin: { assert(mouseCell->pin); PinProcessClick(mouseCell->pin, mouseDesk, button); } break;
+                default: {} break;
                 }
-                log_print("Mouse hit cell {%d, %d} with element %lu\n", mouseDesk.cell.x, mouseDesk.cell.y, mouseCell->element.id);
-            } else {
-                log_print("Mouse hit cell {%d, %d}\n", mouseDesk.cell.x, mouseDesk.cell.y);
             }
         }
     }
@@ -304,7 +301,7 @@ void GameRender() {
     }
 
     if (context->pendingWire) {
-        DeskPosition p1 = ComputePinPosition(context->pendingWireBeginPart, context->pendingWireBeginPin);
+        DeskPosition p1 = ComputePinPosition(context->pendingWireBeginPin);
         v2 lineBeg = DeskPositionRelative(desk->origin, p1);
         v2 lineEnd = mouseCanvas;
         DrawSimpleLineBatch(&deskCanvas->drawList, lineBeg, lineEnd, 0.0f, thickness, V4(0.5f, 0.2f, 0.0f, 1.0f));

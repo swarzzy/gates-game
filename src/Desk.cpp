@@ -62,14 +62,14 @@ Node* FindNode(Desk* desk, NodeID id) {
     return result;
 }
 
-bool CanPlacePart(Desk* desk, iv2 p, iv2 dim) {
-    for (i32 y = 0; y < dim.y; y++) {
-        for (i32 x = 0; x < dim.x; x++) {
+bool CanPlacePart(Desk* desk, IRect box) {
+    for (i32 y = box.min.y; y < box.max.y; y++) {
+        for (i32 x = box.min.x; x < box.max.x; x++) {
             // TODO: Optimize. Here is a lot of unnecessary hash lookups!
-            iv2 testP = IV2(p.x + x, p.y + y);
+            iv2 testP = IV2(x, y);
             DeskCell* cell = GetDeskCell(desk, testP, false);
             if (cell) {
-                if (cell->element.id) {
+                if (cell->value != CellValue::Empty) {
                     return false;
                 }
             }
@@ -78,14 +78,34 @@ bool CanPlacePart(Desk* desk, iv2 p, iv2 dim) {
     return true;
 }
 
-bool ExpandDeskFor(Desk* desk, iv2 p, iv2 dim) {
+IRect CalcPartBoundingBox(Part* part) {
+    IRect rect {};
+    rect.min = part->p.cell;
+    rect.max = part->p.cell + part->dim;
+    for (u32 i = 0; i < part->inputCount; i++) {
+        Pin* pin = part->inputs + i;
+        iv2 pinP = part->p.cell + pin->pRelative;
+        rect.min = IV2(Min(rect.min.x, pinP.x), Min(rect.min.y, pinP.y));
+        rect.max = IV2(Max(rect.max.x, pinP.x), Max(rect.max.y, pinP.y));
+    }
+    for (u32 i = 0; i < part->outputCount; i++) {
+        Pin* pin = part->outputs + i;
+        iv2 pinP = part->p.cell + pin->pRelative;
+        rect.min = IV2(Min(rect.min.x, pinP.x), Min(rect.min.y, pinP.y));
+        rect.max = IV2(Max(rect.max.x, pinP.x), Max(rect.max.y, pinP.y));
+    }
+    return rect;
+}
+
+
+bool ExpandDeskFor(Desk* desk, IRect box) {
     bool result = true;
 
     iv2 points[] = {
-        p,
-        IV2(p.x + dim.x, p.y),
-        p + dim,
-        IV2(p.x, p.y + dim.y)
+        box.min,
+        IV2(box.max.x, box.min.y),
+        box.max,
+        IV2(box.min.x, box.max.y)
     };
 
     for (i32 i = 0; i < array_count(points); i++) {
@@ -99,19 +119,42 @@ bool ExpandDeskFor(Desk* desk, iv2 p, iv2 dim) {
     return result;
 }
 
-bool TryRegisterPartPlacement(Desk* desk, Part* element) {
+bool TryRegisterPartPlacement(Desk* desk, Part* part) {
     bool result = false;
-    if (CanPlacePart(desk, element->p.cell, element->dim)) {
-        if (ExpandDeskFor(desk, element->p.cell, element->dim)) {
-            for (i32 y = 0; y < element->dim.y; y++) {
-                for (i32 x = 0; x < element->dim.x; x++) {
+    IRect boundingBox = CalcPartBoundingBox(part);
+    if (CanPlacePart(desk, boundingBox)) {
+        if (ExpandDeskFor(desk, boundingBox)) {
+            // Register part body
+            for (i32 y = 0; y < part->dim.y; y++) {
+                for (i32 x = 0; x < part->dim.x; x++) {
                     // TODO: Optimize. Here is a lot of unnecessary hash lookups!
-                    iv2 testP = IV2(element->p.cell.x + x, element->p.cell.y + y);
+                    iv2 testP = IV2(part->p.cell.x + x, part->p.cell.y + y);
                     DeskCell* cell = GetDeskCell(desk, testP, false);
                     assert(cell);
-                    assert(!cell->element.id);
-                    cell->element = element->id;
+                    assert(cell->value == CellValue::Empty);
+                    cell->value = CellValue::Part;
+                    cell->part = part;
                 }
+            }
+            // Register part inputs
+            for (u32 i = 0; i < part->inputCount; i++) {
+                Pin* pin = part->inputs + i;
+                iv2 pinP = part->p.cell + pin->pRelative;
+                DeskCell* cell = GetDeskCell(desk, pinP, false);
+                assert(cell);
+                assert(cell->value == CellValue::Empty);
+                cell->value = CellValue::Pin;
+                cell->pin = pin;
+            }
+            // Register part outputs
+            for (u32 i = 0; i < part->outputCount; i++) {
+                Pin* pin = part->outputs + i;
+                iv2 pinP = part->p.cell + pin->pRelative;
+                DeskCell* cell = GetDeskCell(desk, pinP, false);
+                assert(cell);
+                assert(cell->value == CellValue::Empty);
+                cell->value = CellValue::Pin;
+                cell->pin = pin;
             }
             result = true;
         }
@@ -119,23 +162,47 @@ bool TryRegisterPartPlacement(Desk* desk, Part* element) {
     return result;
 }
 
-void UnregisterPartPlcement(Desk* desk, Part* element) {
-    for (i32 y = 0; y < element->dim.y; y++) {
-        for (i32 x = 0; x < element->dim.x; x++) {
+void UnregisterPartPlcement(Desk* desk, Part* part) {
+    // Register part body
+    for (i32 y = 0; y < part->dim.y; y++) {
+        for (i32 x = 0; x < part->dim.x; x++) {
             // TODO: Optimize. Here is a lot of unnecessary hash lookups!
-            iv2 testP = IV2(element->p.cell.x + x, element->p.cell.y + y);
+            iv2 testP = IV2(part->p.cell.x + x, part->p.cell.y + y);
             DeskCell* cell = GetDeskCell(desk, testP, false);
-            assert(cell->element.id == element->id.id);
-            cell->element = InvalidPartID;
+            assert(cell);
+            assert(cell->value == CellValue::Part && cell->part == part);
+            cell->value = CellValue::Empty;
+            cell->part = nullptr;
         }
+    }
+    // Register part inputs
+    for (u32 i = 0; i < part->inputCount; i++) {
+        Pin* pin = part->inputs + i;
+        iv2 pinP = part->p.cell + pin->pRelative;
+        DeskCell* cell = GetDeskCell(desk, pinP, false);
+        assert(cell);
+        assert(cell->value == CellValue::Pin && cell->pin == pin);
+        cell->value = CellValue::Empty;
+        cell->pin = nullptr;
+    }
+    // Register part outputs
+    for (u32 i = 0; i < part->outputCount; i++) {
+        Pin* pin = part->outputs + i;
+        iv2 pinP = part->p.cell + pin->pRelative;
+        DeskCell* cell = GetDeskCell(desk, pinP, false);
+        assert(cell);
+        assert(cell->value == CellValue::Pin && cell->pin == pin);
+        cell->value = CellValue::Empty;
+        cell->pin = nullptr;
     }
 }
 
 
 bool AddPart(Desk* desk, Part* element) {
     bool result = false;
-    if (CanPlacePart(desk, element->p.cell, element->dim)) {
-        if (ExpandDeskFor(desk, element->p.cell, element->dim)) {
+    IRect boundingBox = CalcPartBoundingBox(element);
+    if (CanPlacePart(desk, boundingBox)) {
+        if (ExpandDeskFor(desk, boundingBox)) {
             Part** entry = HashMapAdd(&desk->partsHashMap, &element->id);
             if (entry) {
                 if (TryRegisterPartPlacement(desk, element)) {
@@ -235,12 +302,12 @@ void DrawDesk(Desk* desk, Canvas* canvas) {
     });
 }
 
-DeskPosition ComputePinPosition(Part* part, Pin* pin) {
+DeskPosition ComputePinPosition(Pin* pin) {
     DeskPosition result {};
-    iv2 cell = part->p.cell + pin->pRelative;
+    iv2 cell = pin->part->p.cell + pin->pRelative;
     switch (pin->type) {
-    case PinType::Input: { result = MakeDeskPosition(cell, V2(-DeskCellHalfSize, 0.0f)); } break;
-    case PinType::Output: { result = MakeDeskPosition(cell, V2(DeskCellHalfSize, 0.0f)); } break;
+    case PinType::Input: { result = MakeDeskPosition(cell, V2(DeskCellHalfSize, 0.0f)); } break;
+    case PinType::Output: { result = MakeDeskPosition(cell, V2(-DeskCellHalfSize, 0.0f)); } break;
         invalid_default();
     }
     return result;
@@ -255,7 +322,7 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha) {
     for (u32 pinIndex = 0; pinIndex < element->inputCount; pinIndex++) {
         Pin* pin = element->inputs + pinIndex;
         v4 color = V4(0.0f, 0.9f, 0.0f, 1.0f);
-        DeskPosition pinPos = ComputePinPosition(element, pin);
+        DeskPosition pinPos = ComputePinPosition(pin);
         v2 relPos = DeskPositionRelative(desk->origin, pinPos);
         v2 pinMin = relPos - V2(0.1);
         v2 pinMax = relPos + V2(0.1);
@@ -264,7 +331,7 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha) {
     for (u32 pinIndex = 0; pinIndex < element->outputCount; pinIndex++) {
         Pin* pin = element->outputs + pinIndex;
         v4 color = V4(0.9f, 0.9f, 0.0f, 1.0f);
-        DeskPosition pinPos = ComputePinPosition(element, pin);
+        DeskPosition pinPos = ComputePinPosition(pin);
         v2 relPos = DeskPositionRelative(desk->origin, pinPos);
         v2 pinMin = relPos - V2(0.1);
         v2 pinMax = relPos + V2(0.1);

@@ -2,6 +2,7 @@
 
 struct Desk;
 struct Wire;
+struct Part;
 
 #define InvalidPartID (PartID {0})
 
@@ -24,6 +25,7 @@ enum struct PinType {
 
 struct Pin {
     PinType type;
+    Part* part;
     iv2 pRelative;
     NodeID nodeId;
     u8 value;
@@ -62,13 +64,13 @@ struct PartInfo {
     PartFunctionFn* partFunctions[PartType::_Count];
 };
 
-Wire* WireParts(Desk* desk, Part* part0, Pin* pin0, Part* part1, Pin* pin1);
+Wire* WirePins(Desk* desk, Pin* pin0, Pin* pin1);
 
 void PartInfoInit(PartInfo* info);
 
 void InitPart(PartInfo* info, Part* element, iv2 p, PartType type);
 
-Pin CreatePin(i32 xRel, i32 yRel, PinType type);
+Pin CreatePin(Part* part, i32 xRel, i32 yRel, PinType type);
 
 inline v4 GetPartColor(Part* element) { return element->active ? element->activeColor : element->inactiveColor; }
 
