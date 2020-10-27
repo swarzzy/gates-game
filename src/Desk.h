@@ -58,6 +58,8 @@ struct Desk {
     u32 pinGeneration;
     PlatformHeap* deskHeap;
     Allocator deskAllocator;
+    Canvas* canvas;
+    PartInfo* partInfo;
     HashMap<iv2, DeskTile*, DeskHash, DeskCompare> tileHashMap;
     // TODO: Just go crazy and ALLOCATE EVERY SINGLE ELEMENT IN THE HEAP.
     // Eventually we will need more appropriate way to store elements
@@ -80,7 +82,7 @@ AddNodeResult AddNode(Desk* desk);
 Node* FindNode(Desk* desk, NodeID id);
 
 NodeID GetNodeID(Desk* desk);
-void InitDesk(Desk* desk, PlatformHeap* deskHeap);
+void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* deskHeap);
 DeskTile* CreateDeskTile(Desk* desk, iv2 p);
 Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type);
 
@@ -98,8 +100,10 @@ void UnregisterPartPlcement(Desk* desk, Part* element);
 bool CanPlacePart(Desk* desk, IRect box);
 bool ExpandDeskFor(Desk* desk, IRect box);
 
+void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePos, f32 alpha);
 void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha);
 void DrawDesk(Desk* desk, Canvas* canvas);
 
+DeskPosition ComputePinPosition(Pin* pin,  DeskPosition partPosition);
 DeskPosition ComputePinPosition(Pin* pin);
 void PropagateSignals(Desk* desk);

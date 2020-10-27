@@ -231,13 +231,15 @@ Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type) {
     return result;
 }
 
-void InitDesk(Desk* desk, PlatformHeap* deskHeap) {
+void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* deskHeap) {
     desk->deskHeap = deskHeap;
     desk->deskAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, deskHeap);
     desk->tileHashMap = HashMap<iv2, DeskTile*, DeskHash, DeskCompare>::Make(desk->deskAllocator);
     desk->partsHashMap = HashMap<PartID, Part*, PartHash, PartCompare>::Make(desk->deskAllocator);
     desk->nodeTable = HashMap<NodeID, Node, NodeHash, NodeCompare>::Make(desk->deskAllocator);
     desk->wires.Init(desk->deskAllocator);
+    desk->canvas = canvas;
+    desk->partInfo = partInfo;
 }
 
 Part* FindPart(Desk* desk, PartID id) {
@@ -302,9 +304,9 @@ void DrawDesk(Desk* desk, Canvas* canvas) {
     });
 }
 
-DeskPosition ComputePinPosition(Pin* pin) {
+DeskPosition ComputePinPosition(Pin* pin,  DeskPosition partPosition) {
     DeskPosition result {};
-    iv2 cell = pin->part->p.cell + pin->pRelative;
+    iv2 cell = partPosition.cell + pin->pRelative;
     switch (pin->type) {
     case PinType::Input: { result = MakeDeskPosition(cell, V2(DeskCellHalfSize, 0.0f)); } break;
     case PinType::Output: { result = MakeDeskPosition(cell, V2(-DeskCellHalfSize, 0.0f)); } break;
@@ -313,16 +315,20 @@ DeskPosition ComputePinPosition(Pin* pin) {
     return result;
 }
 
-void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha) {
-    DeskPosition maxP = MakeDeskPosition(element->p.cell + element->dim);
-    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(element->p.cell)) - DeskCellHalfSize;
+DeskPosition ComputePinPosition(Pin* pin) {
+    return ComputePinPosition(pin, pin->part->p);
+}
+
+void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePos, f32 alpha) {
+    DeskPosition maxP = MakeDeskPosition(overridePos.cell + element->dim);
+    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(overridePos.cell)) - DeskCellHalfSize;
     v2 max = DeskPositionRelative(desk->origin, maxP) - DeskCellHalfSize;
     v4 color = V4(GetPartColor(element).xyz, alpha);
     DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
     for (u32 pinIndex = 0; pinIndex < element->inputCount; pinIndex++) {
         Pin* pin = element->inputs + pinIndex;
         v4 color = V4(0.0f, 0.9f, 0.0f, 1.0f);
-        DeskPosition pinPos = ComputePinPosition(pin);
+        DeskPosition pinPos = ComputePinPosition(pin, overridePos);
         v2 relPos = DeskPositionRelative(desk->origin, pinPos);
         v2 pinMin = relPos - V2(0.1);
         v2 pinMax = relPos + V2(0.1);
@@ -331,12 +337,16 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha) {
     for (u32 pinIndex = 0; pinIndex < element->outputCount; pinIndex++) {
         Pin* pin = element->outputs + pinIndex;
         v4 color = V4(0.9f, 0.9f, 0.0f, 1.0f);
-        DeskPosition pinPos = ComputePinPosition(pin);
+        DeskPosition pinPos = ComputePinPosition(pin, overridePos);
         v2 relPos = DeskPositionRelative(desk->origin, pinPos);
         v2 pinMin = relPos - V2(0.1);
         v2 pinMax = relPos + V2(0.1);
         DrawListPushRect(&canvas->drawList, pinMin, pinMax, 0.0f, color);
     }
+}
+
+void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha) {
+    DrawPart(desk, canvas, element, element->p, alpha);
 }
 
 void PropagateSignals(Desk* desk) {

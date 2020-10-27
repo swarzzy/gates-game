@@ -40,7 +40,7 @@ void GameInit() {
     auto desk = &context->desk;
     auto partInfo = &context->partInfo;
 
-    InitDesk(desk, context->mainHeap);
+    InitDesk(desk, &context->deskCanvas, partInfo, context->mainHeap);
     PartInfoInit(&context->partInfo);
 
     CreatePart(desk, partInfo, IV2(2, 2), PartType::And);
@@ -108,22 +108,6 @@ void DebugDrawDeskCell(Desk* desk, Canvas* canvas, DeskPosition p, v4 color) {
     DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
 }
 
-void PinProcessClick(Pin* pin, DeskPosition mouseP, MouseButton button) {
-    auto context = GetContext();
-    if (button == MouseButton::Left) {
-        if (!context->pendingWire) {
-            if (!pin->wire) {
-                context->pendingWire = true;
-                context->pendingWireBeginPin = pin;
-            }
-        } else {
-            if (!pin->wire && pin != context->pendingWireBeginPin) {
-                context->pendingWire = false;
-                WirePins(&context->desk, context->pendingWireBeginPin, pin);
-            }
-        }
-    }
-}
 
 void PartProcessClick(Part* part, DeskPosition mouseP, MouseButton button) {
     switch (part->type) {
@@ -142,6 +126,7 @@ void GameRender() {
     auto deskCanvas = &context->deskCanvas;
     auto desk = &context->desk;
     auto partInfo = &context->partInfo;
+    auto toolManager = &context->toolManager;
 
     f32 scaleSpeed = 0.1f;
 
@@ -157,73 +142,31 @@ void GameRender() {
     v2 scaleOffset = mousePosition - mousePBeforeScale;
     desk->origin = DeskPositionOffset(desk->origin, -scaleOffset);
 
-    if (MouseButtonPressed(MouseButton::Right) && context->ghostPartEnabled) {
-        context->ghostPartEnabled = false;
-    }
-
-    // Path stuff
-
-    iv2 origin = IV2(1, 1);
-    iv2 dest = IV2(20, 30);
+    Part* prefabPart = nullptr;
 
     if (KeyPressed(Key::_1)) {
-        memset(&context->ghostPart, 0, sizeof(Part));
-        InitPart(partInfo, &context->ghostPart, IV2(0), PartType::And);
-        context->ghostPartEnabled = true;
+        prefabPart = GetPrefabPart(partInfo, PartType::And);
     } else if (KeyPressed(Key::_2)) {
-        memset(&context->ghostPart, 0, sizeof(Part));
-        InitPart(partInfo, &context->ghostPart, IV2(0), PartType::Or);
-        context->ghostPartEnabled = true;
+        prefabPart = GetPrefabPart(partInfo, PartType::Or);
     } else if (KeyPressed(Key::_3)) {
-        memset(&context->ghostPart, 0, sizeof(Part));
-        InitPart(partInfo, &context->ghostPart, IV2(0), PartType::Not);
-        context->ghostPartEnabled = true;
+        prefabPart = GetPrefabPart(partInfo, PartType::Not);
     } else if (KeyPressed(Key::_4)) {
-        memset(&context->ghostPart, 0, sizeof(Part));
-        InitPart(partInfo, &context->ghostPart, IV2(0), PartType::Led);
-        context->ghostPartEnabled = true;
+        prefabPart = GetPrefabPart(partInfo, PartType::Led);
     } else if (KeyPressed(Key::_5)) {
-        memset(&context->ghostPart, 0, sizeof(Part));
-        InitPart(partInfo, &context->ghostPart, IV2(0), PartType::Source);
-        context->ghostPartEnabled = true;
+        prefabPart = GetPrefabPart(partInfo, PartType::Source);
+    }
+
+    if (prefabPart) {
+        ToolPartEnable(toolManager, prefabPart);
     }
 
     if (MouseButtonPressed(MouseButton::Right)) {
-        context->ghostPartEnabled = false;
-        context->pendingWire = false;
+        ToolManagerDisableAll(toolManager);
+    } else if (MouseButtonPressed(MouseButton::Left)) {
+        ToolManagerUse(toolManager);
     }
 
-    if (context->ghostPartEnabled) {
-        DeskPosition mouseDeskP = DeskPositionOffset(desk->origin, mousePosition);
-        DeskPosition offP = DeskPositionOffset(mouseDeskP, -V2(context->ghostPart.dim) * 0.5f * DeskCellSize);
-        context->ghostPart.p = offP;
-
-        if (MouseButtonPressed(MouseButton::Left)) {
-            Part* clone = (Part*)desk->deskAllocator.Alloc(sizeof(Part), false);
-            memcpy(clone, &context->ghostPart, sizeof(Part));
-            InitPart(partInfo, clone, context->ghostPart.p.cell, context->ghostPart.type);
-            AddPart(desk, clone);
-        }
-    }
-
-    // raycast
-    v2 mouseScreen = V2(input->mouseX, input->mouseY);
-    v2 mouseCanvas = CanvasProjectScreenPos(deskCanvas, mouseScreen);
-    DeskPosition mouseDesk = DeskPositionOffset(desk->origin, mouseCanvas);
-    if (MouseButtonPressed(MouseButton::Left) || MouseButtonPressed(MouseButton::Right)) {
-        MouseButton button = MouseButtonPressed(MouseButton::Left) ? MouseButton::Left : MouseButton::Right;
-        DeskCell* mouseCell = GetDeskCell(desk, mouseDesk.cell, false);
-        if (mouseCell) {
-            if (mouseCell->value != CellValue::Empty) {
-                switch (mouseCell->value) {
-                case CellValue::Part: { assert(mouseCell->part); PartProcessClick(mouseCell->part, mouseDesk, button); } break;
-                case CellValue::Pin: { assert(mouseCell->pin); PinProcessClick(mouseCell->pin, mouseDesk, button); } break;
-                default: {} break;
-                }
-            }
-        }
-    }
-
+    ToolManagerUpdate(toolManager);
 
     DEBUG_OVERLAY_TRACE(deskCanvas->sizeCm.x);
     DEBUG_OVERLAY_TRACE(deskCanvas->sizeCm.y);
@@ -239,7 +182,7 @@ void GameRender() {
         //context->deskPosition += Hadamard(V2(input->mouseFrameOffsetX, input->mouseFrameOffsetY), deskCanvas->sizeCm);
     }
 
-    DebugDrawDeskCell(desk, deskCanvas, mouseDesk, V4(1.0f, 0.0f, 0.0f, 1.0f));
+    DebugDrawDeskCell(desk, deskCanvas, toolManager->mouseDeskPos, V4(1.0f, 0.0f, 0.0f, 1.0f));
 
     DeskPosition begin = desk->origin;
     DeskPosition end = DeskPositionOffset(desk->origin, deskCanvas->sizeCm);
@@ -286,9 +229,7 @@ void GameRender() {
     invalid_default();
     }
 
-    if (context->ghostPartEnabled) {
-        DrawPart(desk, deskCanvas, &context->ghostPart, 0.5f);
-    }
+    ToolManagerRender(toolManager);
 
     // TODO: Culling
     DrawListBeginBatch(&deskCanvas->drawList, TextureMode::Color);
@@ -298,13 +239,6 @@ void GameRender() {
         v2 begin = DeskPositionRelative(desk->origin, wire->p0);
         v2 end = DeskPositionRelative(desk->origin, wire->p1);
         DrawSimpleLineBatch(&deskCanvas->drawList, begin, end, 0.0f, thickness, V4(0.2f, 0.2f, 0.2f, 1.0f));
-    }
-
-    if (context->pendingWire) {
-        DeskPosition p1 = ComputePinPosition(context->pendingWireBeginPin);
-        v2 lineBeg = DeskPositionRelative(desk->origin, p1);
-        v2 lineEnd = mouseCanvas;
-        DrawSimpleLineBatch(&deskCanvas->drawList, lineBeg, lineEnd, 0.0f, thickness, V4(0.5f, 0.2f, 0.0f, 1.0f));
     }
 
     DrawListEndBatch(&deskCanvas->drawList);

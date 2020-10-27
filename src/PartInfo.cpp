@@ -132,3 +132,9 @@ Wire* WirePins(Desk* desk, Pin* pin0, Pin* pin1) {
     }
     return result;
 }
+
+Part* GetPrefabPart(PartInfo* info, PartType type) {
+    assert((u32)type < (u32)PartType::_Count);
+    Part* result = info->partBlanks + (u32)type;
+    return result;
+}

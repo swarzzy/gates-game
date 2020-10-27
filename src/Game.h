@@ -6,6 +6,7 @@
 #include "Draw.h"
 #include "Canvas.h"
 #include "Desk.h"
+#include "Tools.h"
 
 enum struct DrawMode {
     Normal = 0, DeskDebug
@@ -25,10 +26,7 @@ struct GameContext {
     Font sdfFont;
     Desk desk;
     PartInfo partInfo;
-    Part ghostPart;
-    b32 ghostPartEnabled;
-    bool pendingWire;
-    Pin* pendingWireBeginPin;
+    ToolManager toolManager;
 };
 
 void GameInit();
@@ -42,6 +40,8 @@ const PlatformState* GetPlatform();
 GameContext* GetContext();
 const InputState* GetInput();
 bool ImGuiAvailable();
+
+Desk* GetDesk() { return &GetContext()->desk; }
 
 LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 forceBPP, Allocator allocator);
 

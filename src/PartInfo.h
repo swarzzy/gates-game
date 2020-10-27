@@ -72,6 +72,8 @@ void InitPart(PartInfo* info, Part* element, iv2 p, PartType type);
 
 Pin CreatePin(Part* part, i32 xRel, i32 yRel, PinType type);
 
+Part* GetPrefabPart(PartInfo* info, PartType type);
+
 inline v4 GetPartColor(Part* element) { return element->active ? element->activeColor : element->inactiveColor; }
 
 void PartGatherSignals(Desk* desk, Part* part);
