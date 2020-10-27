@@ -99,33 +99,11 @@ void InitPart(PartInfo* info, Part* element, iv2 p, PartType type) {
     element->p = DeskPositionNormalize(MakeDeskPosition(p));
 }
 
-void PartGatherSignals(Desk* desk, Part* part) {
-    for (u32 i = 0; i < part->inputCount; i++) {
-        Pin* pin = part->inputs + i;
-        if (pin->nodeId.id) {
-            Node* node = FindNode(desk, pin->nodeId);
-            assert(node);
-            pin->value = node->value;
-        }
-    }
-}
-
 void PartProcessSignals(PartInfo* info, Part* part) {
     assert((u32)part->type < (u32)PartType::_Count);
     auto partFn = info->partFunctions[(u32)part->type];
     assert(partFn);
     partFn(part);
-}
-
-void PartPropagateSignals(Desk* desk, Part* part) {
-    for (u32 i = 0; i < part->outputCount; i++) {
-        Pin* pin = part->outputs + i;
-        if (pin->nodeId.id) {
-            Node* node = FindNode(desk, pin->nodeId);
-            assert(node);
-            node->value = pin->value;
-        }
-    }
 }
 
 Pin CreatePin(i32 xRel, i32 yRel, PinType type) {

@@ -86,3 +86,5 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha);
 void DrawDesk(Desk* desk, Canvas* canvas);
 
 DeskPosition ComputePinPosition(Part* part, Pin* pin);
+
+void PropagateSignals(Desk* desk);

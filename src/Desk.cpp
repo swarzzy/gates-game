@@ -271,3 +271,16 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha) {
         DrawListPushRect(&canvas->drawList, pinMin, pinMax, 0.0f, color);
     }
 }
+
+void PropagateSignals(Desk* desk) {
+    for (u32 i = 0; i < desk->wires.Count(); i++) {
+        Wire* wire = desk->wires.Begin() + i;
+        Pin* p0 = wire->pin0;
+        Pin* p1 = wire->pin1;
+        if (p0->type == PinType::Input && p1->type == PinType::Output) {
+            p0->value = p1->value;
+        } else if (p1->type == PinType::Input && p0->type == PinType::Output) {
+            p1->value = p0->value;
+        }
+    }
+}

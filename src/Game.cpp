@@ -107,26 +107,31 @@ void PinProcessClick(Part* part, u32 pinIndex, MouseButton button) {
             }
         } else {
             Pin* pin = part->pins + pinIndex;
-            if (!pin->wire) {
+            if (!pin->wire && pin != context->pendingWireBeginPin) {
                 context->pendingWire = false;
                 WireParts(&context->desk, context->pendingWireBeginPart, context->pendingWireBeginPin, part, pin);
             }
-        }
-    } else if (button == MouseButton::Right) {
-        if (context->pendingWire) {
-            context->pendingWire = false;
         }
     }
 }
 
 void PartProcessClick(Part* part, DeskPosition mouseP, MouseButton button) {
-    for (u32 i = 0; i < (part->inputCount + part->outputCount); i++) {
-        Pin* pin = part->pins + i;
+    // TODO: rework pins
+    for (u32 i = 0; i < part->inputCount; i++) {
+        Pin* pin = part->inputs + i;
         iv2 p = part->p.cell + pin->pRelative;
         if (p == mouseP.cell) {
             PinProcessClick(part, i, button);
         }
     }
+    for (u32 i = 0; i < part->outputCount; i++) {
+        Pin* pin = part->outputs + i;
+        iv2 p = part->p.cell + pin->pRelative;
+        if (p == mouseP.cell) {
+            PinProcessClick(part, array_count(part->inputs) + i, button);
+        }
+    }
+
     switch (part->type) {
     case PartType::Source: {
         part->active = !part->active;
@@ -184,6 +189,11 @@ void GameRender() {
         context->ghostPartEnabled = true;
     }
 
+    if (MouseButtonPressed(MouseButton::Right)) {
+        context->ghostPartEnabled = false;
+        context->pendingWire = false;
+    }
+
     if (context->ghostPartEnabled) {
         DeskPosition mouseDeskP = DeskPositionOffset(desk->origin, mousePosition);
         DeskPosition offP = DeskPositionOffset(mouseDeskP, -V2(context->ghostPart.dim) * 0.5f * DeskCellSize);
@@ -194,10 +204,6 @@ void GameRender() {
             memcpy(clone, &context->ghostPart, sizeof(Part));
             AddPart(desk, clone);
             InitPart(partInfo, &context->ghostPart, context->ghostPart.p.cell, context->ghostPart.type);
-        }
-
-        if (MouseButtonPressed(MouseButton::Right)) {
-            context->ghostPartEnabled = false;
         }
     }
 
@@ -272,14 +278,9 @@ void GameRender() {
     DEBUG_OVERLAY_TRACE(desk->origin.cell.x);
     DEBUG_OVERLAY_TRACE(desk->origin.cell.y);
 
-    ForEach(&desk->partsHashMap, [&](Part** it) {
-        PartGatherSignals(desk, *it);
-    });
+    PropagateSignals(desk);
     ForEach(&desk->partsHashMap, [&](Part** it) {
         PartProcessSignals(partInfo, *it);
-    });
-    ForEach(&desk->partsHashMap, [&](Part** it) {
-        PartPropagateSignals(desk, *it);
     });
 
     switch (context->drawMode) {
