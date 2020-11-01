@@ -1,37 +1,33 @@
 #include "Tools.h"
 
-void ToolPartEnable(ToolManager* manager, Part* prefabPart) {
+void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initializer) {
     ToolManagerDisableAll(manager);
     manager->currentTool = Tool::Part;
-    manager->prefabPart = prefabPart;
+    initializer(desk, &manager->prefabPart);
 }
 
 void ToolPartUse(ToolManager* manager, Desk* desk) {
     Part* clone = (Part*)desk->deskAllocator.Alloc(sizeof(Part), false);
-    InitPart(desk->partInfo, clone, manager->prefabPartPos.cell, manager->prefabPart->type);
+    InitPart(desk->partInfo, desk, clone, manager->prefabPartPos.cell, manager->prefabPart.type);
     AddPart(desk, clone);
 }
 
 void ToolPartUpdate(ToolManager* manager, Desk* desk) {
-    manager->prefabPartPos = DeskPositionOffset(manager->mouseDeskPos, -V2(manager->prefabPart->dim) * 0.5f * DeskCellSize);
+    manager->prefabPartPos = DeskPositionOffset(manager->mouseDeskPos, -V2(manager->prefabPart.dim) * 0.5f * DeskCellSize);
 }
 
 void ToolPartRender(ToolManager* manager, Desk* desk) {
-    DrawPart(desk, desk->canvas, manager->prefabPart, manager->prefabPartPos, 0.5f);
+    DrawPart(desk, desk->canvas, &manager->prefabPart, manager->prefabPartPos, 0.5f);
 }
 
 void ToolWirePinClicked(ToolManager* manager, Desk* desk, Pin* pin) {
     if (manager->currentTool != Tool::Wire) {
-        if (!pin->wire) {
-            manager->pendingWireBeginPin = pin;
-
-            assert(manager->currentTool == Tool::None);
-            manager->currentTool = Tool::Wire;
-        }
+        manager->pendingWireBeginPin = pin;
+        assert(manager->currentTool == Tool::None);
+        manager->currentTool = Tool::Wire;
     } else {
-        if (!pin->wire && pin != manager->pendingWireBeginPin) {
-            WirePins(desk, manager->pendingWireBeginPin, pin);
-
+        if (pin != manager->pendingWireBeginPin) {
+            TryWirePins(desk, manager->pendingWireBeginPin, pin);
             assert(manager->currentTool == Tool::Wire);
             manager->currentTool = Tool::None;
         }
@@ -48,14 +44,22 @@ void ToolWireUse(ToolManager* manager, Desk* desk) {
     }
 }
 
+void ToolNonePartClicked(ToolManager* manager, Desk* desk, Part* part) {
+    switch (part->type) {
+    case PartType::Source: {
+        part->active = !part->active;
+    } break;
+    default: {} break;
+    }
+}
+
 void ToolNoneUse(ToolManager* manager, Desk* desk) {
     DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
     if (mouseCell) {
         if (mouseCell->value != CellValue::Empty) {
             switch (mouseCell->value) {
             case CellValue::Part: {
-                //assert(mouseCell->part);
-                //PartProcessClick(mouseCell->part, mouseDesk, button);
+                ToolNonePartClicked(manager, desk, mouseCell->part);
             } break;
             case CellValue::Pin: {
                 assert(mouseCell->pin);

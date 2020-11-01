@@ -6,7 +6,8 @@ enum struct Tool {
 
 struct ToolManager {
     Tool currentTool;
-    Part* prefabPart; // Read-only pointer
+    // TODO: Subject to change
+    Part prefabPart;
     DeskPosition prefabPartPos;
     DeskPosition mouseDeskPos;
     v2 mouseCanvasPos;
@@ -14,7 +15,7 @@ struct ToolManager {
     Pin* pendingWireBeginPin;
 };
 
-void ToolPartEnable(ToolManager* manager, Part* prefabPart);
+void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initializer);
 void ToolPartUse(ToolManager* manager, Desk* desk);
 void ToolPartUpdate(ToolManager* manager, Desk* desk);
 void ToolPartRender(ToolManager* manager, Desk* desk);

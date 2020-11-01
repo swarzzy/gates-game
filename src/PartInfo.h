@@ -29,7 +29,8 @@ struct Pin {
     iv2 pRelative;
     NodeID nodeId;
     u8 value;
-    Wire* wire;
+    // TODO: Something smarter that growable array
+    GrowableArray<Wire*> wires;
 };
 
 struct Part {
@@ -57,22 +58,21 @@ struct Part {
 };
 
 typedef void(PartFunctionFn)(Part* part);
+typedef void(PartInitializerFn)(Desk* desk, Part* part);
 
 struct PartInfo {
     u32 partSerialCount;
-    Part partBlanks[PartType::_Count];
     PartFunctionFn* partFunctions[PartType::_Count];
+    PartInitializerFn* partInitializers[PartType::_Count];
 };
 
-Wire* WirePins(Desk* desk, Pin* pin0, Pin* pin1);
+Wire* TryWirePins(Desk* desk, Pin* pin0, Pin* pin1);
 
 void PartInfoInit(PartInfo* info);
 
-void InitPart(PartInfo* info, Part* element, iv2 p, PartType type);
+void InitPart(PartInfo* info, Desk* desk, Part* part, iv2 p, PartType type);
 
-Pin CreatePin(Part* part, i32 xRel, i32 yRel, PinType type);
-
-Part* GetPrefabPart(PartInfo* info, PartType type);
+Pin CreatePin(Desk* desk, Part* part, i32 xRel, i32 yRel, PinType type);
 
 inline v4 GetPartColor(Part* element) { return element->active ? element->activeColor : element->inactiveColor; }
 

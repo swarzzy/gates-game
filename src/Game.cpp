@@ -56,7 +56,7 @@ void GameInit() {
     source->outputs[0].nodeId = node.id;
     led->inputs[0].nodeId = node.id;
 
-    Wire* wire = WirePins(desk, source->outputs, led->inputs);
+    Wire* wire = TryWirePins(desk, source->outputs, led->inputs);
     assert(wire);
 }
 
@@ -142,22 +142,22 @@ void GameRender() {
     v2 scaleOffset = mousePosition - mousePBeforeScale;
     desk->origin = DeskPositionOffset(desk->origin, -scaleOffset);
 
-    Part* prefabPart = nullptr;
+    PartInitializerFn* partInitializer = nullptr;
 
     if (KeyPressed(Key::_1)) {
-        prefabPart = GetPrefabPart(partInfo, PartType::And);
+        partInitializer = partInfo->partInitializers[(u32)PartType::And];
     } else if (KeyPressed(Key::_2)) {
-        prefabPart = GetPrefabPart(partInfo, PartType::Or);
+        partInitializer = partInfo->partInitializers[(u32)PartType::Or];
     } else if (KeyPressed(Key::_3)) {
-        prefabPart = GetPrefabPart(partInfo, PartType::Not);
+        partInitializer = partInfo->partInitializers[(u32)PartType::Not];
     } else if (KeyPressed(Key::_4)) {
-        prefabPart = GetPrefabPart(partInfo, PartType::Led);
+        partInitializer = partInfo->partInitializers[(u32)PartType::Led];
     } else if (KeyPressed(Key::_5)) {
-        prefabPart = GetPrefabPart(partInfo, PartType::Source);
+        partInitializer = partInfo->partInitializers[(u32)PartType::Source];
     }
 
-    if (prefabPart) {
-        ToolPartEnable(toolManager, prefabPart);
+    if (partInitializer) {
+        ToolPartEnable(toolManager, desk, partInitializer);
     }
 
     if (MouseButtonPressed(MouseButton::Right)) {

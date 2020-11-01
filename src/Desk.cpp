@@ -222,7 +222,7 @@ Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type) {
     Part* result = nullptr;
     Part* element = (Part*)desk->deskAllocator.Alloc(sizeof(Part), true);
     if (element) {
-        InitPart(info, element, p, type);
+        InitPart(info, desk, element, p, type);
         if (AddPart(desk, element)) {
             result = element;
         }
