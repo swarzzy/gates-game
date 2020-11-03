@@ -39,6 +39,10 @@ void TryAllocatePins(Desk* desk, Part* part, u32 inputCount, u32 outputCount) {
     }
 }
 
+void DeallocatePins(Desk* desk, Part* part) {
+    desk->deskAllocator.Dealloc(part->pins);
+}
+
 Pin* GetInput(Part* part, u32 index) {
     assert(index < part->inputCount);
     Pin* result = part->pins + index;
@@ -161,6 +165,10 @@ void InitPart(PartInfo* info, Desk* desk, Part* part, iv2 p, PartType type) {
     part->p = DeskPositionNormalize(MakeDeskPosition(p));
 }
 
+void DeinitPart(Desk* desk, Part* part) {
+    DeallocatePins(desk, part);
+}
+
 void PartProcessSignals(PartInfo* info, Part* part) {
     assert((u32)part->type < (u32)PartType::_Count);
     auto partFn = info->partFunctions[(u32)part->type];
@@ -194,4 +202,43 @@ Wire* TryWirePins(Desk* desk, Pin* input, Pin* output) {
         wire->pOutput = ComputePinPosition(output);
     }
     return wire;
+}
+
+bool UnwirePin(Pin* pin, Wire* wire) {
+    bool unwired = false;
+    assert(wire);
+    assert(pin->type == PinType::Input || pin->type == PinType::Output);
+    Wire* prev = nullptr;
+    Wire* curr = pin->firstWire;
+    while (curr) {
+        if (pin->type == PinType::Input) {
+            if (curr == wire) {
+                if (prev) {
+                    prev->inputNext = curr->inputNext;
+                }
+                if (curr = pin->firstWire) {
+                    pin->firstWire = curr->inputNext;
+                }
+
+                unwired = true;
+                break;
+            }
+            curr = curr->inputNext;
+        } else if (pin->type == PinType::Output) {
+            if (curr == wire) {
+                if (prev) {
+                    prev->outputNext = curr->outputNext;
+                }
+                if (curr = pin->firstWire) {
+                    pin->firstWire = curr->outputNext;
+                }
+
+                unwired = true;
+                break;
+            }
+            curr = curr->outputNext;
+        }
+        prev = curr;
+    }
+    return unwired;
 }

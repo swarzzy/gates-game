@@ -155,9 +155,9 @@ void GameRender() {
     }
 
     if (MouseButtonPressed(MouseButton::Right)) {
-        ToolManagerDisableAll(toolManager);
+        ToolManagerSecondaryAction(toolManager);
     } else if (MouseButtonPressed(MouseButton::Left)) {
-        ToolManagerUse(toolManager);
+        ToolManagerPrimaryAction(toolManager);
     }
 
     ToolManagerUpdate(toolManager);

@@ -64,10 +64,12 @@ Pin* GetOutput(Part* part, u32 index);
 u32 PinCount(Part* part);
 
 Wire* TryWirePins(Desk* desk, Pin* input, Pin* output);
+bool UnwirePin(Pin* pin, Wire* wire);
 
 void PartInfoInit(PartInfo* info);
 
 void InitPart(PartInfo* info, Desk* desk, Part* part, iv2 p, PartType type);
+void DeinitPart(Desk* desk, Part* part);
 
 Pin CreatePin(Desk* desk, Part* part, i32 xRel, i32 yRel, PinType type);
 

@@ -73,6 +73,7 @@ struct Desk {
 Part* GetPartMemory(Desk* desk);
 bool AddPartToDesk(Desk* desk, Part* part);
 Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type);
+void DestroyPart(Desk* desk, Part* part);
 
 u32 GetPinUID(Desk* desk) {
     u32 result = desk->pinGeneration++;

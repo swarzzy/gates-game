@@ -16,15 +16,18 @@ struct ToolManager {
 };
 
 void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initializer);
-void ToolPartUse(ToolManager* manager, Desk* desk);
+void ToolPartPrimaryAction(ToolManager* manager, Desk* desk);
 void ToolPartUpdate(ToolManager* manager, Desk* desk);
 void ToolPartRender(ToolManager* manager, Desk* desk);
 
-void ToolNoneUse(ToolManager* manager, Desk* desk);
+void ToolNonePrimaryAction(ToolManager* manager, Desk* desk);
+void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk);
 
 void ToolWireRender(ToolManager* manager, Desk* desk);
+void ToolWirePrimaryAction(ToolManager* manager, Desk* desk);
 
 void ToolManagerDisableAll(ToolManager* manager);
-void ToolManagerUse(ToolManager* manager);
+void ToolManagerPrimaryAction(ToolManager* manager);
+void ToolManagerSecondaryAction(ToolManager* manager);
 void ToolManagerUpdate(ToolManager* manager);
 void ToolManagerRender(ToolManager* manager);

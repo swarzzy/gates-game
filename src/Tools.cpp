@@ -6,8 +6,12 @@ void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initial
     initializer(desk, &manager->prefabPart);
 }
 
-void ToolPartUse(ToolManager* manager, Desk* desk) {
+void ToolPartPrimaryAction(ToolManager* manager, Desk* desk) {
     CreatePart(desk, desk->partInfo, manager->prefabPartPos.cell, manager->prefabPart.type);
+}
+
+void ToolPartSecondaryAction(ToolManager* manager, Desk* desk) {
+    ToolManagerDisableAll(manager);
 }
 
 void ToolPartUpdate(ToolManager* manager, Desk* desk) {
@@ -50,7 +54,11 @@ void ToolWirePinClicked(ToolManager* manager, Desk* desk, Pin* pin) {
     }
 }
 
-void ToolWireUse(ToolManager* manager, Desk* desk) {
+void ToolWireSecondaryAction(ToolManager* manager, Desk* desk) {
+    ToolManagerDisableAll(manager);
+}
+
+void ToolWirePrimaryAction(ToolManager* manager, Desk* desk) {
     DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
     if (mouseCell) {
         if (mouseCell->value == CellValue::Pin) {
@@ -69,7 +77,7 @@ void ToolNonePartClicked(ToolManager* manager, Desk* desk, Part* part) {
     }
 }
 
-void ToolNoneUse(ToolManager* manager, Desk* desk) {
+void ToolNonePrimaryAction(ToolManager* manager, Desk* desk) {
     DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
     if (mouseCell) {
         if (mouseCell->value != CellValue::Empty) {
@@ -83,6 +91,17 @@ void ToolNoneUse(ToolManager* manager, Desk* desk) {
             } break;
             default: {} break;
             }
+        }
+    }
+}
+
+void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk) {
+    DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
+    if (mouseCell) {
+        if (mouseCell->value == CellValue::Part) {
+            Part* part = mouseCell->part;
+            assert(part);
+            DestroyPart(desk, part);
         }
     }
 }
@@ -101,12 +120,22 @@ void ToolManagerDisableAll(ToolManager* manager) {
     manager->currentTool = Tool::None;
 }
 
-void ToolManagerUse(ToolManager* manager) {
+void ToolManagerPrimaryAction(ToolManager* manager) {
     auto desk = GetDesk();
     switch (manager->currentTool) {
-    case Tool::Part: { ToolPartUse(manager, desk); } break;
-    case Tool::Wire: { ToolWireUse(manager, desk); } break;
-    case Tool::None: { ToolNoneUse(manager, desk); } break;
+    case Tool::Part: { ToolPartPrimaryAction(manager, desk); } break;
+    case Tool::Wire: { ToolWirePrimaryAction(manager, desk); } break;
+    case Tool::None: { ToolNonePrimaryAction(manager, desk); } break;
+    default: {} break;
+    }
+}
+
+void ToolManagerSecondaryAction(ToolManager* manager) {
+    auto desk = GetDesk();
+    switch (manager->currentTool) {
+    case Tool::Part: { ToolPartSecondaryAction(manager, desk); } break;
+    case Tool::Wire: { ToolWireSecondaryAction(manager, desk); } break;
+    case Tool::None: { ToolNoneSecondaryAction(manager, desk); } break;
     default: {} break;
     }
 }

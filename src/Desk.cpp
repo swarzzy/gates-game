@@ -146,7 +146,7 @@ bool TryRegisterPartPlacement(Desk* desk, Part* part) {
     return result;
 }
 
-void UnregisterPartPlcement(Desk* desk, Part* part) {
+void UnregisterPartPlacement(Desk* desk, Part* part) {
     // Register part body
     for (i32 y = 0; y < part->dim.y; y++) {
         for (i32 x = 0; x < part->dim.x; x++) {
@@ -204,6 +204,40 @@ Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type) {
     }
 
     return result;
+}
+
+void UnwirePart(Desk* desk, Part* part) {
+    for (u32 i = 0; i < PinCount(part); i++) {
+        Pin* pin = part->pins + i;
+        if (pin->type == PinType::Input) {
+            Wire* wire = pin->firstWire;
+            while (wire) {
+                bool unwired = UnwirePin(wire->output, wire);
+                assert(unwired);
+                Wire* curr = wire;
+                wire = wire->inputNext;
+                ListRemove(&desk->wires, curr);
+            }
+        } else if (pin->type == PinType::Output) {
+            Wire* wire = pin->firstWire;
+            while (wire) {
+                bool unwired = UnwirePin(wire->input, wire);
+                assert(unwired);
+                Wire* curr = wire;
+                wire = wire->inputNext;
+                ListRemove(&desk->wires, curr);
+            }
+        } else {
+            unreachable();
+        }
+    }
+}
+
+void DestroyPart(Desk* desk, Part* part) {
+    UnwirePart(desk, part);
+    UnregisterPartPlacement(desk, part);
+    DeinitPart(desk, part);
+    ReleasePartMemory(desk, part);
 }
 
 void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* deskHeap) {
