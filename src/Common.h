@@ -165,6 +165,8 @@ struct Allocator {
     DeallocateFn* deallocate;
     void* data;
 
+    template <typename T> inline T* Alloc(bool clear = 1) { return (T*)allocate(sizeof(T), clear, 0, data); }
+    template <typename T> inline T* Alloc(u32 count, bool clear = 1) { return (T*)allocate(sizeof(T) * count, clear, 0, data); }
     inline void* Alloc(uptr size, b32 clear, uptr alignment = 0) { return allocate(size, clear, alignment, data); }
     inline void Dealloc(void* ptr) { deallocate(ptr, data); }
 };

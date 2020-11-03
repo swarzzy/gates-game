@@ -25,12 +25,11 @@ enum struct PinType {
 
 struct Pin {
     PinType type;
+    // TODO: Do we need pointer to the part here?
     Part* part;
     iv2 pRelative;
-    NodeID nodeId;
     u8 value;
-    // TODO: Something smarter that growable array
-    GrowableArray<Wire*> wires;
+    Wire* firstWire;
 };
 
 struct Part {
@@ -45,18 +44,10 @@ struct Part {
     u32 inputCount;
     u32 outputCount;
 
-    union {
-        struct {
-            Pin inputs[8];
-            Pin outputs[8];
-        };
-        Pin pins[8 + 8];
-    };
+    Pin* pins;
 
     v4 activeColor;
     v4 inactiveColor;
-
-    void* bucket;
 };
 
 typedef void(PartFunctionFn)(Part* part);
@@ -68,7 +59,11 @@ struct PartInfo {
     PartInitializerFn* partInitializers[PartType::_Count];
 };
 
-Wire* TryWirePins(Desk* desk, Pin* pin0, Pin* pin1);
+Pin* GetInput(Part* part, u32 index);
+Pin* GetOutput(Part* part, u32 index);
+u32 PinCount(Part* part);
+
+Wire* TryWirePins(Desk* desk, Pin* input, Pin* output);
 
 void PartInfoInit(PartInfo* info);
 

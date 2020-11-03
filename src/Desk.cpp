@@ -82,14 +82,8 @@ IRect CalcPartBoundingBox(Part* part) {
     IRect rect {};
     rect.min = part->p.cell;
     rect.max = part->p.cell + part->dim;
-    for (u32 i = 0; i < part->inputCount; i++) {
-        Pin* pin = part->inputs + i;
-        iv2 pinP = part->p.cell + pin->pRelative;
-        rect.min = IV2(Min(rect.min.x, pinP.x), Min(rect.min.y, pinP.y));
-        rect.max = IV2(Max(rect.max.x, pinP.x), Max(rect.max.y, pinP.y));
-    }
-    for (u32 i = 0; i < part->outputCount; i++) {
-        Pin* pin = part->outputs + i;
+    for (u32 i = 0; i < PinCount(part); i++) {
+        Pin* pin = part->pins + i;
         iv2 pinP = part->p.cell + pin->pRelative;
         rect.min = IV2(Min(rect.min.x, pinP.x), Min(rect.min.y, pinP.y));
         rect.max = IV2(Max(rect.max.x, pinP.x), Max(rect.max.y, pinP.y));
@@ -137,18 +131,8 @@ bool TryRegisterPartPlacement(Desk* desk, Part* part) {
                 }
             }
             // Register part inputs
-            for (u32 i = 0; i < part->inputCount; i++) {
-                Pin* pin = part->inputs + i;
-                iv2 pinP = part->p.cell + pin->pRelative;
-                DeskCell* cell = GetDeskCell(desk, pinP, false);
-                assert(cell);
-                assert(cell->value == CellValue::Empty);
-                cell->value = CellValue::Pin;
-                cell->pin = pin;
-            }
-            // Register part outputs
-            for (u32 i = 0; i < part->outputCount; i++) {
-                Pin* pin = part->outputs + i;
+            for (u32 i = 0; i < PinCount(part); i++) {
+                Pin* pin = part->pins + i;
                 iv2 pinP = part->p.cell + pin->pRelative;
                 DeskCell* cell = GetDeskCell(desk, pinP, false);
                 assert(cell);
@@ -175,19 +159,8 @@ void UnregisterPartPlcement(Desk* desk, Part* part) {
             cell->part = nullptr;
         }
     }
-    // Register part inputs
-    for (u32 i = 0; i < part->inputCount; i++) {
-        Pin* pin = part->inputs + i;
-        iv2 pinP = part->p.cell + pin->pRelative;
-        DeskCell* cell = GetDeskCell(desk, pinP, false);
-        assert(cell);
-        assert(cell->value == CellValue::Pin && cell->pin == pin);
-        cell->value = CellValue::Empty;
-        cell->pin = nullptr;
-    }
-    // Register part outputs
-    for (u32 i = 0; i < part->outputCount; i++) {
-        Pin* pin = part->outputs + i;
+    for (u32 i = 0; i < PinCount(part); i++) {
+        Pin* pin = part->pins + i;
         iv2 pinP = part->p.cell + pin->pRelative;
         DeskCell* cell = GetDeskCell(desk, pinP, false);
         assert(cell);
@@ -198,13 +171,12 @@ void UnregisterPartPlcement(Desk* desk, Part* part) {
 }
 
 Part* GetPartMemory(Desk* desk) {
-    Part* result = nullptr;
-    auto entry = BucketArrayAdd(&desk->parts);
-    if (entry.ptr) {
-        result = entry.ptr;
-        result->bucket = entry.bucket;
-    }
+    Part* result = ListAdd(&desk->parts);
     return result;
+}
+
+void ReleasePartMemory(Desk* desk, Part* part) {
+    ListRemove(&desk->parts, part);
 }
 
 bool AddPartToDesk(Desk* desk, Part* part) {
@@ -220,13 +192,14 @@ bool AddPartToDesk(Desk* desk, Part* part) {
 
 Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type) {
     Part* result = nullptr;
+    // TODO: Check if we can place the part before allocate it!!
     Part* part = GetPartMemory(desk);
     if (part) {
         InitPart(info, desk, part, p, type);
         if (AddPartToDesk(desk, part)) {
             result = part;
         } else {
-            // TODO: Free part memory
+            ReleasePartMemory(desk, part);
         }
     }
 
@@ -238,9 +211,8 @@ void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* desk
     desk->deskAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, deskHeap);
     desk->tileHashMap = HashMap<iv2, DeskTile*, DeskHash, DeskCompare>::Make(desk->deskAllocator);
     desk->nodeTable = HashMap<NodeID, Node, NodeHash, NodeCompare>::Make(desk->deskAllocator);
-    desk->wires.Init(desk->deskAllocator);
-    auto initialized = BucketArrayInit(&desk->parts, desk->deskAllocator);
-    assert(initialized);
+    desk->wires = CreateList<Wire>(desk->deskAllocator);
+    desk->parts = CreateList<Part>(desk->deskAllocator);
     desk->canvas = canvas;
     desk->partInfo = partInfo;
 }
@@ -293,9 +265,9 @@ DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create) {
 }
 
 void DrawDesk(Desk* desk, Canvas* canvas) {
-    ForEach(&desk->parts, [&](Part* part) {
-        DrawPart(desk, canvas, part, 1.0f);
-    });
+    for (Part& part : desk->parts) {
+        DrawPart(desk, canvas, &part, 1.0f);
+    }
 }
 
 DeskPosition ComputePinPosition(Pin* pin,  DeskPosition partPosition) {
@@ -320,7 +292,7 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePo
     v4 color = V4(GetPartColor(element).xyz, alpha);
     DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
     for (u32 pinIndex = 0; pinIndex < element->inputCount; pinIndex++) {
-        Pin* pin = element->inputs + pinIndex;
+        Pin* pin = GetInput(element, pinIndex);
         v4 color = V4(0.0f, 0.9f, 0.0f, 1.0f);
         DeskPosition pinPos = ComputePinPosition(pin, overridePos);
         v2 relPos = DeskPositionRelative(desk->origin, pinPos);
@@ -329,7 +301,7 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePo
         DrawListPushRect(&canvas->drawList, pinMin, pinMax, 0.0f, color);
     }
     for (u32 pinIndex = 0; pinIndex < element->outputCount; pinIndex++) {
-        Pin* pin = element->outputs + pinIndex;
+        Pin* pin = GetOutput(element, pinIndex);
         v4 color = V4(0.9f, 0.9f, 0.0f, 1.0f);
         DeskPosition pinPos = ComputePinPosition(pin, overridePos);
         v2 relPos = DeskPositionRelative(desk->origin, pinPos);
@@ -344,14 +316,9 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha) {
 }
 
 void PropagateSignals(Desk* desk) {
-    for (u32 i = 0; i < desk->wires.Count(); i++) {
-        Wire* wire = desk->wires.Begin() + i;
-        Pin* p0 = wire->pin0;
-        Pin* p1 = wire->pin1;
-        if (p0->type == PinType::Input && p1->type == PinType::Output) {
-            p0->value = p1->value;
-        } else if (p1->type == PinType::Input && p0->type == PinType::Output) {
-            p1->value = p0->value;
-        }
+    for (Wire& wire : desk->wires) {
+        Pin* input = wire.input;
+        Pin* output = wire.output;
+        input->value = output->value;
     }
 }

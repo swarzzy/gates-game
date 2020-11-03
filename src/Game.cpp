@@ -50,13 +50,7 @@ void GameInit() {
     Part* source = CreatePart(desk, partInfo, IV2(10, 10), PartType::Source);
     Part* led = CreatePart(desk, partInfo, IV2(20, 10), PartType::Led);
 
-    auto node = AddNode(desk);
-    assert(node.id.id);
-
-    source->outputs[0].nodeId = node.id;
-    led->inputs[0].nodeId = node.id;
-
-    Wire* wire = TryWirePins(desk, source->outputs, led->inputs);
+    Wire* wire = TryWirePins(desk, GetInput(led, 0), GetOutput(source, 0));
     assert(wire);
 }
 
@@ -220,9 +214,9 @@ void GameRender() {
 
     PropagateSignals(desk);
 
-    ForEach(&desk->parts, [&](Part* it) {
-        PartProcessSignals(partInfo, it);
-    });
+    for (Part& it : desk->parts) {
+        PartProcessSignals(partInfo, &it);
+    }
 
     switch (context->drawMode) {
     case DrawMode::Normal: { DrawDesk(desk, deskCanvas); } break;
@@ -235,10 +229,9 @@ void GameRender() {
     // TODO: Culling
     DrawListBeginBatch(&deskCanvas->drawList, TextureMode::Color);
     f32 thickness = 0.1f;
-    for (u32 i = 0; i < desk->wires.Count(); i++) {
-        Wire* wire = desk->wires.Begin() + i;
-        v2 begin = DeskPositionRelative(desk->origin, wire->p0);
-        v2 end = DeskPositionRelative(desk->origin, wire->p1);
+    for (Wire& wire : desk->wires) {
+        v2 begin = DeskPositionRelative(desk->origin, wire.pInput);
+        v2 end = DeskPositionRelative(desk->origin, wire.pOutput);
         DrawSimpleLineBatch(&deskCanvas->drawList, begin, end, 0.0f, thickness, V4(0.2f, 0.2f, 0.2f, 1.0f));
     }
 

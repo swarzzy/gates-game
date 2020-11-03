@@ -4,7 +4,7 @@
 #include "HashMap.h"
 #include "Common.h"
 #include "PartInfo.h"
-#include "BucketArray.h"
+#include "List.h"
 
 struct Desk;
 struct PartID;
@@ -46,11 +46,12 @@ struct IRect {
 };
 
 struct Wire {
-    u32 index;
-    Pin* pin0;
-    Pin* pin1;
-    DeskPosition p0;
-    DeskPosition p1;
+    Pin* input;
+    Pin* output;
+    DeskPosition pInput;
+    DeskPosition pOutput;
+    Wire* inputNext;
+    Wire* outputNext;
 };
 
 struct Desk {
@@ -64,9 +65,9 @@ struct Desk {
     HashMap<iv2, DeskTile*, DeskHash, DeskCompare> tileHashMap;
     // TODO: Just go crazy and ALLOCATE EVERY SINGLE ELEMENT IN THE HEAP.
     // Eventually we will need more appropriate way to store elements
-    BucketArray<Part, 4> parts;
+    List<Part> parts;
+    List<Wire> wires;
     HashMap<NodeID, Node, NodeHash, NodeCompare> nodeTable;
-    GrowableArray<Wire> wires;
 };
 
 Part* GetPartMemory(Desk* desk);

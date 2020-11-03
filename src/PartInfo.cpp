@@ -3,88 +3,132 @@
 void FuncPartAnd(Part* part) {
     u8 value = 1;
     for (u32 i = 0; i < part->inputCount; i++) {
-        value = value && part->inputs[i].value;
+        value = value && GetInput(part, i)->value;
     }
-    part->outputs[0].value = value;
+    GetOutput(part, 0)->value = value;
 }
 
 void FuncPartOr(Part* part) {
     u8 value = 0;
     for (u32 i = 0; i < part->inputCount; i++) {
-        value = value || part->inputs[i].value;
+        value = value || GetInput(part, i)->value;
     }
-    part->outputs[0].value = value;
+    GetOutput(part, 0)->value = value;
 }
 
 void FuncPartNot(Part* part) {
-    u8 value = !part->inputs[0].value;
-    part->outputs[0].value = value;
+    u8 value = !GetInput(part, 0)->value;
+    GetOutput(part, 0)->value = value;
 }
 
 void FuncPartSource(Part* part) {
-    part->outputs[0].value = (u8)part->active;
+    GetOutput(part, 0)->value = (u8)part->active;
 }
 
 void FuncPartLed(Part* part) {
-    part->active = part->inputs[0].value;
+    part->active = GetInput(part, 0)->value;
+}
+
+void TryAllocatePins(Desk* desk, Part* part, u32 inputCount, u32 outputCount) {
+    u32 count = inputCount + outputCount;
+    Pin* pins = desk->deskAllocator.Alloc<Pin>(count);
+    if (pins) {
+        part->pins = pins;
+        part->inputCount = inputCount;
+        part->outputCount = outputCount;
+    }
+}
+
+Pin* GetInput(Part* part, u32 index) {
+    assert(index < part->inputCount);
+    Pin* result = part->pins + index;
+    return result;
+}
+
+Pin* GetOutput(Part* part, u32 index) {
+    assert(index < part->outputCount);
+    Pin* result = part->pins + (index + part->inputCount);
+    return result;
+}
+
+u32 PinCount(Part* part) {
+    u32 count = part->inputCount + part->outputCount;
+    return count;
 }
 
 void InitPartAnd(Desk* desk, Part* part) {
     memset(part, 0, sizeof(Part));
     part->type = PartType::And;
     part->dim = IV2(3, 5);
-    part->inputCount = 2;
-    part->outputCount = 1;
-    part->inputs[0] = CreatePin(desk, part, -1, 1, PinType::Input);
-    part->inputs[1] = CreatePin(desk, part, -1, 3, PinType::Input);
-    part->outputs[0] = CreatePin(desk, part, 3, 3, PinType::Output);
+
     part->activeColor = V4(0.4f, 0.6f, 0.0f, 1.0f);
     part->inactiveColor = V4(0.4f, 0.6f, 0.0f, 1.0f);
+
+    TryAllocatePins(desk, part, 2, 1);
+    if (part->pins) {
+        *GetInput(part, 0) = CreatePin(desk, part, -1, 1, PinType::Input);
+        *GetInput(part, 1) = CreatePin(desk, part, -1, 3, PinType::Input);
+        *GetOutput(part, 0) = CreatePin(desk, part, 3, 3, PinType::Output);
+    }
 }
 
 void InitPartOr(Desk* desk, Part* part) {
     memset(part, 0, sizeof(Part));
     part->type = PartType::Or;
     part->dim = IV2(3, 5);
-    part->inputCount = 2;
-    part->outputCount = 1;
-    part->inputs[0] = CreatePin(desk, part, -1, 1, PinType::Input);
-    part->inputs[1] = CreatePin(desk, part, -1, 3, PinType::Input);
-    part->outputs[0] = CreatePin(desk, part, 3, 3, PinType::Output);
+
     part->activeColor = V4(0.0f, 0.0f, 0.6f, 1.0f);
     part->inactiveColor = V4(0.0f, 0.0f, 0.6f, 1.0f);
+
+    TryAllocatePins(desk, part, 2, 1);
+    if (part->pins) {
+        *GetInput(part, 0) = CreatePin(desk, part, -1, 1, PinType::Input);
+        *GetInput(part, 1) = CreatePin(desk, part, -1, 3, PinType::Input);
+        *GetOutput(part, 0) = CreatePin(desk, part, 3, 3, PinType::Output);
+    }
 }
 
 void InitPartNot(Desk* desk, Part* part) {
     memset(part, 0, sizeof(Part));
     part->type = PartType::Not;
     part->dim = IV2(3, 3);
-    part->inputCount = 1;
-    part->outputCount = 1;
-    part->inputs[0] = CreatePin(desk, part, -1, 1, PinType::Input);
-    part->outputs[0] = CreatePin(desk, part, 3, 1, PinType::Output);
+
     part->activeColor = V4(0.6f, 0.0f, 0.0f, 1.0f);
     part->inactiveColor = V4(0.6f, 0.0f, 0.0f, 1.0f);
+
+    TryAllocatePins(desk, part, 1, 1);
+    if (part->pins) {
+        *GetInput(part, 0) = CreatePin(desk, part, -1, 1, PinType::Input);
+        *GetOutput(part, 0) = CreatePin(desk, part, 3, 1, PinType::Output);
+    }
 }
 
 void InitPartLed(Desk* desk, Part* part) {
     memset(part, 0, sizeof(Part));
     part->type = PartType::Led;
     part->dim = IV2(3, 3);
-    part->inputCount = 1;
-    part->inputs[0] = CreatePin(desk, part, -1, 1, PinType::Input);
+
     part->activeColor = V4(0.9f, 0.0f, 0.0f, 1.0f);
     part->inactiveColor = V4(0.1f, 0.1f, 0.1f, 1.0f);
+
+    TryAllocatePins(desk, part, 1, 0);
+    if (part->pins) {
+        *GetInput(part, 0) = CreatePin(desk, part, -1, 1, PinType::Input);
+    }
 }
 
 void InitPartSource(Desk* desk, Part* part) {
     memset(part, 0, sizeof(Part));
     part->type = PartType::Source;
     part->dim = IV2(3, 3);
-    part->outputCount = 1;
-    part->outputs[0] = CreatePin(desk, part, 3, 1, PinType::Output);
+
     part->activeColor = V4(0.7f, 0.7f, 0.0f, 1.0f);
     part->inactiveColor = V4(0.0f, 0.0f, 0.5f, 1.0f);
+
+    TryAllocatePins(desk, part, 0, 1);
+    if (part->pins) {
+        *GetOutput(part, 0) = CreatePin(desk, part, 3, 1, PinType::Output);
+    }
 }
 
 void PartInfoInit(PartInfo* info) {
@@ -129,34 +173,25 @@ Pin CreatePin(Desk* desk, Part* part, i32 xRel, i32 yRel, PinType type) {
     pin.type = type;
     pin.part = part;
     pin.pRelative = IV2(xRel, yRel);
-    pin.wires.Init(desk->deskAllocator);
     return pin;
 }
 
-Wire* TryWirePins(Desk* desk, Pin* pin0, Pin* pin1) {
-    Wire* result = nullptr;
-    Wire* wire = desk->wires.PushBack();
+Wire* TryWirePins(Desk* desk, Pin* input, Pin* output) {
+    assert(input->type == PinType::Input);
+    assert(output->type == PinType::Output);
+
+    Wire* wire = ListAdd(&desk->wires);
     if (wire) {
-        bool assigned = false;
-        Wire** p1Wire = pin0->wires.PushBack();
-        if (p1Wire) {
-            Wire** p2Wire = pin0->wires.PushBack();
-            if (p2Wire) {
-                assigned = true;
-                *p1Wire = wire;
-                *p2Wire = wire;
-                wire->pin0 = pin0;
-                wire->p0 = ComputePinPosition(pin0);
-                wire->pin1 = pin1;
-                wire->p1 = ComputePinPosition(pin1);
-                result = wire;
-            }
-        } else {
-            pin0->wires.PopBack();
-        }
-        if (!assigned) {
-            desk->wires.PopBack();
-        }
+        wire->inputNext = input->firstWire;
+        input->firstWire = wire;
+        wire->input = input;
+
+        wire->outputNext = output->firstWire;
+        output->firstWire = wire;
+        wire->output = output;
+
+        wire->pInput = ComputePinPosition(input);
+        wire->pOutput = ComputePinPosition(output);
     }
-    return result;
+    return wire;
 }

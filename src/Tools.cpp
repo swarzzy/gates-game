@@ -7,7 +7,7 @@ void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initial
 }
 
 void ToolPartUse(ToolManager* manager, Desk* desk) {
-3    CreatePart(desk, desk->partInfo, manager->prefabPartPos.cell, manager->prefabPart.type);
+    CreatePart(desk, desk->partInfo, manager->prefabPartPos.cell, manager->prefabPart.type);
 }
 
 void ToolPartUpdate(ToolManager* manager, Desk* desk) {
@@ -25,7 +25,25 @@ void ToolWirePinClicked(ToolManager* manager, Desk* desk, Pin* pin) {
         manager->currentTool = Tool::Wire;
     } else {
         if (pin != manager->pendingWireBeginPin) {
-            TryWirePins(desk, manager->pendingWireBeginPin, pin);
+            Pin* input = nullptr;
+            Pin* output = nullptr;
+
+            switch (pin->type) {
+            case PinType::Input: { input = pin; } break;
+            case PinType::Output: { output = pin; } break;
+            invalid_default();
+            }
+
+            switch (manager->pendingWireBeginPin->type) {
+            case PinType::Input: { input = manager->pendingWireBeginPin; } break;
+            case PinType::Output: { output = manager->pendingWireBeginPin; } break;
+                invalid_default();
+            }
+
+            if (input && output) {
+                TryWirePins(desk, input, output);
+            }
+
             assert(manager->currentTool == Tool::Wire);
             manager->currentTool = Tool::None;
         }
