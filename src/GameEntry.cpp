@@ -134,6 +134,7 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
 #include "ConsoleCommands.cpp"
 #include "PartInfo.cpp"
 #include "Tools.cpp"
+#include "BucketArray.cpp"
 
 #include "../ext/imgui-1.78/imconfig.h"
 #include "../ext/imgui-1.78/imgui.cpp"

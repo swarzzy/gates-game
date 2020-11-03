@@ -7,9 +7,7 @@ void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initial
 }
 
 void ToolPartUse(ToolManager* manager, Desk* desk) {
-    Part* clone = (Part*)desk->deskAllocator.Alloc(sizeof(Part), false);
-    InitPart(desk->partInfo, desk, clone, manager->prefabPartPos.cell, manager->prefabPart.type);
-    AddPart(desk, clone);
+3    CreatePart(desk, desk->partInfo, manager->prefabPartPos.cell, manager->prefabPart.type);
 }
 
 void ToolPartUpdate(ToolManager* manager, Desk* desk) {

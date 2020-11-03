@@ -4,6 +4,7 @@
 #include "HashMap.h"
 #include "Common.h"
 #include "PartInfo.h"
+#include "BucketArray.h"
 
 struct Desk;
 struct PartID;
@@ -63,10 +64,14 @@ struct Desk {
     HashMap<iv2, DeskTile*, DeskHash, DeskCompare> tileHashMap;
     // TODO: Just go crazy and ALLOCATE EVERY SINGLE ELEMENT IN THE HEAP.
     // Eventually we will need more appropriate way to store elements
-    HashMap<PartID, Part*, PartHash, PartCompare> partsHashMap;
+    BucketArray<Part, 4> parts;
     HashMap<NodeID, Node, NodeHash, NodeCompare> nodeTable;
     GrowableArray<Wire> wires;
 };
+
+Part* GetPartMemory(Desk* desk);
+bool AddPartToDesk(Desk* desk, Part* part);
+Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type);
 
 u32 GetPinUID(Desk* desk) {
     u32 result = desk->pinGeneration++;
@@ -84,11 +89,6 @@ Node* FindNode(Desk* desk, NodeID id);
 NodeID GetNodeID(Desk* desk);
 void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* deskHeap);
 DeskTile* CreateDeskTile(Desk* desk, iv2 p);
-Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type);
-
-bool AddPart(Desk* desk, Part* element);
-
-Part* FindPart(Desk* desk, PartID id);
 
 DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create = false);
 DeskCell* GetDeskCell(DeskTile* tile, uv2 cell);

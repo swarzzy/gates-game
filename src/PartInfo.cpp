@@ -104,8 +104,8 @@ void PartInfoInit(PartInfo* info) {
     info->partFunctions[(u32)PartType::Led] = FuncPartLed;
 }
 
-PartID GetPartID(PartInfo* info) {
-    PartID id = { ++info->partSerialCount };
+u32 GetPartID(PartInfo* info) {
+    u32 id = { ++info->partSerialCount };
     return id;
 }
 

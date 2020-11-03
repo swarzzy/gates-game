@@ -197,22 +197,22 @@ void UnregisterPartPlcement(Desk* desk, Part* part) {
     }
 }
 
+Part* GetPartMemory(Desk* desk) {
+    Part* result = nullptr;
+    auto entry = BucketArrayAdd(&desk->parts);
+    if (entry.ptr) {
+        result = entry.ptr;
+        result->bucket = entry.bucket;
+    }
+    return result;
+}
 
-bool AddPart(Desk* desk, Part* element) {
+bool AddPartToDesk(Desk* desk, Part* part) {
+    assert(part->id);
     bool result = false;
-    IRect boundingBox = CalcPartBoundingBox(element);
-    if (CanPlacePart(desk, boundingBox)) {
-        if (ExpandDeskFor(desk, boundingBox)) {
-            Part** entry = HashMapAdd(&desk->partsHashMap, &element->id);
-            if (entry) {
-                if (TryRegisterPartPlacement(desk, element)) {
-                    *entry = element;
-                    result = true;
-                } else {
-                    unreachable();
-                }
-            }
-        }
+    IRect boundingBox = CalcPartBoundingBox(part);
+    if (TryRegisterPartPlacement(desk, part)) {
+        result = true;
     }
 
     return result;
@@ -220,11 +220,13 @@ bool AddPart(Desk* desk, Part* element) {
 
 Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type) {
     Part* result = nullptr;
-    Part* element = (Part*)desk->deskAllocator.Alloc(sizeof(Part), true);
-    if (element) {
-        InitPart(info, desk, element, p, type);
-        if (AddPart(desk, element)) {
-            result = element;
+    Part* part = GetPartMemory(desk);
+    if (part) {
+        InitPart(info, desk, part, p, type);
+        if (AddPartToDesk(desk, part)) {
+            result = part;
+        } else {
+            // TODO: Free part memory
         }
     }
 
@@ -235,20 +237,12 @@ void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* desk
     desk->deskHeap = deskHeap;
     desk->deskAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, deskHeap);
     desk->tileHashMap = HashMap<iv2, DeskTile*, DeskHash, DeskCompare>::Make(desk->deskAllocator);
-    desk->partsHashMap = HashMap<PartID, Part*, PartHash, PartCompare>::Make(desk->deskAllocator);
     desk->nodeTable = HashMap<NodeID, Node, NodeHash, NodeCompare>::Make(desk->deskAllocator);
     desk->wires.Init(desk->deskAllocator);
+    auto initialized = BucketArrayInit(&desk->parts, desk->deskAllocator);
+    assert(initialized);
     desk->canvas = canvas;
     desk->partInfo = partInfo;
-}
-
-Part* FindPart(Desk* desk, PartID id) {
-    Part* result = nullptr;
-    Part** bucket = HashMapGet(&desk->partsHashMap, &id);
-    if (bucket) {
-        result = *bucket;
-    }
-    return result;
 }
 
 DeskTile* CreateDeskTile(Desk* desk, iv2 p) {
@@ -299,8 +293,8 @@ DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create) {
 }
 
 void DrawDesk(Desk* desk, Canvas* canvas) {
-    ForEach(&desk->partsHashMap, [&](auto it) {
-        DrawPart(desk, canvas, *it, 1.0f);
+    ForEach(&desk->parts, [&](Part* part) {
+        DrawPart(desk, canvas, part, 1.0f);
     });
 }
 

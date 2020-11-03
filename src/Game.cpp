@@ -219,8 +219,9 @@ void GameRender() {
     DEBUG_OVERLAY_TRACE(desk->origin.cell.y);
 
     PropagateSignals(desk);
-    ForEach(&desk->partsHashMap, [&](Part** it) {
-        PartProcessSignals(partInfo, *it);
+
+    ForEach(&desk->parts, [&](Part* it) {
+        PartProcessSignals(partInfo, it);
     });
 
     switch (context->drawMode) {

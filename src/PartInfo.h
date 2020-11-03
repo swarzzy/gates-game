@@ -34,7 +34,7 @@ struct Pin {
 };
 
 struct Part {
-    PartID id;
+    u32 id;
     PartType type;
 
     DeskPosition p;
@@ -55,6 +55,8 @@ struct Part {
 
     v4 activeColor;
     v4 inactiveColor;
+
+    void* bucket;
 };
 
 typedef void(PartFunctionFn)(Part* part);
