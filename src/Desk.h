@@ -97,13 +97,18 @@ DeskCell* GetDeskCell(DeskTile* tile, uv2 cell);
 DeskTile* GetDeskTile(Desk* desk, iv2 tileP, bool create = false);
 
 IRect CalcPartBoundingBox(Part* part);
+IRect CalcPartBoundingBox(Part* part, iv2 overridePos);
+
+void UpdateCachedWirePositions(Part* part);
+bool TryChangePartLocation(Desk* desk, Part* part, iv2 newP);
+
 bool TryRegisterPartPlacement(Desk* desk, Part* element);
 void UnregisterPartPlcement(Desk* desk, Part* element);
 bool CanPlacePart(Desk* desk, IRect box);
 bool ExpandDeskFor(Desk* desk, IRect box);
 
-void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePos, f32 alpha);
-void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha);
+void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePos, v3 overrideColor, f32 overrideColorFactor, f32 alpha);
+void DrawPart(Desk* desk, Canvas* canvas, Part* element, v3 overrideColor, f32 overrideColorFactor, f32 alpha);
 void DrawDesk(Desk* desk, Canvas* canvas);
 
 DeskPosition ComputePinPosition(Pin* pin,  DeskPosition partPosition);

@@ -21,7 +21,7 @@ struct GrowableArray {
     void Init(Allocator alloc) { memset(this, 0, sizeof(GrowableArray)); allocator = alloc; }
 
     inline GrowableArray Clone()       { GrowableArray clone(allocator); clone.Resize(size); memcpy(clone.data, data, (size_t)size * sizeof(T)); return clone; }
-    inline void          FreeBuffers() { if (Data) allocator.Dealloc(data); size = 0; capacity = 0; data = nullptr;}
+    inline void          FreeBuffers() { if (data) allocator.Dealloc(data); size = 0; capacity = 0; data = nullptr;}
 
     inline bool        Empty() const                        { return size == 0; }
     inline u32         Count() const                        { return size; }

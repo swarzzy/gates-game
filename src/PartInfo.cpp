@@ -163,10 +163,12 @@ void InitPart(PartInfo* info, Desk* desk, Part* part, iv2 p, PartType type) {
     initializer(desk, part);
     part->id = GetPartID(info);
     part->p = DeskPositionNormalize(MakeDeskPosition(p));
+    part->wires.Init(desk->deskAllocator);
 }
 
 void DeinitPart(Desk* desk, Part* part) {
     DeallocatePins(desk, part);
+    part->wires.FreeBuffers();
 }
 
 void PartProcessSignals(PartInfo* info, Part* part) {
@@ -184,61 +186,76 @@ Pin CreatePin(Desk* desk, Part* part, i32 xRel, i32 yRel, PinType type) {
     return pin;
 }
 
+bool ArePinsWired(Pin* input, Pin* output) {
+    bool result = false;
+    for (u32 i = 0; i < input->part->wires.Count(); i++) {
+        auto record = input->part->wires.Begin() + i;
+        if (record->pin == input) {
+            Wire* wire = record->wire;
+            if (wire->output == output) {
+                result = true;
+                break;
+            }
+        }
+    }
+    return result;
+}
+
 Wire* TryWirePins(Desk* desk, Pin* input, Pin* output) {
     assert(input->type == PinType::Input);
     assert(output->type == PinType::Output);
 
-    Wire* wire = ListAdd(&desk->wires);
-    if (wire) {
-        wire->inputNext = input->firstWire;
-        input->firstWire = wire;
-        wire->input = input;
+    Wire* result = nullptr;
 
-        wire->outputNext = output->firstWire;
-        output->firstWire = wire;
-        wire->output = output;
-
-        wire->pInput = ComputePinPosition(input);
-        wire->pOutput = ComputePinPosition(output);
+    bool inputIsFree = true;
+    for (u32 i = 0; i < input->part->wires.Count(); i++) {
+        auto record = input->part->wires.Begin() + i;
+        if (record->pin == input) {
+            inputIsFree = false;
+            break;
+        }
     }
-    return wire;
+
+    if (inputIsFree) {
+        if (!ArePinsWired(input, output)) {
+            Wire* wire = ListAdd(&desk->wires);
+
+            wire->input = input;
+            auto inputRecord = input->part->wires.PushBack();
+            inputRecord->wire = wire;
+            inputRecord->pin = input;
+
+            wire->output = output;
+            auto outputRecord = output->part->wires.PushBack();
+            outputRecord->wire = wire;
+            outputRecord->pin = output;
+
+            wire->pInput = ComputePinPosition(input);
+            wire->pOutput = ComputePinPosition(output);
+
+            result = wire;
+        }
+    }
+
+    return result;
 }
 
 bool UnwirePin(Pin* pin, Wire* wire) {
-    bool unwired = false;
-    assert(wire);
-    assert(pin->type == PinType::Input || pin->type == PinType::Output);
-    Wire* prev = nullptr;
-    Wire* curr = pin->firstWire;
-    while (curr) {
-        if (pin->type == PinType::Input) {
-            if (curr == wire) {
-                if (prev) {
-                    prev->inputNext = curr->inputNext;
-                }
-                if (curr = pin->firstWire) {
-                    pin->firstWire = curr->inputNext;
-                }
-
-                unwired = true;
-                break;
-            }
-            curr = curr->inputNext;
-        } else if (pin->type == PinType::Output) {
-            if (curr == wire) {
-                if (prev) {
-                    prev->outputNext = curr->outputNext;
-                }
-                if (curr = pin->firstWire) {
-                    pin->firstWire = curr->outputNext;
-                }
-
-                unwired = true;
-                break;
-            }
-            curr = curr->outputNext;
+    // Ensure wire and pin are connected
+    bool result = false;
+    WireRecord* record = nullptr;
+    for (u32 i = 0; i < pin->part->wires.Count(); i++) {
+        auto current = pin->part->wires.Begin() + i;
+        if (current->wire == wire) {
+            record = current;
+            result = true;
+            break;
         }
-        prev = curr;
     }
-    return unwired;
+
+    if (record) {
+        pin->part->wires.EraseUnsorted(record);
+    }
+
+    return result;
 }

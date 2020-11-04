@@ -29,7 +29,11 @@ struct Pin {
     Part* part;
     iv2 pRelative;
     u8 value;
-    Wire* firstWire;
+};
+
+struct WireRecord {
+    Wire* wire;
+    Pin* pin;
 };
 
 struct Part {
@@ -45,6 +49,8 @@ struct Part {
     u32 outputCount;
 
     Pin* pins;
+
+    GrowableArray<WireRecord> wires;
 
     v4 activeColor;
     v4 inactiveColor;

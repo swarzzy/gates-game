@@ -78,17 +78,21 @@ bool CanPlacePart(Desk* desk, IRect box) {
     return true;
 }
 
-IRect CalcPartBoundingBox(Part* part) {
+IRect CalcPartBoundingBox(Part* part, iv2 overridePos) {
     IRect rect {};
-    rect.min = part->p.cell;
-    rect.max = part->p.cell + part->dim;
+    rect.min = overridePos;
+    rect.max = overridePos + part->dim;
     for (u32 i = 0; i < PinCount(part); i++) {
         Pin* pin = part->pins + i;
-        iv2 pinP = part->p.cell + pin->pRelative;
+        iv2 pinP = overridePos + pin->pRelative;
         rect.min = IV2(Min(rect.min.x, pinP.x), Min(rect.min.y, pinP.y));
         rect.max = IV2(Max(rect.max.x, pinP.x), Max(rect.max.y, pinP.y));
     }
     return rect;
+}
+
+IRect CalcPartBoundingBox(Part* part) {
+    return CalcPartBoundingBox(part, part->p.cell);
 }
 
 
@@ -130,7 +134,6 @@ bool TryRegisterPartPlacement(Desk* desk, Part* part) {
                     cell->part = part;
                 }
             }
-            // Register part inputs
             for (u32 i = 0; i < PinCount(part); i++) {
                 Pin* pin = part->pins + i;
                 iv2 pinP = part->p.cell + pin->pRelative;
@@ -170,6 +173,38 @@ void UnregisterPartPlacement(Desk* desk, Part* part) {
     }
 }
 
+void UpdateCachedWirePositions(Part* part) {
+    for (u32 i = 0; i < part->wires.Count(); i++) {
+        auto record = part->wires.Begin() + i;
+        Wire* wire = record->wire;
+        Pin* pin = record->pin;
+        if (pin->type == PinType::Input) {
+            wire->pInput = ComputePinPosition(pin);
+            wire = wire->inputNext;
+        } else {
+            wire->pOutput = ComputePinPosition(pin);
+            wire = wire->outputNext;
+        }
+    }
+}
+
+bool TryChangePartLocation(Desk* desk, Part* part, iv2 newP) {
+    bool result = false;
+    IRect bbox = CalcPartBoundingBox(part, newP);
+    if (CanPlacePart(desk, bbox)) {
+        if (ExpandDeskFor(desk, bbox)) {
+            UnregisterPartPlacement(desk, part);
+            part->p = MakeDeskPosition(newP);
+            // TODO: TryRegisterPartPlacement also performs checks and desk expansion. Not efficient!
+            bool registered = TryRegisterPartPlacement(desk, part);
+            assert(registered);
+            UpdateCachedWirePositions(part);
+            result = true;
+        }
+    }
+    return result;
+}
+
 Part* GetPartMemory(Desk* desk) {
     Part* result = ListAdd(&desk->parts);
     return result;
@@ -207,29 +242,20 @@ Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type) {
 }
 
 void UnwirePart(Desk* desk, Part* part) {
-    for (u32 i = 0; i < PinCount(part); i++) {
-        Pin* pin = part->pins + i;
+    for (u32 i = 0; i < part->wires.Count(); i++) {
+        auto record = part->wires.Begin() + i;
+        Pin* pin = record->pin;
+        Wire* wire = record->wire;
         if (pin->type == PinType::Input) {
-            Wire* wire = pin->firstWire;
-            while (wire) {
-                bool unwired = UnwirePin(wire->output, wire);
-                assert(unwired);
-                Wire* curr = wire;
-                wire = wire->inputNext;
-                ListRemove(&desk->wires, curr);
-            }
+            bool unwired = UnwirePin(wire->output, wire);
+            assert(unwired);
         } else if (pin->type == PinType::Output) {
-            Wire* wire = pin->firstWire;
-            while (wire) {
-                bool unwired = UnwirePin(wire->input, wire);
-                assert(unwired);
-                Wire* curr = wire;
-                wire = wire->inputNext;
-                ListRemove(&desk->wires, curr);
-            }
+            bool unwired = UnwirePin(wire->input, wire);
+            assert(unwired);
         } else {
             unreachable();
         }
+        ListRemove(&desk->wires, wire);
     }
 }
 
@@ -300,7 +326,7 @@ DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create) {
 
 void DrawDesk(Desk* desk, Canvas* canvas) {
     ListForEach(&desk->parts, part) {
-        DrawPart(desk, canvas, part, 1.0f);
+        DrawPart(desk, canvas, part, {}, 0.0f, 1.0f);
     } ListEndEach
 }
 
@@ -319,11 +345,12 @@ DeskPosition ComputePinPosition(Pin* pin) {
     return ComputePinPosition(pin, pin->part->p);
 }
 
-void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePos, f32 alpha) {
+void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePos, v3 overrideColor, f32 overrideColorFactor, f32 alpha) {
     DeskPosition maxP = MakeDeskPosition(overridePos.cell + element->dim);
     v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(overridePos.cell)) - DeskCellHalfSize;
     v2 max = DeskPositionRelative(desk->origin, maxP) - DeskCellHalfSize;
-    v4 color = V4(GetPartColor(element).xyz, alpha);
+    v3 partColor = GetPartColor(element).xyz;
+    v4 color = V4(Lerp(partColor, overrideColor, overrideColorFactor), alpha);
     DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
     for (u32 pinIndex = 0; pinIndex < element->inputCount; pinIndex++) {
         Pin* pin = GetInput(element, pinIndex);
@@ -345,8 +372,8 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePo
     }
 }
 
-void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha) {
-    DrawPart(desk, canvas, element, element->p, alpha);
+void DrawPart(Desk* desk, Canvas* canvas, Part* element, v3 overrideColor, f32 overrideColorFactor, f32 alpha) {
+    DrawPart(desk, canvas, element, element->p, overrideColor, overrideColorFactor, alpha);
 }
 
 void PropagateSignals(Desk* desk) {

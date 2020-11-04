@@ -19,7 +19,7 @@ void ToolPartUpdate(ToolManager* manager, Desk* desk) {
 }
 
 void ToolPartRender(ToolManager* manager, Desk* desk) {
-    DrawPart(desk, desk->canvas, &manager->prefabPart, manager->prefabPartPos, 0.5f);
+    DrawPart(desk, desk->canvas, &manager->prefabPart, manager->prefabPartPos, {}, 0.0f, 0.5f);
 }
 
 void ToolWirePinClicked(ToolManager* manager, Desk* desk, Pin* pin) {
@@ -68,6 +68,44 @@ void ToolWirePrimaryAction(ToolManager* manager, Desk* desk) {
     }
 }
 
+void ToolPickEnable(ToolManager* manager, Desk* desk) {
+    manager->pickPart = nullptr;
+    manager->pickPartOverridePos = manager->mouseDeskPos.cell;
+    manager->pickPartOverrideColor = V3(0.7f, 0.2f, 0.2f);
+    DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
+    if (mouseCell->value == CellValue::Part) {
+        manager->pickPart = mouseCell->part;
+    } else {
+        manager->currentTool = Tool::None;
+    }
+}
+
+void ToolPickUpdate(ToolManager* manager, Desk* desk) {
+    iv2 p = DeskPositionOffset(manager->mouseDeskPos, -V2(manager->pickPart->dim) * 0.5f * DeskCellSize).cell;
+    if (manager->pickPartOverridePos != p) {
+        manager->pickPartOverridePos = p;
+        IRect bbox = CalcPartBoundingBox(manager->pickPart, p);
+        if (CanPlacePart(desk, bbox)) {
+            manager->pickPartOverrideColor = V3(0.7f, 0.7f, 0.7f);
+        } else {
+            manager->pickPartOverrideColor = V3(0.7f, 0.2f, 0.2f);
+        }
+    }
+}
+
+void ToolPickRender(ToolManager* manager, Desk* desk) {
+    DrawPart(desk, desk->canvas, manager->pickPart, MakeDeskPosition(manager->pickPartOverridePos), manager->pickPartOverrideColor, 0.7f, 0.5f);
+}
+
+void ToolPickPrimaryAction(ToolManager* manager, Desk* desk) {
+    TryChangePartLocation(desk, manager->pickPart, manager->pickPartOverridePos);
+    manager->currentTool = Tool::None;
+}
+
+void ToolPickSecondaryAction(ToolManager* manager, Desk* desk) {
+    manager->currentTool = Tool::None;
+}
+
 void ToolNonePartClicked(ToolManager* manager, Desk* desk, Part* part) {
     switch (part->type) {
     case PartType::Source: {
@@ -83,7 +121,9 @@ void ToolNonePrimaryAction(ToolManager* manager, Desk* desk) {
         if (mouseCell->value != CellValue::Empty) {
             switch (mouseCell->value) {
             case CellValue::Part: {
-                ToolNonePartClicked(manager, desk, mouseCell->part);
+                manager->currentTool = Tool::Pick;
+                ToolPickEnable(manager, desk);
+                //ToolNonePartClicked(manager, desk, mouseCell->part);
             } break;
             case CellValue::Pin: {
                 assert(mouseCell->pin);
@@ -98,10 +138,13 @@ void ToolNonePrimaryAction(ToolManager* manager, Desk* desk) {
 void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk) {
     DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
     if (mouseCell) {
-        if (mouseCell->value == CellValue::Part) {
+        switch (mouseCell->value) {
+        case CellValue::Part: {
             Part* part = mouseCell->part;
             assert(part);
             DestroyPart(desk, part);
+        } break;
+        default: {} break;
         }
     }
 }
@@ -124,6 +167,7 @@ void ToolManagerPrimaryAction(ToolManager* manager) {
     auto desk = GetDesk();
     switch (manager->currentTool) {
     case Tool::Part: { ToolPartPrimaryAction(manager, desk); } break;
+    case Tool::Pick: { ToolPickPrimaryAction(manager, desk); } break;
     case Tool::Wire: { ToolWirePrimaryAction(manager, desk); } break;
     case Tool::None: { ToolNonePrimaryAction(manager, desk); } break;
     default: {} break;
@@ -134,6 +178,7 @@ void ToolManagerSecondaryAction(ToolManager* manager) {
     auto desk = GetDesk();
     switch (manager->currentTool) {
     case Tool::Part: { ToolPartSecondaryAction(manager, desk); } break;
+    case Tool::Pick: { ToolPickSecondaryAction(manager, desk); } break;
     case Tool::Wire: { ToolWireSecondaryAction(manager, desk); } break;
     case Tool::None: { ToolNoneSecondaryAction(manager, desk); } break;
     default: {} break;
@@ -151,7 +196,8 @@ void ToolManagerUpdate(ToolManager* manager) {
 
     switch (manager->currentTool) {
     case Tool::Part: { ToolPartUpdate(manager, desk); } break;
-        //case Tool::None: { ToolNoneUpdate(manager, desk); } break;
+    case Tool::Pick: { ToolPickUpdate(manager, desk); } break;
+  //case Tool::None: { ToolNoneUpdate(manager, desk); } break;
     default: {} break;
     }
 }
@@ -160,6 +206,7 @@ void ToolManagerRender(ToolManager* manager) {
     auto desk = GetDesk();
     switch (manager->currentTool) {
     case Tool::Part: { ToolPartRender(manager, desk); } break;
+    case Tool::Pick: { ToolPickRender(manager, desk); } break;
     case Tool::Wire: { ToolWireRender(manager, desk); } break;
     default: {} break;
     }
