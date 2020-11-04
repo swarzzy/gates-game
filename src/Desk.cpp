@@ -1,36 +1,5 @@
 #include "Desk.h"
 
-u32 PartHash(void* arg) {
-    PartID* id = (PartID*)arg;
-    // TODO: Actual hashing
-    return id->id;
-}
-
-bool PartCompare(void* a, void* b) {
-    PartID* key1 = (PartID*)a;
-    PartID* key2 = (PartID*)b;
-    bool result = key1->id == key2->id;
-    return result;
-}
-
-u32 NodeHash(void* arg) {
-    PartID* id = (PartID*)arg;
-    // TODO: Actual hashing
-    return id->id;
-}
-
-bool NodeCompare(void* a, void* b) {
-    NodeID* key1 = (NodeID*)a;
-    NodeID* key2 = (NodeID*)b;
-    bool result = key1->id == key2->id;
-    return result;
-}
-
-NodeID GetNodeID(Desk* desk) {
-    NodeID id = { ++desk->nodeSerialCount };
-    return id;
-}
-
 u32 DeskHash(void* arg) {
     iv2* key = (iv2*)arg;
     // TODO: Reasonable hashing
@@ -42,23 +11,6 @@ bool DeskCompare(void* a, void* b) {
     iv2* key1 = (iv2*)a;
     iv2* key2 = (iv2*)b;
     bool result = (key1->x == key2->x) && (key1->y == key2->y);
-    return result;
-}
-
-AddNodeResult AddNode(Desk* desk) {
-    AddNodeResult result {};
-    NodeID id = GetNodeID(desk);
-    Node* entry = HashMapAdd(&desk->nodeTable, &id);
-    if (entry) {
-        memset(entry, 0, sizeof(Node));
-        result.id = id;
-        result.node = entry;
-    }
-    return result;
-}
-
-Node* FindNode(Desk* desk, NodeID id) {
-    Node* result = HashMapGet(&desk->nodeTable, &id);
     return result;
 }
 
@@ -215,7 +167,6 @@ void ReleasePartMemory(Desk* desk, Part* part) {
 }
 
 bool AddPartToDesk(Desk* desk, Part* part) {
-    assert(part->id);
     bool result = false;
     IRect boundingBox = CalcPartBoundingBox(part);
     if (TryRegisterPartPlacement(desk, part)) {
@@ -270,7 +221,6 @@ void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* desk
     desk->deskHeap = deskHeap;
     desk->deskAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, deskHeap);
     desk->tileHashMap = HashMap<iv2, DeskTile*, DeskHash, DeskCompare>::Make(desk->deskAllocator);
-    desk->nodeTable = HashMap<NodeID, Node, NodeHash, NodeCompare>::Make(desk->deskAllocator);
     desk->wires = CreateList<Wire>(desk->deskAllocator);
     desk->parts = CreateList<Part>(desk->deskAllocator);
     desk->canvas = canvas;
@@ -280,7 +230,6 @@ void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* desk
 DeskTile* CreateDeskTile(Desk* desk, iv2 p) {
     DeskTile* result = (DeskTile*)desk->deskAllocator.Alloc(sizeof(DeskTile), true);
     if (result) {
-        result->deskAllocator = &desk->deskAllocator;
         result->p = p;
     }
     return result;

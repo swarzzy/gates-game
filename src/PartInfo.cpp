@@ -161,7 +161,6 @@ void InitPart(PartInfo* info, Desk* desk, Part* part, iv2 p, PartType type) {
     assert((u32)type < (u32)PartType::_Count);
     auto initializer = info->partInitializers[(u32)type];
     initializer(desk, part);
-    part->id = GetPartID(info);
     part->p = DeskPositionNormalize(MakeDeskPosition(p));
     part->wires.Init(desk->deskAllocator);
 }
@@ -220,20 +219,26 @@ Wire* TryWirePins(Desk* desk, Pin* input, Pin* output) {
         if (!ArePinsWired(input, output)) {
             Wire* wire = ListAdd(&desk->wires);
 
-            wire->input = input;
             auto inputRecord = input->part->wires.PushBack();
-            inputRecord->wire = wire;
-            inputRecord->pin = input;
+            if (inputRecord) {
+                auto outputRecord = output->part->wires.PushBack();
+                if (outputRecord) {
+                    wire->input = input;
+                    inputRecord->wire = wire;
+                    inputRecord->pin = input;
 
-            wire->output = output;
-            auto outputRecord = output->part->wires.PushBack();
-            outputRecord->wire = wire;
-            outputRecord->pin = output;
+                    wire->output = output;
+                    outputRecord->wire = wire;
+                    outputRecord->pin = output;
 
-            wire->pInput = ComputePinPosition(input);
-            wire->pOutput = ComputePinPosition(output);
+                    wire->pInput = ComputePinPosition(input);
+                    wire->pOutput = ComputePinPosition(output);
 
-            result = wire;
+                    result = wire;
+                } else {
+                    input->part->wires.PopBack();
+                }
+            }
         }
     }
 

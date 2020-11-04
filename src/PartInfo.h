@@ -4,19 +4,8 @@ struct Desk;
 struct Wire;
 struct Part;
 
-#define InvalidPartID (PartID {0})
-
-struct PartID {
-    // TODO: 64 bit or freelist?
-    u32 id;
-};
-
 enum struct PartType : u32 {
     Unknown = 0, And, Or, Not, Led, Source, _Count
-};
-
-struct NodeID {
-    u32 id;
 };
 
 enum struct PinType {
@@ -37,7 +26,6 @@ struct WireRecord {
 };
 
 struct Part {
-    u32 id;
     PartType type;
 
     DeskPosition p;
@@ -69,6 +57,7 @@ Pin* GetInput(Part* part, u32 index);
 Pin* GetOutput(Part* part, u32 index);
 u32 PinCount(Part* part);
 
+bool ArePinsWired(Pin* input, Pin* output);
 Wire* TryWirePins(Desk* desk, Pin* input, Pin* output);
 bool UnwirePin(Pin* pin, Wire* wire);
 
