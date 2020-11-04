@@ -299,9 +299,9 @@ DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create) {
 }
 
 void DrawDesk(Desk* desk, Canvas* canvas) {
-    for (Part& part : desk->parts) {
-        DrawPart(desk, canvas, &part, 1.0f);
-    }
+    ListForEach(&desk->parts, part) {
+        DrawPart(desk, canvas, part, 1.0f);
+    } ListEndEach
 }
 
 DeskPosition ComputePinPosition(Pin* pin,  DeskPosition partPosition) {
@@ -350,9 +350,9 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, f32 alpha) {
 }
 
 void PropagateSignals(Desk* desk) {
-    for (Wire& wire : desk->wires) {
-        Pin* input = wire.input;
-        Pin* output = wire.output;
+    ListForEach(&desk->wires, wire) {
+        Pin* input = wire->input;
+        Pin* output = wire->output;
         input->value = output->value;
-    }
+    } ListEndEach
 }

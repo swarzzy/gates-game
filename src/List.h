@@ -1,6 +1,13 @@
 #pragma once
 
-template <typename T> struct ListIterator;
+#define ListForEach(list, iter) {\
+    auto __current = (list)->head;              \
+    while (__current) { \
+    auto iter = &__current->value;
+
+#define ListEndEach \
+    __current = __current->next; }}
+
 
 template <typename T>
 struct ListNode {
@@ -14,9 +21,6 @@ struct List {
     ListNode<T>* head;
     u32 count;
     Allocator allocator;
-
-    inline ListIterator<T> begin() { return { head }; }
-    inline ListIterator<T> end() { return { nullptr}; }
 };
 
 template <typename T>
@@ -27,13 +31,3 @@ T* ListAdd(List<T>* list);
 
 template <typename T>
 void ListRemove(List<T>* list, T* elem);
-
-template <typename T>
-struct ListIterator {
-    ListNode<T>* current;
-
-    inline ListIterator& operator++() { current = current->next; return *this; }
-    inline bool operator==(ListIterator other) { return current == other.current; }
-    inline bool operator!=(ListIterator other) { return current != other.current; }
-    inline T& operator*() { return current->value; }
-};

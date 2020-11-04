@@ -214,9 +214,9 @@ void GameRender() {
 
     PropagateSignals(desk);
 
-    for (Part& it : desk->parts) {
-        PartProcessSignals(partInfo, &it);
-    }
+    ListForEach(&desk->parts, part) {
+        PartProcessSignals(partInfo, part);
+    } ListEndEach
 
     switch (context->drawMode) {
     case DrawMode::Normal: { DrawDesk(desk, deskCanvas); } break;
@@ -229,11 +229,11 @@ void GameRender() {
     // TODO: Culling
     DrawListBeginBatch(&deskCanvas->drawList, TextureMode::Color);
     f32 thickness = 0.1f;
-    for (Wire& wire : desk->wires) {
-        v2 begin = DeskPositionRelative(desk->origin, wire.pInput);
-        v2 end = DeskPositionRelative(desk->origin, wire.pOutput);
+    ListForEach(&desk->wires, wire) {
+        v2 begin = DeskPositionRelative(desk->origin, wire->pInput);
+        v2 end = DeskPositionRelative(desk->origin, wire->pOutput);
         DrawSimpleLineBatch(&deskCanvas->drawList, begin, end, 0.0f, thickness, V4(0.2f, 0.2f, 0.2f, 1.0f));
-    }
+    } ListEndEach
 
     DrawListEndBatch(&deskCanvas->drawList);
 
