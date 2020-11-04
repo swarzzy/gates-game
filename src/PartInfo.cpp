@@ -23,6 +23,11 @@ void FuncPartNot(Part* part) {
 
 void FuncPartSource(Part* part) {
     GetOutput(part, 0)->value = (u8)part->active;
+    if (part->active) {
+        part->label = u"0";
+    } else {
+        part->label = u"I";
+    }
 }
 
 void FuncPartLed(Part* part) {
@@ -65,8 +70,9 @@ void InitPartAnd(Desk* desk, Part* part) {
     part->type = PartType::And;
     part->dim = IV2(3, 5);
 
-    part->activeColor = V4(0.4f, 0.6f, 0.0f, 1.0f);
-    part->inactiveColor = V4(0.4f, 0.6f, 0.0f, 1.0f);
+    part->activeColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
+    part->inactiveColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
+    part->label = u"&";
 
     TryAllocatePins(desk, part, 2, 1);
     if (part->pins) {
@@ -81,8 +87,9 @@ void InitPartOr(Desk* desk, Part* part) {
     part->type = PartType::Or;
     part->dim = IV2(3, 5);
 
-    part->activeColor = V4(0.0f, 0.0f, 0.6f, 1.0f);
-    part->inactiveColor = V4(0.0f, 0.0f, 0.6f, 1.0f);
+    part->activeColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
+    part->inactiveColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
+    part->label = u"1";
 
     TryAllocatePins(desk, part, 2, 1);
     if (part->pins) {
@@ -97,8 +104,9 @@ void InitPartNot(Desk* desk, Part* part) {
     part->type = PartType::Not;
     part->dim = IV2(3, 3);
 
-    part->activeColor = V4(0.6f, 0.0f, 0.0f, 1.0f);
-    part->inactiveColor = V4(0.6f, 0.0f, 0.0f, 1.0f);
+    part->activeColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
+    part->inactiveColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
+    //part->label = u"0";
 
     TryAllocatePins(desk, part, 1, 1);
     if (part->pins) {
@@ -113,7 +121,7 @@ void InitPartLed(Desk* desk, Part* part) {
     part->dim = IV2(3, 3);
 
     part->activeColor = V4(0.9f, 0.0f, 0.0f, 1.0f);
-    part->inactiveColor = V4(0.1f, 0.1f, 0.1f, 1.0f);
+    part->inactiveColor = V4(0.3f, 0.3f, 0.3f, 1.0f);
 
     TryAllocatePins(desk, part, 1, 0);
     if (part->pins) {
@@ -126,8 +134,10 @@ void InitPartSource(Desk* desk, Part* part) {
     part->type = PartType::Source;
     part->dim = IV2(3, 3);
 
-    part->activeColor = V4(0.7f, 0.7f, 0.0f, 1.0f);
-    part->inactiveColor = V4(0.0f, 0.0f, 0.5f, 1.0f);
+    part->label = u"0";
+
+    part->activeColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
+    part->inactiveColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
 
     TryAllocatePins(desk, part, 0, 1);
     if (part->pins) {

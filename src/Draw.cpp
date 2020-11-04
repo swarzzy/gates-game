@@ -175,6 +175,7 @@ void DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, 
     v2 textDim = CalcTextSizeUnscaled(font, string, maxWidthScaled) * fontScale;
 
     v2 cursor = posPx.xy - Hadamard(textDim, anchor);
+    v2 begin = cursor;
     cursor.y += textDim.y;
     cursor.y -= (font->ascent + font->lineGap) * fontScale;
 
@@ -187,9 +188,9 @@ void DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, 
     while (*at) {
         auto[lineDim, strOffset] = CalcSingleLineBondingBoxUnscaled(font, at, maxWidthScaled);
         if (align == TextAlign::Center) {
-            cursor.x = posPx.x + (textDim.x - lineDim.x * fontScale) * 0.5f;
+            cursor.x = begin.x + (textDim.x - lineDim.x * fontScale) * 0.5f;
         } else {
-            cursor.x = posPx.x;
+            cursor.x = begin.x;
         }
         DrawTextLine(list, font, at, (u32)strOffset, V3(cursor, posPx.z), color, pixelSize, anchor, maxWidthPx, fontScale);
         cursor.y -= lineHeight;

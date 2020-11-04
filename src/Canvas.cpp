@@ -22,9 +22,6 @@ void BeginCanvas(Canvas* canvas) {
 
     auto proj = OrthoGLRH(0.0f, canvas->sizeCm.x, 0.0f, canvas->sizeCm.y, -1.0f, 1.0f);
     Renderer.SetCamera(&proj);
-
-    //canvas->pixelSize.x = canvas->size.x / wWindow;
-    //canvas->pixelSize.y = canvas->size.y / hWindow;
 }
 
 v2 CanvasProjectScreenPos(Canvas* canvas, v2 normalizedScreenPos) {

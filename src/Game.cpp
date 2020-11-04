@@ -176,7 +176,7 @@ void GameRender() {
         //context->deskPosition += Hadamard(V2(input->mouseFrameOffsetX, input->mouseFrameOffsetY), deskCanvas->sizeCm);
     }
 
-    DebugDrawDeskCell(desk, deskCanvas, toolManager->mouseDeskPos, V4(1.0f, 0.0f, 0.0f, 1.0f));
+    //DebugDrawDeskCell(desk, deskCanvas, toolManager->mouseDeskPos, V4(1.0f, 0.0f, 0.0f, 1.0f));
 
     DeskPosition begin = desk->origin;
     DeskPosition end = DeskPositionOffset(desk->origin, deskCanvas->sizeCm);
@@ -236,14 +236,15 @@ void GameRender() {
     } ListEndEach
 
     DrawListEndBatch(&deskCanvas->drawList);
+    //const char16* string = u"&";
+    //v3 textP = V3(DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(5, 5))), 0.0f);
+    //DrawText(&deskCanvas->drawList, &context->sdfFont, string, textP, V4(0.0f, 0.0f, 0.0f, 1.0f), V2(deskCanvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Center, deskCanvas->scale);
 
     EndCanvas(deskCanvas);
-
-
-
 #if 0
     const char16* string = u"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.";
 
+    v2 pixelSize = V2(deskCanvas->cmPerPixel);
     f32 width = 300.0f;
     static f32 scale = 1.0f;
     static f32 scaleSDF = 1.0f;
@@ -271,11 +272,11 @@ void GameRender() {
     }
 
 
-    DrawText(list, &context->font, string, V3(200.0f, 350.0f, 0.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.5f), width, TextAlign::Center, 1.0f);
+    DrawText(&deskCanvas->drawList, &context->font, string, V3(10.0f, 10.0f, 0.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f), width, TextAlign::Center, 1.0f);
     i32 enable = false;
     DEBUG_OVERLAY_SLIDER(enable, 0, 1);
     if (enable) {
-        DrawText(list, &context->sdfFont, string, V3(700.0f, 350.0f, 0.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.5f), width, TextAlign::Center, scaleSDF);
+        DrawText(&deskCanvas->drawList, &context->sdfFont, string, V3(20.0f, 10.0f, 0.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.5f), width, TextAlign::Center, scaleSDF);
     }
 
     //string[strOffset] = 0;
@@ -285,10 +286,9 @@ void GameRender() {
     //DrawTextLine(list, &context->font, string, V2(100.0f, 200.0f), 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f), 220.0f, textDim);
     //DrawText(list, &context->font, string, V3(100.0f, 200.0f, 0.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), pixelSize, V2(0.0f), width, TextAlign::Left, scale);
     //DrawListPushQuad(list, V2(100.0f, 200.0f), V2(105.0f, 200.0f), V2(104.0f, 205.0f), V2(100.0f, 205.0f), 0.0f, V4(0.0f, 0.0f, 1.0f, 1.0f));
-#endif
     //Renderer.RenderDrawList(list);
     //DrawListClear(list);
-
+#endif
     if(KeyPressed(Key::Tilde)) {
         context->consoleEnabled = !context->consoleEnabled;
     }

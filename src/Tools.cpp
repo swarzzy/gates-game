@@ -85,7 +85,7 @@ void ToolPickUpdate(ToolManager* manager, Desk* desk) {
     if (manager->pickPartOverridePos != p) {
         manager->pickPartOverridePos = p;
         IRect bbox = CalcPartBoundingBox(manager->pickPart, p);
-        if (CanPlacePart(desk, bbox)) {
+        if (CanPlacePart(desk, bbox, manager->pickPart)) {
             manager->pickPartOverrideColor = V3(0.7f, 0.7f, 0.7f);
         } else {
             manager->pickPartOverrideColor = V3(0.7f, 0.2f, 0.2f);

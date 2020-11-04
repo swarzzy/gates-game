@@ -42,6 +42,8 @@ struct Part {
 
     v4 activeColor;
     v4 inactiveColor;
+
+    const char16* label;
 };
 
 typedef void(PartFunctionFn)(Part* part);

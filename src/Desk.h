@@ -76,7 +76,7 @@ bool TryChangePartLocation(Desk* desk, Part* part, iv2 newP);
 
 bool TryRegisterPartPlacement(Desk* desk, Part* element);
 void UnregisterPartPlcement(Desk* desk, Part* element);
-bool CanPlacePart(Desk* desk, IRect box);
+bool CanPlacePart(Desk* desk, IRect box, Part* self = nullptr);
 bool ExpandDeskFor(Desk* desk, IRect box);
 
 void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePos, v3 overrideColor, f32 overrideColorFactor, f32 alpha);

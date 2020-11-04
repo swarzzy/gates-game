@@ -14,7 +14,7 @@ bool DeskCompare(void* a, void* b) {
     return result;
 }
 
-bool CanPlacePart(Desk* desk, IRect box) {
+bool CanPlacePart(Desk* desk, IRect box, Part* self) {
     for (i32 y = box.min.y; y < box.max.y; y++) {
         for (i32 x = box.min.x; x < box.max.x; x++) {
             // TODO: Optimize. Here is a lot of unnecessary hash lookups!
@@ -22,6 +22,8 @@ bool CanPlacePart(Desk* desk, IRect box) {
             DeskCell* cell = GetDeskCell(desk, testP, false);
             if (cell) {
                 if (cell->value != CellValue::Empty) {
+                    if (self && cell->value == CellValue::Part && cell->part == self) continue;
+                    if (self && cell->value == CellValue::Pin && cell->pin->part == self) continue;
                     return false;
                 }
             }
@@ -143,7 +145,7 @@ void UpdateCachedWirePositions(Part* part) {
 bool TryChangePartLocation(Desk* desk, Part* part, iv2 newP) {
     bool result = false;
     IRect bbox = CalcPartBoundingBox(part, newP);
-    if (CanPlacePart(desk, bbox)) {
+    if (CanPlacePart(desk, bbox, part)) {
         if (ExpandDeskFor(desk, bbox)) {
             UnregisterPartPlacement(desk, part);
             part->p = MakeDeskPosition(newP);
@@ -298,12 +300,21 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePo
     DeskPosition maxP = MakeDeskPosition(overridePos.cell + element->dim);
     v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(overridePos.cell)) - DeskCellHalfSize;
     v2 max = DeskPositionRelative(desk->origin, maxP) - DeskCellHalfSize;
+
+    v2 p0 = min;
+    v2 p1 = V2(max.x, min.y);
+    v2 p2 = max;
+    v2 p3 = V2(min.x, max.y);
+
     v3 partColor = GetPartColor(element).xyz;
     v4 color = V4(Lerp(partColor, overrideColor, overrideColorFactor), alpha);
-    DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
+
+    DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f));
+    DrawListPushRect(&canvas->drawList, min + V2(0.1f), max - V2(0.1f), 0.0f, color);
+
     for (u32 pinIndex = 0; pinIndex < element->inputCount; pinIndex++) {
         Pin* pin = GetInput(element, pinIndex);
-        v4 color = V4(0.0f, 0.9f, 0.0f, 1.0f);
+        v4 color = V4(0.0f, 0.0f, 0.0f, 1.0f);
         DeskPosition pinPos = ComputePinPosition(pin, overridePos);
         v2 relPos = DeskPositionRelative(desk->origin, pinPos);
         v2 pinMin = relPos - V2(0.1);
@@ -312,12 +323,18 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePo
     }
     for (u32 pinIndex = 0; pinIndex < element->outputCount; pinIndex++) {
         Pin* pin = GetOutput(element, pinIndex);
-        v4 color = V4(0.9f, 0.9f, 0.0f, 1.0f);
+        v4 color = V4(0.0f, 0.0f, 0.0f, 1.0f);
         DeskPosition pinPos = ComputePinPosition(pin, overridePos);
         v2 relPos = DeskPositionRelative(desk->origin, pinPos);
         v2 pinMin = relPos - V2(0.1);
         v2 pinMax = relPos + V2(0.1);
         DrawListPushRect(&canvas->drawList, pinMin, pinMax, 0.0f, color);
+    }
+    if (element->label) {
+        v2 center = min + (max - min) * 0.5f;
+        v3 p = V3(center, 0.0f);
+        auto context = GetContext();
+        DrawText(&canvas->drawList, &context->sdfFont, element->label, p, V4(0.0f, 0.0f, 0.0f, 1.0f), V2(canvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Left, canvas->scale);
     }
 }
 
