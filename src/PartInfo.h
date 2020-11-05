@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Array.h"
+
 struct Desk;
 struct Wire;
 struct Part;
@@ -36,9 +38,8 @@ struct Part {
     u32 inputCount;
     u32 outputCount;
 
-    Pin* pins;
-
-    GrowableArray<WireRecord> wires;
+    Array<Pin> pins;
+    Array<WireRecord> wires;
 
     v4 activeColor;
     v4 inactiveColor;

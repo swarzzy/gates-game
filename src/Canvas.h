@@ -13,7 +13,7 @@ struct Canvas {
     DrawList drawList;
 };
 
-Canvas CreateCanvas(Allocator drawListAllocator);
+Canvas CreateCanvas(Allocator* drawListAllocator);
 void BeginCanvas(Canvas* canvas);
 void EndCanvas(Canvas* canvas);
 v2 CanvasProjectScreenPos(Canvas* canvas, v2 normalizedScreenPos);

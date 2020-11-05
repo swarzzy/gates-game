@@ -15,7 +15,7 @@ void ToolPartSecondaryAction(ToolManager* manager, Desk* desk) {
 }
 
 void ToolPartUpdate(ToolManager* manager, Desk* desk) {
-    manager->prefabPartPos = DeskPositionOffset(manager->mouseDeskPos, -V2(manager->prefabPart.dim) * 0.5f * DeskCellSize);
+    manager->prefabPartPos = manager->mouseDeskPos.Offset(-V2(manager->prefabPart.dim) * 0.5f * DeskCellSize);
 }
 
 void ToolPartRender(ToolManager* manager, Desk* desk) {
@@ -81,7 +81,7 @@ void ToolPickEnable(ToolManager* manager, Desk* desk) {
 }
 
 void ToolPickUpdate(ToolManager* manager, Desk* desk) {
-    iv2 p = DeskPositionOffset(manager->mouseDeskPos, -V2(manager->pickPart->dim) * 0.5f * DeskCellSize).cell;
+    iv2 p = manager->mouseDeskPos.Offset(-V2(manager->pickPart->dim) * 0.5f * DeskCellSize).cell;
     if (manager->pickPartOverridePos != p) {
         manager->pickPartOverridePos = p;
         IRect bbox = CalcPartBoundingBox(manager->pickPart, p);
@@ -94,7 +94,7 @@ void ToolPickUpdate(ToolManager* manager, Desk* desk) {
 }
 
 void ToolPickRender(ToolManager* manager, Desk* desk) {
-    DrawPart(desk, desk->canvas, manager->pickPart, MakeDeskPosition(manager->pickPartOverridePos), manager->pickPartOverrideColor, 0.7f, 0.5f);
+    DrawPart(desk, desk->canvas, manager->pickPart, DeskPosition(manager->pickPartOverridePos), manager->pickPartOverrideColor, 0.7f, 0.5f);
 }
 
 void ToolPickPrimaryAction(ToolManager* manager, Desk* desk) {
@@ -152,7 +152,7 @@ void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk) {
 void ToolWireRender(ToolManager* manager, Desk* desk) {
     DrawListBeginBatch(&desk->canvas->drawList, TextureMode::Color);
     DeskPosition p1 = ComputePinPosition(manager->pendingWireBeginPin);
-    v2 lineBeg = DeskPositionRelative(desk->origin, p1);
+    v2 lineBeg = p1.RelativeTo(desk->origin);
     v2 lineEnd = manager->mouseCanvasPos;
     f32 thickness = 0.1f;
     DrawSimpleLineBatch(&desk->canvas->drawList, lineBeg, lineEnd, 0.0f, thickness, V4(0.5f, 0.2f, 0.0f, 1.0f));
@@ -190,7 +190,7 @@ void ToolManagerUpdate(ToolManager* manager) {
     auto desk = GetDesk();
     v2 mouseScreenPos = V2(input->mouseX, input->mouseY);
     v2 mouseCanvasPos = CanvasProjectScreenPos(desk->canvas, mouseScreenPos);
-    DeskPosition mouseDeskPos = DeskPositionOffset(desk->origin, mouseCanvasPos);
+    DeskPosition mouseDeskPos = desk->origin.Offset(mouseCanvasPos);
     manager->mouseDeskPos = mouseDeskPos;
     manager->mouseCanvasPos = mouseCanvasPos;
 

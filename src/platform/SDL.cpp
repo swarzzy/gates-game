@@ -211,6 +211,8 @@ void SDLInit(SDLContext* context, const PlatformState* platform, i32 glMajorVers
     sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16));
     sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1));
     sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1));
+    sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1));
+    sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 2));
     sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, glMajorVersion));
     sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, glMinorVersion));
     sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE));

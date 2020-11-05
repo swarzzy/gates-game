@@ -1,11 +1,11 @@
 #pragma once
 
-#define ListForEach(list, iter) {\
+#define ListForEach(list, iter) do {\
     auto __current = (list)->head;\
     while (__current) { \
     auto iter = &__current->value;
 
-#define ListEndEach __current = __current->next; }}
+#define ListEndEach __current = __current->next; }} while(false)
 
 template <typename T>
 struct ListNode {
@@ -16,16 +16,13 @@ struct ListNode {
 
 template <typename T>
 struct List {
-    ListNode<T>* head;
-    u32 count;
-    Allocator allocator;
+    ListNode<T>* head = nullptr;
+    Allocator* allocator = nullptr;
+    u32 count = 0;
+
+    List() = default;
+    List(Allocator* alloc) : allocator(alloc) {}
+
+    T* Add();
+    void Remove(T* elem);
 };
-
-template <typename T>
-List<T> CreateList(Allocator allocator);
-
-template <typename T>
-T* ListAdd(List<T>* list);
-
-template <typename T>
-void ListRemove(List<T>* list, T* elem);

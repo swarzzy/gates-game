@@ -17,7 +17,7 @@ struct BucketArray {
 };
 
 template<typename T, u32 BucketSize, typename Fn>
-void ForEach(BucketArray<T, BucketSize>* array, Fn fn) {
+void _ForEach(BucketArray<T, BucketSize>* array, Fn fn) {
     auto bucket = array->firstBucket;
     do {
         for (u32 i = 0; i < bucket->at; i++) {

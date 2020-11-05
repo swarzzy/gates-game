@@ -43,7 +43,7 @@ struct HashMap {
 };
 
 template<typename Key, typename Value, HashFunctionFn* HashFunction, CompareFunctionFn* CompareFunction, typename F>
-void ForEach(hash_map_template* map, F func) {
+void HashMapForEach(hash_map_template* map, F func) {
     for (usize i = 0; i < map->size; i++) {
         if (map->table[i].used) {
             auto entry = &map->table[i].value;

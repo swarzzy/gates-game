@@ -118,13 +118,13 @@ void RendererInit(Renderer* renderer) {
     GL.glGenVertexArrays(1, &globalVAO);
     GL.glBindVertexArray(globalVAO);
 
+    GL.glEnable(GL_MULTISAMPLE);
+
     GL.glEnable(GL_DEPTH_TEST);
     GL.glDepthFunc(GL_LEQUAL);
     GL.glEnable(GL_CULL_FACE);
     GL.glCullFace(GL_BACK);
     GL.glFrontFace(GL_CCW);
-    // TODO(swarzzy): Multisampling
-    //glEnable(GL_MULTISAMPLE);
 
     GL.glEnable(GL_BLEND);
     GL.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -203,8 +203,8 @@ void RenderDrawList(DrawList* list) {
         GL.glBindBuffer(GL_ARRAY_BUFFER, renderer->vertexBuffer);
         GL.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderer->indexBuffer);
 
-        GL.glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * list->vertexBuffer.Count(), list->vertexBuffer.Begin(), GL_STREAM_DRAW);
-        GL.glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * list->indexBuffer.Count(), list->indexBuffer.Begin(), GL_STREAM_DRAW);
+        GL.glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * list->vertexBuffer.Count(), list->vertexBuffer.Data(), GL_STREAM_DRAW);
+        GL.glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * list->indexBuffer.Count(), list->indexBuffer.Data(), GL_STREAM_DRAW);
 
         GL.glEnableVertexAttribArray(0);
         GL.glEnableVertexAttribArray(1);
@@ -214,26 +214,26 @@ void RenderDrawList(DrawList* list) {
         GL.glVertexAttribPointer(1, 4, GL_FLOAT, false, sizeof(Vertex), (void*)sizeof(v4));
         GL.glVertexAttribPointer(2, 2, GL_FLOAT, false, sizeof(Vertex), (void*)(sizeof(v4) * 2));
 
-        for (auto& cmd : list->commandBuffer) {
+        ForEach(&list->commandBuffer, cmd) {
             GLuint textureSlot = 0;
-            switch (cmd.textureMode) {
+            switch (cmd->textureMode) {
             case TextureMode::Color: { GL.glUseProgram(renderer->standardShader.handle); textureSlot = renderer->standardShader.textureSlot; } break;
             case TextureMode::AlphaMask: { GL.glUseProgram(renderer->alphaMaskShader.handle); textureSlot = renderer->alphaMaskShader.textureSlot; } break;
             case TextureMode::DistanceField: {
                 GL.glUseProgram(renderer->distanceFieldShader.handle);
                 textureSlot = renderer->distanceFieldShader.textureSlot;
-                GL.glUniform2fv(renderer->distanceFieldShader.uParams, 1, cmd.distanceFieldParams.data);
+                GL.glUniform2fv(renderer->distanceFieldShader.uParams, 1, cmd->distanceFieldParams.data);
             } break;
             invalid_default();
             }
 
-            if (cmd.texture) {
+            if (cmd->texture) {
                 GL.glActiveTexture(textureSlot);
-                GL.glBindTexture(GL_TEXTURE_2D, (GLuint)cmd.texture);
+                GL.glBindTexture(GL_TEXTURE_2D, (GLuint)cmd->texture);
             }
 
-            GL.glDrawElements(GL_TRIANGLES, cmd.indexCount, GL_UNSIGNED_INT, (void*)(u64)(cmd.indexBufferOffset * sizeof(u32)));
-        }
+            GL.glDrawElements(GL_TRIANGLES, cmd->indexCount, GL_UNSIGNED_INT, (void*)(u64)(cmd->indexBufferOffset * sizeof(u32)));
+        } EndEach;
     }
 }
 

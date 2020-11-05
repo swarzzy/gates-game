@@ -14,6 +14,7 @@ enum struct DrawMode {
 
 struct GameContext {
     PlatformHeap* mainHeap;
+    Allocator mainAllocator;
     Logger logger;
     Console console;
     bool consoleEnabled;

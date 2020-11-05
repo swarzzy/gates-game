@@ -2,7 +2,7 @@
 
 #include "Common.h"
 
-#include "GrowableArray.h"
+#include "Array.h"
 
 struct Font;
 
@@ -51,9 +51,9 @@ struct DrawCommand {
 };
 
 struct DrawList {
-    GrowableArray<DrawCommand> commandBuffer;
-    GrowableArray<Vertex> vertexBuffer;
-    GrowableArray<u32> indexBuffer;
+    Array<DrawCommand> commandBuffer;
+    Array<Vertex> vertexBuffer;
+    Array<u32> indexBuffer;
     b32 pendingCommand;
     DrawCommand scratchCommand;
 };
@@ -68,7 +68,7 @@ enum struct TextAlign {
     Left, Center
 };
 
-void DrawListInit(DrawList* list, u32 capacity, Allocator allocator);
+void DrawListInit(DrawList* list, u32 capacity, Allocator* allocator);
 
 void DrawListClear(DrawList* list);
 

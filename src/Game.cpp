@@ -9,8 +9,8 @@ f32 DefaultFontHeight = 24.0f;
 
 void GameInit() {
     auto context = GetContext();
-    auto allocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
-    context->deskCanvas = CreateCanvas(allocator);
+    context->mainAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
+    context->deskCanvas = CreateCanvas(&context->mainAllocator);
     //DrawListInit(&context->drawList, 256, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
 
     auto image = ResourceLoaderLoadImage("../res/alpha_test.png", true, 4, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
@@ -23,8 +23,8 @@ void GameInit() {
     ranges[1].begin = 0x0410;
     ranges[1].end = 0x044f;
 
-    auto f1 = ResourceLoader.BakeFont(&context->font, "../res/fonts/Merriweather-Regular.ttf", &allocator, 512, DefaultFontHeight, ranges, array_count(ranges));
-    auto f2 = ResourceLoader.LoadFontBM(&context->sdfFont, "../res/fonts/merriweather_sdf.fnt", &allocator);
+    auto f1 = ResourceLoader.BakeFont(&context->font, "../res/fonts/Merriweather-Regular.ttf", &context->mainAllocator, 512, DefaultFontHeight, ranges, array_count(ranges));
+    auto f2 = ResourceLoader.LoadFontBM(&context->sdfFont, "../res/fonts/merriweather_sdf.fnt", &context->mainAllocator);
     assert(f1);
     assert(f2);
 
@@ -63,7 +63,7 @@ void GameUpdate() {
 
 void DebugDrawDesk(Desk* desk, Canvas* canvas) {
     DeskPosition begin = desk->origin;
-    DeskPosition end = DeskPositionOffset(desk->origin, canvas->sizeCm);
+    DeskPosition end = desk->origin.Offset(canvas->sizeCm);
 
     for (i32 y = begin.cell.y - 1; y != (end.cell.y + 1); y++) {
         for (i32 x = begin.cell.x - 1; x != (end.cell.x + 1); x++) {
@@ -73,8 +73,8 @@ void DebugDrawDesk(Desk* desk, Canvas* canvas) {
                 if (cell->value == CellValue::Part) {
                     Part* part = cell->part;
                     assert(part);
-                    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(p)) - DeskCellHalfSize;
-                    v2 max = DeskPositionRelative(desk->origin, MakeDeskPosition(p + 1)) - DeskCellHalfSize;
+                    v2 min = DeskPosition(p).RelativeTo(desk->origin) - DeskCellHalfSize;
+                    v2 max = DeskPosition(p + 1).RelativeTo(desk->origin) - DeskCellHalfSize;
                     DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(GetPartColor(part).xyz, 1.0f));
                 } else if (cell->value == CellValue::Pin) {
                     Pin* pin = cell->pin;
@@ -87,8 +87,8 @@ void DebugDrawDesk(Desk* desk, Canvas* canvas) {
                     invalid_default();
                     }
 
-                    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(p)) - DeskCellHalfSize;
-                    v2 max = DeskPositionRelative(desk->origin, MakeDeskPosition(p + 1)) - DeskCellHalfSize;
+                    v2 min = DeskPosition(p).RelativeTo(desk->origin) - DeskCellHalfSize;
+                    v2 max = DeskPosition(p + 1).RelativeTo(desk->origin) - DeskCellHalfSize;
                     DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
                 }
             }
@@ -97,8 +97,8 @@ void DebugDrawDesk(Desk* desk, Canvas* canvas) {
 }
 
 void DebugDrawDeskCell(Desk* desk, Canvas* canvas, DeskPosition p, v4 color) {
-    v2 min = DeskPositionRelative(desk->origin, MakeDeskPosition(p.cell)) - DeskCellHalfSize;
-    v2 max = DeskPositionRelative(desk->origin, MakeDeskPosition(p.cell + 1)) - DeskCellHalfSize;
+    v2 min = DeskPosition(p.cell).RelativeTo(desk->origin) - DeskCellHalfSize;
+    v2 max = DeskPosition(p.cell + 1).RelativeTo(desk->origin) - DeskCellHalfSize;
     DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
 }
 
@@ -134,7 +134,7 @@ void GameRender() {
     v2 mousePosition = Hadamard(V2(input->mouseX, input->mouseY), deskCanvas->sizeCm);
 
     v2 scaleOffset = mousePosition - mousePBeforeScale;
-    desk->origin = DeskPositionOffset(desk->origin, -scaleOffset);
+    desk->origin = desk->origin.Offset(-scaleOffset);
 
     PartInitializerFn* partInitializer = nullptr;
 
@@ -172,14 +172,14 @@ void GameRender() {
 
     if (MouseButtonDown(MouseButton::Middle)) {
         v2 offset = Hadamard(V2(input->mouseFrameOffsetX, input->mouseFrameOffsetY), deskCanvas->sizeCm);
-        desk->origin = DeskPositionOffset(desk->origin, -offset);
+        desk->origin = desk->origin.Offset(-offset);
         //context->deskPosition += Hadamard(V2(input->mouseFrameOffsetX, input->mouseFrameOffsetY), deskCanvas->sizeCm);
     }
 
     //DebugDrawDeskCell(desk, deskCanvas, toolManager->mouseDeskPos, V4(1.0f, 0.0f, 0.0f, 1.0f));
 
     DeskPosition begin = desk->origin;
-    DeskPosition end = DeskPositionOffset(desk->origin, deskCanvas->sizeCm);
+    DeskPosition end = desk->origin.Offset(deskCanvas->sizeCm);
 
     DrawListBeginBatch(&deskCanvas->drawList, TextureMode::Color);
     u32 vertLines = 0;
@@ -190,16 +190,16 @@ void GameRender() {
 
     for (i32 x = begin.cell.x - 1; x != (end.cell.x + 1); x++) {
         f32 thickness = 1.0f * deskCanvas->cmPerPixel;
-        v2 min = V2(DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(x, 0))).x - thickness * 0.5f, 0.0f) - DeskCellHalfSize;
-        v2 max = V2(DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(x, 0))).x + thickness * 0.5f, deskCanvas->sizeCm.y) - DeskCellHalfSize;
+        v2 min = V2(DeskPosition(IV2(x, 0)).RelativeTo(desk->origin).x - thickness * 0.5f, 0.0f) - DeskCellHalfSize;
+        v2 max = V2(DeskPosition(IV2(x, 0)).RelativeTo(desk->origin).x + thickness * 0.5f, deskCanvas->sizeCm.y) - DeskCellHalfSize;
         DrawListPushRectBatch(&deskCanvas->drawList, min, max, 0.0f, V2(0.0f), V2(0.0f), V4(0.6f, 0.6f, 0.6f, 1.0f), 0.0f);
         vertLines++;
     }
 
     for (i32 y = begin.cell.y - 1; y != (end.cell.y + 1); y++) {
         f32 thickness = 1.0f * deskCanvas->cmPerPixel;
-        v2 min = V2(0.0f, DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(0, y))).y - thickness * 0.5f) - DeskCellHalfSize;
-        v2 max = V2(deskCanvas->sizeCm.x, DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(0, y))).y + thickness * 0.5f) - DeskCellHalfSize;
+        v2 min = V2(0.0f, DeskPosition(IV2(0, y)).RelativeTo(desk->origin).y - thickness * 0.5f) - DeskCellHalfSize;
+        v2 max = V2(deskCanvas->sizeCm.x, DeskPosition(IV2(0, y)).RelativeTo(desk->origin).y + thickness * 0.5f) - DeskCellHalfSize;
         DrawListPushRectBatch(&deskCanvas->drawList, min, max, 0.0f, V2(0.0f), V2(0.0f), V4(0.6f, 0.6f, 0.6f, 1.0f), 0.0f);
         horzLines++;
     }
@@ -216,7 +216,7 @@ void GameRender() {
 
     ListForEach(&desk->parts, part) {
         PartProcessSignals(partInfo, part);
-    } ListEndEach
+    } ListEndEach;
 
     switch (context->drawMode) {
     case DrawMode::Normal: { DrawDesk(desk, deskCanvas); } break;
@@ -230,10 +230,10 @@ void GameRender() {
     DrawListBeginBatch(&deskCanvas->drawList, TextureMode::Color);
     f32 thickness = 0.1f;
     ListForEach(&desk->wires, wire) {
-        v2 begin = DeskPositionRelative(desk->origin, wire->pInput);
-        v2 end = DeskPositionRelative(desk->origin, wire->pOutput);
+        v2 begin = wire->pInput.RelativeTo(desk->origin);
+        v2 end = wire->pOutput.RelativeTo(desk->origin);
         DrawSimpleLineBatch(&deskCanvas->drawList, begin, end, 0.0f, thickness, V4(0.2f, 0.2f, 0.2f, 1.0f));
-    } ListEndEach
+    } ListEndEach;
 
     DrawListEndBatch(&deskCanvas->drawList);
     //const char16* string = u"&";

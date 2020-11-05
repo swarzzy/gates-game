@@ -1,6 +1,6 @@
 #include "Canvas.h"
 
-Canvas CreateCanvas(Allocator drawListAllocator) {
+Canvas CreateCanvas(Allocator* drawListAllocator) {
     Canvas canvas {};
     canvas.scale = 1.0f;
     DrawListInit(&canvas.drawList, 256, drawListAllocator);
