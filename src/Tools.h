@@ -17,6 +17,10 @@ struct ToolManager {
     Part* pickPart;
     iv2 pickPartOverridePos;
     v3 pickPartOverrideColor;
+
+    bool toolPickActuallyEnabled;
+    iv2 toolPickLastMouseP;
+    v2 clickedPartOffset;
 };
 
 void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initializer);

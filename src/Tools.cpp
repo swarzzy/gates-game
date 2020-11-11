@@ -75,44 +75,62 @@ void ToolPickEnable(ToolManager* manager, Desk* desk) {
     DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
     if (mouseCell->value == CellValue::Part) {
         manager->pickPart = mouseCell->part;
+        manager->toolPickActuallyEnabled = false;
+        manager->toolPickLastMouseP = manager->mouseDeskPos.cell;
     } else {
         manager->currentTool = Tool::None;
     }
 }
 
 void ToolPickUpdate(ToolManager* manager, Desk* desk) {
-    iv2 p = manager->mouseDeskPos.Offset(-V2(manager->pickPart->dim) * 0.5f * DeskCellSize).cell;
-    if (manager->pickPartOverridePos != p) {
-        manager->pickPartOverridePos = p;
-        IRect bbox = CalcPartBoundingBox(manager->pickPart, p);
-        if (CanPlacePart(desk, bbox, manager->pickPart)) {
-            manager->pickPartOverrideColor = V3(0.7f, 0.7f, 0.7f);
+    if (!manager->toolPickActuallyEnabled) {
+        if (manager->mouseDeskPos.cell != manager->toolPickLastMouseP) {
+            manager->toolPickActuallyEnabled = true;
         } else {
-            manager->pickPartOverrideColor = V3(0.7f, 0.2f, 0.2f);
+            manager->toolPickLastMouseP = manager->mouseDeskPos.cell;
+
+            // TODO: For now primary action of kind of input button agnostic
+            // That was probably a bad decision. Tool manager should alway know
+            // his input layout and do things based on that layout
+            if (!MouseButtonDown(MouseButton::Left)) {
+                manager->currentTool = Tool::None;
+
+                // TODO: Here will be more complicated stuff
+                switch (manager->pickPart->type) {
+                case PartType::Source: {
+                    manager->pickPart->active = !manager->pickPart->active;
+                } break;
+                default: {} break;
+                }
+            }
+        }
+    } else {
+        iv2 p = manager->mouseDeskPos.Offset(-V2(manager->pickPart->dim) * 0.5f * DeskCellSize).cell;
+        if (manager->pickPartOverridePos != p) {
+            manager->pickPartOverridePos = p;
+            IRect bbox = CalcPartBoundingBox(manager->pickPart, p);
+            if (CanPlacePart(desk, bbox, manager->pickPart)) {
+                manager->pickPartOverrideColor = V3(0.7f, 0.7f, 0.7f);
+            } else {
+                manager->pickPartOverrideColor = V3(0.7f, 0.2f, 0.2f);
+            }
+        }
+
+        if (!MouseButtonDown(MouseButton::Left)) {
+            TryChangePartLocation(desk, manager->pickPart, manager->pickPartOverridePos);
+            manager->currentTool = Tool::None;
         }
     }
 }
 
 void ToolPickRender(ToolManager* manager, Desk* desk) {
-    DrawPart(desk, desk->canvas, manager->pickPart, DeskPosition(manager->pickPartOverridePos), manager->pickPartOverrideColor, 0.7f, 0.5f);
-}
-
-void ToolPickPrimaryAction(ToolManager* manager, Desk* desk) {
-    TryChangePartLocation(desk, manager->pickPart, manager->pickPartOverridePos);
-    manager->currentTool = Tool::None;
+    if (manager->toolPickActuallyEnabled) {
+        DrawPart(desk, desk->canvas, manager->pickPart, DeskPosition(manager->pickPartOverridePos), manager->pickPartOverrideColor, 0.7f, 0.5f);
+    }
 }
 
 void ToolPickSecondaryAction(ToolManager* manager, Desk* desk) {
     manager->currentTool = Tool::None;
-}
-
-void ToolNonePartClicked(ToolManager* manager, Desk* desk, Part* part) {
-    switch (part->type) {
-    case PartType::Source: {
-        part->active = !part->active;
-    } break;
-    default: {} break;
-    }
 }
 
 void ToolNonePrimaryAction(ToolManager* manager, Desk* desk) {
@@ -167,7 +185,7 @@ void ToolManagerPrimaryAction(ToolManager* manager) {
     auto desk = GetDesk();
     switch (manager->currentTool) {
     case Tool::Part: { ToolPartPrimaryAction(manager, desk); } break;
-    case Tool::Pick: { ToolPickPrimaryAction(manager, desk); } break;
+    //case Tool::Pick: { ToolPickPrimaryAction(manager, desk); } break;
     case Tool::Wire: { ToolWirePrimaryAction(manager, desk); } break;
     case Tool::None: { ToolNonePrimaryAction(manager, desk); } break;
     default: {} break;
