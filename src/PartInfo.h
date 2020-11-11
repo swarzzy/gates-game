@@ -1,51 +1,9 @@
 #pragma once
 
 #include "Array.h"
+#include "Part.h"
 
 struct Desk;
-struct Wire;
-struct Part;
-
-enum struct PartType : u32 {
-    Unknown = 0, And, Or, Not, Led, Source, _Count
-};
-
-enum struct PinType {
-    Input, Output
-};
-
-struct Pin {
-    PinType type;
-    // TODO: Do we need pointer to the part here?
-    Part* part;
-    iv2 pRelative;
-    u8 value;
-};
-
-struct WireRecord {
-    Wire* wire;
-    Pin* pin;
-};
-
-struct Part {
-    PartType type;
-
-    DeskPosition p;
-    iv2 dim;
-
-    b32 active;
-
-    u32 inputCount;
-    u32 outputCount;
-
-    Array<Pin> pins;
-    Array<WireRecord> wires;
-
-    v4 activeColor;
-    v4 inactiveColor;
-
-    const char16* label;
-};
 
 typedef void(PartFunctionFn)(Part* part);
 typedef void(PartInitializerFn)(Desk* desk, Part* part);
@@ -56,23 +14,12 @@ struct PartInfo {
     PartInitializerFn* partInitializers[PartType::_Count];
 };
 
-Pin* GetInput(Part* part, u32 index);
-Pin* GetOutput(Part* part, u32 index);
-u32 PinCount(Part* part);
-
 bool ArePinsWired(Pin* input, Pin* output);
 Wire* TryWirePins(Desk* desk, Pin* input, Pin* output);
 bool UnwirePin(Pin* pin, Wire* wire);
 
 void PartInfoInit(PartInfo* info);
 
-void InitPart(PartInfo* info, Desk* desk, Part* part, iv2 p, PartType type);
-void DeinitPart(Desk* desk, Part* part);
-
 Pin CreatePin(Desk* desk, Part* part, i32 xRel, i32 yRel, PinType type);
 
-inline v4 GetPartColor(Part* element) { return element->active ? element->activeColor : element->inactiveColor; }
-
-void PartGatherSignals(Desk* desk, Part* part);
-void PartProcessSignals(PartInfo* info, Part* part);
-void PartPropagateSignals(Desk* desk, Part* part);
+void DeallocatePins(Desk* desk, Part* part);

@@ -123,7 +123,6 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
     return result;
 }
 
-// NOTE(swarzzy): All game .cpp files should be included here
 #include "Game.cpp"
 #include "Console.cpp"
 #include "Draw.cpp"
@@ -133,6 +132,7 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
 #include "HashMap.cpp"
 #include "ConsoleCommands.cpp"
 #include "PartInfo.cpp"
+#include "Part.cpp"
 #include "Tools.cpp"
 #include "BucketArray.cpp"
 #include "List.cpp"
