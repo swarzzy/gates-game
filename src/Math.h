@@ -341,6 +341,38 @@ Vector<T, Size>& operator/=(Vector<T, Size>& v, T s) {
 }
 
 template <typename T, u32 Size>
+    Vector<T, Size> Min(Vector<T, Size> a, Vector<T, Size> b) {
+    Vector<T, Size> result = {};
+    for (usize i = 0; i < Size; i++) {
+        result.data[i] = Min(a.data[i], b.data[i]);
+    }
+    return result;
+}
+
+template <typename T, u32 Size>
+    Vector<T, Size> Max(Vector<T, Size> a, Vector<T, Size> b) {
+    Vector<T, Size> result = {};
+    for (usize i = 0; i < Size; i++) {
+        result.data[i] = Max(a.data[i], b.data[i]);
+    }
+    return result;
+}
+
+template <typename T, u32 Size>
+struct VectorMinMax {
+    Vector<T, Size> min;
+    Vector<T, Size> max;
+};
+
+template <typename T, u32 Size>
+    VectorMinMax<T, Size> MinMax(Vector<T, Size> a, Vector<T, Size> b) {
+    VectorMinMax<T, Size> result;
+    result.min = Min(a, b);
+    result.max = Max(a, b);
+    return result;
+}
+
+template <typename T, u32 Size>
 T LengthSq(Vector<T, Size> v) {
     T result = static_cast<T>(0);
     for (usize i = 0; i < Size; i++) {
@@ -779,5 +811,47 @@ v3 GetBarycentric(v3 boxMin, v3 boxMax, v3 p) {
     result.x = SafeRatio0(p.x - boxMin.x, boxMax.x - boxMin.x);
     result.y = SafeRatio0(p.y - boxMin.y, boxMax.y - boxMin.y);
     result.z = SafeRatio0(p.z - boxMin.z, boxMax.z - boxMin.z);
+    return result;
+}
+
+// [https://rootllama.wordpress.com/2014/06/20/ray-line-segment-intersection-test-in-2d/]
+bool RayLineIntersect2D(v2 rayOrigin, v2 rayDir, v2 lineBegin, v2 lineEnd) {
+    bool result = false;
+    v2 perp = V2(-rayDir.y, rayDir.x);
+    v2 beginToOrigin = rayOrigin - lineBegin;
+    v2 beginToEnd = lineEnd - lineBegin;
+
+    f32 denom = Dot(beginToEnd, perp);
+
+    if (Abs(denom) > F32::Eps) {
+        f32 t1 = (beginToEnd.x * beginToOrigin.y - beginToOrigin.x * beginToEnd.y) / denom;
+        f32 t2 = Dot(beginToOrigin, perp) / denom;
+
+        result = (t2 >= 0.0f && t2 <= 1.0f && t1 >= 0.0f);
+    }
+
+    return result;
+}
+
+// [https://rootllama.wordpress.com/2014/05/26/point-in-polygon-test/]
+bool PointInPolygon2D(v2 p, v2* vertices, u32 vertexCount) {
+    bool result = false;
+    u32 numCrossings = 0;
+
+    for (u32 i = 0; i < vertexCount; i++) {
+        u32 j = (i + 1) % vertexCount;
+
+        if (RayLineIntersect2D(p, V2(1.0f, 0.0f), vertices[i], vertices[j])) {
+            numCrossings++;
+        }
+    }
+
+    result = (numCrossings % 2) == 1;
+    return result;
+}
+
+bool PointInRectangle2D(v2 p, v2 min, v2 max) {
+    v2 vertices[] = { min, V2(max.x, min.y), max, V2(min.x, max.y) };
+    bool result = PointInPolygon2D(p, vertices, 4);
     return result;
 }

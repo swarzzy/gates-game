@@ -61,6 +61,18 @@ constexpr T Max(T a, T b) {
     return a > b ? a : b;
 }
 
+template <typename T>
+struct MinMaxResult {
+    T min;
+    T max;
+};
+
+template <typename T>
+MinMaxResult<T> MinMax(T a, T b) {
+    MinMaxResult<T> result = a > b ? MinMaxResult<T> { b, a } : MinMaxResult<T> { a, b };
+    return result;
+}
+
 template<typename T>
 constexpr T Clamp(T x, T min, T max) {
     return Min(Max(x, min), max);

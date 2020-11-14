@@ -233,6 +233,21 @@ void GameRender() {
         v2 begin = wire->pInput.RelativeTo(desk->origin);
         v2 end = wire->pOutput.RelativeTo(desk->origin);
         DrawSimpleLineBatch(&deskCanvas->drawList, begin, end, 0.0f, thickness, V4(0.2f, 0.2f, 0.2f, 1.0f));
+        v2 vec = Normalize(end - begin);
+        v2 perp = Perp(vec);
+        v2 offset = perp * thickness * 0.5f;
+        v2 vv[] = {
+            begin - offset,
+            begin + offset,
+            end + offset,
+            end - offset
+        };
+        auto rect = MinMax(begin, end);
+        rect.min -= offset;
+        rect.max += offset;
+        if (PointInRectangle2D(toolManager->mouseCanvasPos, rect.min, rect.max)) {
+            log_print("Intersecting wire at tick %d!\n", (int)GetPlatform()->tickCount);
+        }
     } ListEndEach;
 
     DrawListEndBatch(&deskCanvas->drawList);
