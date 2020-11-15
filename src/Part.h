@@ -21,13 +21,21 @@ struct Pin {
     u8 value;
 };
 
+struct WireNode {
+    DeskPosition p;
+};
+
 struct Wire {
     Pin* input;
     Pin* output;
-    DeskPosition pInput;
-    DeskPosition pOutput;
-    Wire* inputNext;
-    Wire* outputNext;
+
+    //DeskPosition pInput;
+    //DeskPosition pOutput;
+
+    // Nodes are stored in sorted order
+    // 0 - input
+    // 1 = output
+    Array<WireNode> nodes;
 };
 
 struct WireRecord {
@@ -58,6 +66,9 @@ struct Part {
 struct IRect {
     iv2 min;
     iv2 max;
+
+    IRect() = default;
+    IRect(iv2 Min, iv2 Max) : min(Min), max(Max) {}
 };
 
 // There are three stage of part creation for now:

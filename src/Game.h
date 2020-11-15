@@ -28,6 +28,8 @@ struct GameContext {
     Desk desk;
     PartInfo partInfo;
     ToolManager toolManager;
+
+    iv2 prevMouseDeskPos;
 };
 
 void GameInit();

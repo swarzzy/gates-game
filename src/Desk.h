@@ -11,7 +11,7 @@ struct Desk;
 struct Wire;
 
 enum struct CellValue : u32 {
-    Empty = 0, Part, Pin
+    Empty = 0, Part, Pin, WireNode
 };
 
 struct DeskCell {
@@ -19,6 +19,7 @@ struct DeskCell {
     union {
         Part* part;
         Pin* pin;
+        Wire* wire;
     };
 };
 
@@ -60,6 +61,12 @@ void UnregisterPartPlcement(Desk* desk, Part* element);
 bool CanPlacePart(Desk* desk, IRect box, Part* self = nullptr);
 bool ExpandDeskFor(Desk* desk, IRect box);
 
+bool TryRegisterWireNodePlacement(Desk* desk, Wire* wire, iv2 p);
+void UnregisterWireNodePlacement(Desk* desk, Wire* wire, iv2 p);
+
 void DrawDesk(Desk* desk, Canvas* canvas);
 
 void PropagateSignals(Desk* desk);
+
+Wire* AddWire(Desk* desk);
+void RemoveWire(Desk* desk, Wire* wire);

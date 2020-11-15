@@ -124,6 +124,30 @@ bool TryChangePartLocation(Desk* desk, Part* part, iv2 newP) {
     return result;
 }
 
+bool TryRegisterWireNodePlacement(Desk* desk, Wire* wire, iv2 p) {
+    bool result = false;
+    IRect boundingBox = IRect(p, p + 1);
+    if (CanPlacePart(desk, boundingBox)) {
+        if (ExpandDeskFor(desk, boundingBox)) {
+            DeskCell* cell = GetDeskCell(desk, p, false);
+            assert(cell);
+            assert(cell->value == CellValue::Empty);
+            cell->value = CellValue::WireNode;
+            cell->wire = wire;
+            result = true;
+        }
+    }
+    return result;
+}
+
+void UnregisterWireNodePlacement(Desk* desk, Wire* wire, iv2 p) {
+    DeskCell* cell = GetDeskCell(desk, p, false);
+    assert(cell);
+    assert(cell->value == CellValue::WireNode && cell->wire == wire);
+    cell->value = CellValue::Empty;
+    cell->wire = nullptr;
+}
+
 Part* GetPartMemory(Desk* desk) {
     Part* result = desk->parts.Add();
     return result;
@@ -211,4 +235,15 @@ void PropagateSignals(Desk* desk) {
         Pin* output = wire->output;
         input->value = output->value;
     } ListEndEach;
+}
+
+Wire* AddWire(Desk* desk) {
+    Wire* wire = desk->wires.Add();
+    wire->nodes = Array<WireNode>(&desk->deskAllocator);
+    return wire;
+}
+
+void RemoveWire(Desk* desk, Wire* wire) {
+    wire->nodes.FreeBuffers();
+    desk->wires.Remove(wire);
 }

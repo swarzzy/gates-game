@@ -2,12 +2,22 @@
 
 template <typename T>
 T& Array<T>::operator[](u32 i) {
-    assert(i < size); return data[i];
+    assert(i < count);
+    return data[i];
+}
+
+template <typename T>
+T* Array<T>::Last() {
+    T* result = nullptr;
+    if (count) {
+        result = data + (count - 1);
+    }
+    return result;
 }
 
 template <typename T>
 Array<T> Array<T>::Clone() {
-    Array<T> clone = CreateArray(allocator);
+    Array<T> clone (allocator);
     clone.Resize(count);
     memcpy(clone.data, data, (size_t)count * sizeof(T));
     return clone;
@@ -68,7 +78,7 @@ void Array<T>::ShrinkBuffers(u32 newSize) {
 }
 
 template <typename T>
-T* Array<T>::Push() {
+T* Array<T>::PushBack() {
     if (count == capacity) {
         Reserve(_GrowCapacity(count + 1));
     }
@@ -76,8 +86,25 @@ T* Array<T>::Push() {
 }
 
 template <typename T>
-void Array<T>::Push(const T& v) {
-    auto entry = Push();
+void Array<T>::PushBack(const T& v) {
+    auto entry = PushBack();
+    memcpy(entry, &v, sizeof(v));
+}
+
+template <typename T>
+T* Array<T>::PushFront() {
+    T* result = nullptr;
+    if (count == 0) {
+        result = PushBack();
+    } else {
+        result = Insert(0);
+    }
+    return result;
+}
+
+template <typename T>
+void Array<T>::PushFront(const T& v) {
+    auto entry = PushFront();
     memcpy(entry, &v, sizeof(v));
 }
 
@@ -107,16 +134,15 @@ void Array<T>::EraseUnsorted(const T* it) {
 
 template <typename T>
 T* Array<T>::Insert(u32 index) {
-    assert(it >= data && it <= data + count);
-    uptr off = (index * sizeof(T)) - data;
+    assert(index < count);
     if (count == capacity) {
         Reserve(_GrowCapacity(count + 1));
     }
-    if (off < count) {
-        memmove(data + off + 1, data + off, ((size_t)count - (size_t)off) * sizeof(T));
+    if (index < count) {
+        memmove(data + index + 1, data + index, ((size_t)count - (size_t)index) * sizeof(T));
     }
     count++;
-    return data + off;
+    return data + index;
 }
 
 template <typename T>

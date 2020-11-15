@@ -15,6 +15,7 @@ struct Array {
     Array(Allocator* alloc, u32 size) : allocator(alloc) { Resize(size); }
 
     T& operator[](u32 i);
+    T* Last();
 
     u32 Count() { return count; }
     u32 Capacity() { return capacity; }
@@ -33,8 +34,10 @@ struct Array {
     void ShrinkBuffers(u32 newSize);
 
 
-    T* Push();
-    void Push(const T& v);
+    T* PushBack();
+    T* PushFront();
+    void PushFront(const T& v);
+    void PushBack(const T& v);
     void Pop();
     void Erase(const T* it);
     void EraseUnsorted(const T* it);

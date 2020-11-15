@@ -112,6 +112,21 @@ void PartProcessClick(Part* part, DeskPosition mouseP, MouseButton button) {
     }
 }
 
+bool CheckWireSegmentHit(v2 mouseP, v2 begin, v2 end, f32 thickness) {
+    bool result = false;
+    v2 vec = Normalize(end - begin);
+    v2 perp = Perp(vec);
+    v2 offset = perp * thickness * 0.5f;
+
+    auto rect = MinMax(begin, end);
+    rect.min -= offset;
+    rect.max += offset;
+
+    if (PointInRectangle2D(mouseP, rect.min, rect.max)) {
+        result = true;
+    }
+    return result;
+}
 
 void GameRender() {
     auto context = GetContext();
@@ -224,30 +239,93 @@ void GameRender() {
     invalid_default();
     }
 
+    // Wire thickness
+    // TODO: Factor this out
+    f32 thickness = 0.1f;
+
+    if (MouseButtonPressed(MouseButton::Left)) {
+        // TODO: Optimize this. Narrow down traversal subset. We cound for instance
+        // compute line bounding box and check only inside it.
+        Wire* hitWire = nullptr;
+        WireNode* hitNode = nullptr;
+        ListForEach(&desk->wires, wire) {
+            if (wire->nodes.Count() == 0) {
+            } else {
+                assert(wire->nodes.Count() >= 2);
+                for (u32 i = 1; i < wire->nodes.Count(); i++) {
+                    WireNode* prev = wire->nodes.Data() + (i - 1);
+                    WireNode* curr = wire->nodes.Data() + i;
+
+                    v2 begin = prev->p.RelativeTo(desk->origin);
+                    v2 end = curr->p.RelativeTo(desk->origin);
+
+                    if (CheckWireSegmentHit(toolManager->mouseCanvasPos, begin, end, thickness)) {
+                        log_print("Intersecting wire at tick %d!\n", (int)GetPlatform()->tickCount);
+                        hitWire = wire;
+                        hitNode = prev;
+                        break;
+                    }
+                }
+            }
+        } ListEndEach;
+
+        if (hitWire) {
+            assert(hitNode);
+            u32 index = hitWire->nodes.IndexFromPtr(hitNode);
+            // TODO: toolManager->mouseDeskPos
+            DeskPosition p = DeskPosition(DeskPosition(desk->origin.cell, toolManager->mouseCanvasPos).cell);
+
+            if (TryRegisterWireNodePlacement(desk, hitWire, p.cell)) {
+                WireNode* newNode = hitWire->nodes.Insert(index + 1);
+                newNode->p = p;
+            }
+        }
+    }
+
+    if (MouseButtonPressed(MouseButton::Right)) {
+        DeskCell* cell = GetDeskCell(desk, toolManager->mouseDeskPos.cell);
+        if (cell && cell->value == CellValue::WireNode) {
+            Wire* wire = cell->wire;
+            iv2 p = toolManager->mouseDeskPos.cell;
+            WireNode* node = nullptr;
+            ForEach(&wire->nodes, it) {
+                if (it->p.cell == p) {
+                    node = it;
+                    break;
+                }
+            } EndEach;
+
+            if (node) {
+                UnregisterWireNodePlacement(desk, wire, p);
+                wire->nodes.Erase(node);
+            }
+        }
+    }
+
     ToolManagerRender(toolManager);
 
     // TODO: Culling
     DrawListBeginBatch(&deskCanvas->drawList, TextureMode::Color);
-    f32 thickness = 0.1f;
     ListForEach(&desk->wires, wire) {
-        v2 begin = wire->pInput.RelativeTo(desk->origin);
-        v2 end = wire->pOutput.RelativeTo(desk->origin);
-        DrawSimpleLineBatch(&deskCanvas->drawList, begin, end, 0.0f, thickness, V4(0.2f, 0.2f, 0.2f, 1.0f));
-        v2 vec = Normalize(end - begin);
-        v2 perp = Perp(vec);
-        v2 offset = perp * thickness * 0.5f;
-        v2 vv[] = {
-            begin - offset,
-            begin + offset,
-            end + offset,
-            end - offset
-        };
-        auto rect = MinMax(begin, end);
-        rect.min -= offset;
-        rect.max += offset;
-        if (PointInRectangle2D(toolManager->mouseCanvasPos, rect.min, rect.max)) {
-            log_print("Intersecting wire at tick %d!\n", (int)GetPlatform()->tickCount);
+        assert(wire->nodes.Count() >= 2);
+        for (u32 i = 1; i < wire->nodes.Count(); i++) {
+            WireNode* prev = wire->nodes.Data() + (i - 1);
+            WireNode* curr = wire->nodes.Data() + i;
+
+            v2 begin = prev->p.RelativeTo(desk->origin);
+            v2 end = curr->p.RelativeTo(desk->origin);
+
+            DrawSimpleLineBatch(&deskCanvas->drawList, begin, end, 0.0f, thickness, V4(0.2f, 0.2f, 0.2f, 1.0f));
         }
+
+        ForEach(&wire->nodes, node) {
+            if (index == 0 || (index == wire->nodes.Count() - 1)) continue;
+            v2 pRel = node->p.RelativeTo(desk->origin);
+            v2 min = pRel - DeskCellHalfSize;
+            v2 max = pRel + DeskCellHalfSize;
+            DrawListPushRectBatch(&deskCanvas->drawList, min, max, 0.0f, {}, {}, V4(0.2f, 0.2f, 0.2f, 1.0f), 0.0f);
+        } EndEach;
+
     } ListEndEach;
 
     DrawListEndBatch(&deskCanvas->drawList);

@@ -15,11 +15,11 @@ struct DeskPosition {
     iv2 cell = {};
     v2 offset = {};
 
-    DeskPosition() = default;
-    DeskPosition(iv2 cellValue, v2 offsetValue);
-    DeskPosition(iv2 cellValue);
-    DeskPosition(v2 offsetValue);
-    DeskPosition(TilePosition p);
+    explicit DeskPosition() = default;
+    explicit DeskPosition(iv2 cellValue, v2 offsetValue);
+    explicit DeskPosition(iv2 cellValue);
+    explicit DeskPosition(v2 offsetValue);
+    explicit DeskPosition(TilePosition p);
 
     DeskPosition Normalized() const;
     DeskPosition Add(DeskPosition other) const;
@@ -34,9 +34,9 @@ struct TilePosition {
     iv2 tile = {};
     uv2 cell = {};
 
-    TilePosition() = default;
-    TilePosition(DeskPosition p);
-    TilePosition(iv2 cell);
+    explicit TilePosition() = default;
+    explicit TilePosition(DeskPosition p);
+    explicit TilePosition(iv2 cell);
 
     DeskPosition ToDeskPos() const;
 };

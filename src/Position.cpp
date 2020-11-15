@@ -1,12 +1,16 @@
 #include "Position.h"
 
-DeskPosition::DeskPosition(iv2 cellValue, v2 offsetValue) : cell(cellValue), offset(offsetValue) {}
+DeskPosition::DeskPosition(iv2 cellValue, v2 offsetValue) : cell(cellValue), offset(offsetValue) {
+    *this = Normalized();
+}
 
 DeskPosition::DeskPosition(iv2 cellValue) : cell(cellValue), offset({}) {}
 
-DeskPosition::DeskPosition(v2 offsetValue) : cell({}), offset(offsetValue) {}
+DeskPosition::DeskPosition(v2 offsetValue) : cell({}), offset(offsetValue) {
+    *this = Normalized();
+}
 
-DeskPosition::DeskPosition(TilePosition p) {}
+DeskPosition::DeskPosition(TilePosition p) { unreachable(); }
 
 
 DeskPosition DeskPosition::Normalized() const {
@@ -24,6 +28,7 @@ DeskPosition DeskPosition::Normalized() const {
 
     return result;
 }
+
 
 DeskPosition DeskPosition::Add(DeskPosition other) const {
     DeskPosition result = *this;

@@ -101,12 +101,15 @@ void UpdateCachedWirePositions(Part* part) {
     ForEach(&part->wires, record) {
         Wire* wire = record->wire;
         Pin* pin = record->pin;
+        assert(wire->nodes.Count() >= 2);
         if (pin->type == PinType::Input) {
-            wire->pInput = ComputePinPosition(pin);
-            wire = wire->inputNext;
+            //wire->pInput = ComputePinPosition(pin);
+            wire->nodes[0].p = ComputePinPosition(pin);
         } else {
-            wire->pOutput = ComputePinPosition(pin);
-            wire = wire->outputNext;
+            //wire->pOutput = ComputePinPosition(pin);
+            WireNode* last = wire->nodes.Last();
+            assert(last);
+            last->p = ComputePinPosition(pin);
         }
     } EndEach;
 }
@@ -156,7 +159,7 @@ void UnwirePart(Desk* desk, Part* part) {
         } else {
             unreachable();
         }
-        desk->wires.Remove(wire);
+        RemoveWire(desk, wire);
     } EndEach;
 }
 
@@ -204,10 +207,10 @@ Wire* TryWirePins(Desk* desk, Pin* input, Pin* output) {
 
     if (inputIsFree) {
         if (!ArePinsWired(input, output)) {
-            Wire* wire = desk->wires.Add();
+            Wire* wire = AddWire(desk);
 
-            auto inputRecord = input->part->wires.Push();
-            auto outputRecord = output->part->wires.Push();
+            auto inputRecord = input->part->wires.PushBack();
+            auto outputRecord = output->part->wires.PushBack();
             wire->input = input;
             inputRecord->wire = wire;
             inputRecord->pin = input;
@@ -216,8 +219,14 @@ Wire* TryWirePins(Desk* desk, Pin* input, Pin* output) {
             outputRecord->wire = wire;
             outputRecord->pin = output;
 
-            wire->pInput = ComputePinPosition(input);
-            wire->pOutput = ComputePinPosition(output);
+            WireNode* inputNode = wire->nodes.PushFront();
+            WireNode* outputNode = wire->nodes.PushBack();
+
+            inputNode->p = ComputePinPosition(input);
+            outputNode->p = ComputePinPosition(output);
+
+            //wire->pInput = inputNode->p;
+            //wire->pOutput = outputNode->p;
 
             result = wire;
         }

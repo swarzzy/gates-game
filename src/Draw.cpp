@@ -29,32 +29,32 @@ DrawCommand* DrawListBeginBatch(DrawList* list, TextureMode mode, TextureID text
 
 forceinline void DrawListPushVertexBatch(DrawList* list, Vertex vertex) {
     assert(list->pendingCommand);
-    list->vertexBuffer.Push(vertex);
+    list->vertexBuffer.PushBack(vertex);
 }
 
 
 forceinline void DrawListPushIndexBatch(DrawList* list, u32 index) {
     assert(list->pendingCommand);
-    list->indexBuffer.Push(index);
+    list->indexBuffer.PushBack(index);
 }
 
 forceinline void DrawListPushQuadBatch(DrawList* list, v2 p0, v2 p1, v2 p2, v2 p3, f32 z, v2 uv0, v2 uv1, v4 color, f32 blend) {
     assert(list->pendingCommand);
 
     auto vertexOffset = list->vertexBuffer.Count();
-    list->vertexBuffer.Push(Vertex(V3(p0, z), blend, color, V2(uv0.x, uv0.y)));
-    list->vertexBuffer.Push(Vertex(V3(p1, z), blend, color, V2(uv1.x, uv0.y)));
-    list->vertexBuffer.Push(Vertex(V3(p2, z), blend, color, V2(uv1.x, uv1.y)));
-    list->vertexBuffer.Push(Vertex(V3(p3, z), blend, color, V2(uv0.x, uv1.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(p0, z), blend, color, V2(uv0.x, uv0.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(p1, z), blend, color, V2(uv1.x, uv0.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(p2, z), blend, color, V2(uv1.x, uv1.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(p3, z), blend, color, V2(uv0.x, uv1.y)));
 
     auto indexOffset = list->indexBuffer.Count();
 
-    list->indexBuffer.Push(vertexOffset + 0);
-    list->indexBuffer.Push(vertexOffset + 1);
-    list->indexBuffer.Push(vertexOffset + 2);
-    list->indexBuffer.Push(vertexOffset + 2);
-    list->indexBuffer.Push(vertexOffset + 3);
-    list->indexBuffer.Push(vertexOffset + 0);
+    list->indexBuffer.PushBack(vertexOffset + 0);
+    list->indexBuffer.PushBack(vertexOffset + 1);
+    list->indexBuffer.PushBack(vertexOffset + 2);
+    list->indexBuffer.PushBack(vertexOffset + 2);
+    list->indexBuffer.PushBack(vertexOffset + 3);
+    list->indexBuffer.PushBack(vertexOffset + 0);
 }
 
 
@@ -63,19 +63,19 @@ forceinline void DrawListPushRectBatch(DrawList* list, v2 min, v2 max, f32 z, v2
     assert(list->pendingCommand);
 
     auto vertexOffset = list->vertexBuffer.Count();
-    list->vertexBuffer.Push(Vertex(V3(min.x, min.y, z), blend, color, V2(uv0.x, uv0.y)));
-    list->vertexBuffer.Push(Vertex(V3(max.x, min.y, z), blend, color, V2(uv1.x, uv0.y)));
-    list->vertexBuffer.Push(Vertex(V3(max.x, max.y, z), blend, color, V2(uv1.x, uv1.y)));
-    list->vertexBuffer.Push(Vertex(V3(min.x, max.y, z), blend, color, V2(uv0.x, uv1.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(min.x, min.y, z), blend, color, V2(uv0.x, uv0.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(max.x, min.y, z), blend, color, V2(uv1.x, uv0.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(max.x, max.y, z), blend, color, V2(uv1.x, uv1.y)));
+    list->vertexBuffer.PushBack(Vertex(V3(min.x, max.y, z), blend, color, V2(uv0.x, uv1.y)));
 
     auto indexOffset = list->indexBuffer.Count();
 
-    list->indexBuffer.Push(vertexOffset + 0);
-    list->indexBuffer.Push(vertexOffset + 1);
-    list->indexBuffer.Push(vertexOffset + 2);
-    list->indexBuffer.Push(vertexOffset + 2);
-    list->indexBuffer.Push(vertexOffset + 3);
-    list->indexBuffer.Push(vertexOffset + 0);
+    list->indexBuffer.PushBack(vertexOffset + 0);
+    list->indexBuffer.PushBack(vertexOffset + 1);
+    list->indexBuffer.PushBack(vertexOffset + 2);
+    list->indexBuffer.PushBack(vertexOffset + 2);
+    list->indexBuffer.PushBack(vertexOffset + 3);
+    list->indexBuffer.PushBack(vertexOffset + 0);
 }
 
 forceinline void DrawSimpleLineBatch(DrawList* list, v2 begin, v2 end, f32 z, f32 thickness, v4 color) {
@@ -96,7 +96,7 @@ void DrawListEndBatch(DrawList* list) {
     u32 indexCount = list->indexBuffer.Count() - list->scratchCommand.indexBufferOffset;
     list->scratchCommand.indexCount = indexCount;
 
-    list->commandBuffer.Push(list->scratchCommand);
+    list->commandBuffer.PushBack(list->scratchCommand);
 
     list->pendingCommand = false;
 }
@@ -105,19 +105,19 @@ void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, v2 uv0, v2 uv1
     assert(!list->pendingCommand);
 
     auto vertexOffset = list->vertexBuffer.Count();
-    list->vertexBuffer.Push(Vertex(V3(lb, z), texBlend, color, uv0));
-    list->vertexBuffer.Push(Vertex(V3(rb, z), texBlend, color, uv1));
-    list->vertexBuffer.Push(Vertex(V3(rt, z), texBlend, color, uv2));
-    list->vertexBuffer.Push(Vertex(V3(lt, z), texBlend, color, uv3));
+    list->vertexBuffer.PushBack(Vertex(V3(lb, z), texBlend, color, uv0));
+    list->vertexBuffer.PushBack(Vertex(V3(rb, z), texBlend, color, uv1));
+    list->vertexBuffer.PushBack(Vertex(V3(rt, z), texBlend, color, uv2));
+    list->vertexBuffer.PushBack(Vertex(V3(lt, z), texBlend, color, uv3));
 
     auto indexOffset = list->indexBuffer.Count();
 
-    list->indexBuffer.Push(vertexOffset + 0);
-    list->indexBuffer.Push(vertexOffset + 1);
-    list->indexBuffer.Push(vertexOffset + 2);
-    list->indexBuffer.Push(vertexOffset + 2);
-    list->indexBuffer.Push(vertexOffset + 3);
-    list->indexBuffer.Push(vertexOffset + 0);
+    list->indexBuffer.PushBack(vertexOffset + 0);
+    list->indexBuffer.PushBack(vertexOffset + 1);
+    list->indexBuffer.PushBack(vertexOffset + 2);
+    list->indexBuffer.PushBack(vertexOffset + 2);
+    list->indexBuffer.PushBack(vertexOffset + 3);
+    list->indexBuffer.PushBack(vertexOffset + 0);
 
     DrawCommand command {};
     command.vertexBufferOffset = vertexOffset;
@@ -126,7 +126,7 @@ void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, v2 uv0, v2 uv1
     command.textureMode = mode;
     command.texture = texture;
 
-    list->commandBuffer.Push(command);
+    list->commandBuffer.PushBack(command);
 }
 
 void DrawListPushQuad(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z, v4 color) {
