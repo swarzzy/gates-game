@@ -86,7 +86,8 @@ DeskPosition ComputePinPosition(Pin* pin,  DeskPosition partPosition) {
     DeskPosition result {};
     iv2 cell = partPosition.cell + pin->pRelative;
     switch (pin->type) {
-    case PinType::Input: { result = DeskPosition(cell, V2(DeskCellHalfSize, 0.0f)); } break;
+    // Subtract a small number to prevent flooring in the wrong cell
+    case PinType::Input: { result = DeskPosition(cell, V2(DeskCellHalfSize - 0.0001f, 0.0f)); } break;
     case PinType::Output: { result = DeskPosition(cell, V2(-DeskCellHalfSize, 0.0f)); } break;
         invalid_default();
     }
@@ -101,15 +102,21 @@ void UpdateCachedWirePositions(Part* part) {
     ForEach(&part->wires, record) {
         Wire* wire = record->wire;
         Pin* pin = record->pin;
-        assert(wire->nodes.Count() >= 2);
+        assert(wire->nodes.Count() >= 4);
         if (pin->type == PinType::Input) {
-            //wire->pInput = ComputePinPosition(pin);
-            wire->nodes[0].p = ComputePinPosition(pin);
+            DeskPosition p = ComputePinPosition(pin);
+            wire->nodes[0] = p;
+            wire->nodes[1] = DeskPosition(p.cell);
+            if (wire->nodes.Count() >= 6) {
+                wire->nodes[2] = DeskPosition(IV2(wire->nodes[2].cell.x, p.cell.y));
+            }
         } else {
-            //wire->pOutput = ComputePinPosition(pin);
-            WireNode* last = wire->nodes.Last();
-            assert(last);
-            last->p = ComputePinPosition(pin);
+            DeskPosition p = ComputePinPosition(pin);
+            wire->nodes[wire->nodes.Count() - 1] = p;
+            wire->nodes[wire->nodes.Count() - 2] = DeskPosition(p.cell);
+            if (wire->nodes.Count() >= 6) {
+                wire->nodes[wire->nodes.Count() - 3] = DeskPosition(IV2(wire->nodes[wire->nodes.Count() - 3].cell.x, p.cell.y));
+            }
         }
     } EndEach;
 }
@@ -219,11 +226,11 @@ Wire* TryWirePins(Desk* desk, Pin* input, Pin* output) {
             outputRecord->wire = wire;
             outputRecord->pin = output;
 
-            WireNode* inputNode = wire->nodes.PushFront();
-            WireNode* outputNode = wire->nodes.PushBack();
+            DeskPosition* inputNode = wire->nodes.PushFront();
+            DeskPosition* outputNode = wire->nodes.PushBack();
 
-            inputNode->p = ComputePinPosition(input);
-            outputNode->p = ComputePinPosition(output);
+            *inputNode = ComputePinPosition(input);
+            *outputNode = ComputePinPosition(output);
 
             //wire->pInput = inputNode->p;
             //wire->pOutput = outputNode->p;

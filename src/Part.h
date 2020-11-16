@@ -21,10 +21,6 @@ struct Pin {
     u8 value;
 };
 
-struct WireNode {
-    DeskPosition p;
-};
-
 struct Wire {
     Pin* input;
     Pin* output;
@@ -35,7 +31,7 @@ struct Wire {
     // Nodes are stored in sorted order
     // 0 - input
     // 1 = output
-    Array<WireNode> nodes;
+    Array<DeskPosition> nodes;
 };
 
 struct WireRecord {

@@ -43,6 +43,8 @@ void GameInit() {
     InitDesk(desk, &context->deskCanvas, partInfo, context->mainHeap);
     PartInfoInit(&context->partInfo);
 
+    ToolManagerInit(&context->toolManager, desk);
+
     CreatePart(desk, partInfo, IV2(2, 2), PartType::And);
     CreatePart(desk, partInfo, IV2(6, 10), PartType::Or);
     CreatePart(desk, partInfo, IV2(-6, -10), PartType::Not);
@@ -242,7 +244,7 @@ void GameRender() {
     // Wire thickness
     // TODO: Factor this out
     f32 thickness = 0.1f;
-
+#if false
     if (MouseButtonPressed(MouseButton::Left)) {
         // TODO: Optimize this. Narrow down traversal subset. We cound for instance
         // compute line bounding box and check only inside it.
@@ -301,7 +303,7 @@ void GameRender() {
             }
         }
     }
-
+#endif
     ToolManagerRender(toolManager);
 
     // TODO: Culling
@@ -309,23 +311,23 @@ void GameRender() {
     ListForEach(&desk->wires, wire) {
         assert(wire->nodes.Count() >= 2);
         for (u32 i = 1; i < wire->nodes.Count(); i++) {
-            WireNode* prev = wire->nodes.Data() + (i - 1);
-            WireNode* curr = wire->nodes.Data() + i;
+            DeskPosition* prev = wire->nodes.Data() + (i - 1);
+            DeskPosition* curr = wire->nodes.Data() + i;
 
-            v2 begin = prev->p.RelativeTo(desk->origin);
-            v2 end = curr->p.RelativeTo(desk->origin);
+            v2 begin = prev->RelativeTo(desk->origin);
+            v2 end = curr->RelativeTo(desk->origin);
 
             DrawSimpleLineBatch(&deskCanvas->drawList, begin, end, 0.0f, thickness, V4(0.2f, 0.2f, 0.2f, 1.0f));
         }
-
+#if 0
         ForEach(&wire->nodes, node) {
             if (index == 0 || (index == wire->nodes.Count() - 1)) continue;
-            v2 pRel = node->p.RelativeTo(desk->origin);
+            v2 pRel = node->RelativeTo(desk->origin);
             v2 min = pRel - DeskCellHalfSize;
             v2 max = pRel + DeskCellHalfSize;
             DrawListPushRectBatch(&deskCanvas->drawList, min, max, 0.0f, {}, {}, V4(0.2f, 0.2f, 0.2f, 1.0f), 0.0f);
         } EndEach;
-
+#endif
     } ListEndEach;
 
     DrawListEndBatch(&deskCanvas->drawList);

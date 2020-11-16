@@ -1,5 +1,10 @@
 #include "Tools.h"
 
+void ToolManagerInit(ToolManager* manager, Desk* desk) {
+    manager->pendingWireNodes = Array<DeskPosition>(&desk->deskAllocator);
+}
+
+
 void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initializer) {
     ToolManagerDisableAll(manager);
     manager->currentTool = Tool::Part;
@@ -24,11 +29,22 @@ void ToolPartRender(ToolManager* manager, Desk* desk) {
 
 void ToolWirePinClicked(ToolManager* manager, Desk* desk, Pin* pin) {
     if (manager->currentTool != Tool::Wire) {
-        manager->pendingWireBeginPin = pin;
         assert(manager->currentTool == Tool::None);
+        manager->pendingWireNodes.Clear();
+
+        DeskPosition pPin = ComputePinPosition(pin);
+        manager->lastWireNodePos = pPin;
+        manager->pendingWireBeginPin = pin;
+        manager->pendingWireNodes.PushBack(pPin);
+        manager->pendingWireNodes.PushBack(DeskPosition(pPin.cell));
+
         manager->currentTool = Tool::Wire;
     } else {
         if (pin != manager->pendingWireBeginPin) {
+            DeskPosition p = ComputePinPosition(pin);
+            manager->pendingWireNodes.PushBack(DeskPosition(p.cell));
+            manager->pendingWireNodes.PushBack(p);
+
             Pin* input = nullptr;
             Pin* output = nullptr;
 
@@ -44,8 +60,15 @@ void ToolWirePinClicked(ToolManager* manager, Desk* desk, Pin* pin) {
                 invalid_default();
             }
 
+            if (pin == input) {
+                manager->pendingWireNodes.Flip();
+            }
+
             if (input && output) {
-                TryWirePins(desk, input, output);
+                Wire* wire = TryWirePins(desk, input, output);
+                if (wire) {
+                    manager->pendingWireNodes.CopyTo(&wire->nodes);
+                }
             }
 
             assert(manager->currentTool == Tool::Wire);
@@ -59,12 +82,25 @@ void ToolWireSecondaryAction(ToolManager* manager, Desk* desk) {
 }
 
 void ToolWirePrimaryAction(ToolManager* manager, Desk* desk) {
-    DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
+    DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, true);
     if (mouseCell) {
         if (mouseCell->value == CellValue::Pin) {
             assert(mouseCell->pin);
             ToolWirePinClicked(manager, desk, mouseCell->pin);
+        } else if (mouseCell->value == CellValue::Empty) {
+            manager->pendingWireNodes.PushBack(DeskPosition(manager->lastWireNodePos.cell));
         }
+    }
+}
+
+void ToolWireUpdate(ToolManager* manager, Desk* desk) {
+    DeskPosition last = *manager->pendingWireNodes.Last();
+    v2 pRel = manager->mouseDeskPos.Sub(last);
+    DeskPosition offset;
+    if (Abs(pRel.x) > Abs(pRel.y)) {
+        manager->lastWireNodePos = last.Offset(V2(pRel.x, 0.0f));
+    } else {
+        manager->lastWireNodePos = last.Offset(V2(0.0f, pRel.y));
     }
 }
 
@@ -169,11 +205,20 @@ void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk) {
 
 void ToolWireRender(ToolManager* manager, Desk* desk) {
     DrawListBeginBatch(&desk->canvas->drawList, TextureMode::Color);
-    DeskPosition p1 = ComputePinPosition(manager->pendingWireBeginPin);
-    v2 lineBeg = p1.RelativeTo(desk->origin);
-    v2 lineEnd = manager->mouseCanvasPos;
-    f32 thickness = 0.1f;
-    DrawSimpleLineBatch(&desk->canvas->drawList, lineBeg, lineEnd, 0.0f, thickness, V4(0.5f, 0.2f, 0.0f, 1.0f));
+    for (u32 i = 1; i < manager->pendingWireNodes.Count(); i++) {
+        DeskPosition* prev = manager->pendingWireNodes.Data() + (i - 1);
+        DeskPosition* curr = manager->pendingWireNodes.Data() + i;
+
+        v2 begin = prev->RelativeTo(desk->origin);
+        v2 end = curr->RelativeTo(desk->origin);
+
+        DrawSimpleLineBatch(&desk->canvas->drawList, begin, end, 0.0f, 0.1f, V4(0.3f, 0.3f, 0.3f, 1.0f));
+    }
+
+    v2 begin = manager->pendingWireNodes.Last()->RelativeTo(desk->origin);
+    v2 end = DeskPosition(manager->lastWireNodePos.cell).RelativeTo(desk->origin);
+
+    DrawSimpleLineBatch(&desk->canvas->drawList, begin, end, 0.0f, 0.1f, V4(0.3f, 0.3f, 0.3f, 1.0f));
     DrawListEndBatch(&desk->canvas->drawList);
 }
 
@@ -214,6 +259,7 @@ void ToolManagerUpdate(ToolManager* manager) {
 
     switch (manager->currentTool) {
     case Tool::Part: { ToolPartUpdate(manager, desk); } break;
+    case Tool::Wire: { ToolWireUpdate(manager, desk); } break;
     case Tool::Pick: { ToolPickUpdate(manager, desk); } break;
   //case Tool::None: { ToolNoneUpdate(manager, desk); } break;
     default: {} break;

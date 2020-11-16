@@ -13,6 +13,8 @@ struct ToolManager {
     v2 mouseCanvasPos;
 
     Pin* pendingWireBeginPin;
+    Array<DeskPosition> pendingWireNodes;
+    DeskPosition lastWireNodePos;
 
     Part* pickPart;
     iv2 pickPartOverridePos;
@@ -23,6 +25,8 @@ struct ToolManager {
     v2 clickedPartOffset;
 };
 
+void ToolManagerInit(ToolManager* manager, Desk* desk);
+
 void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initializer);
 void ToolPartPrimaryAction(ToolManager* manager, Desk* desk);
 void ToolPartUpdate(ToolManager* manager, Desk* desk);
@@ -32,6 +36,7 @@ void ToolNonePrimaryAction(ToolManager* manager, Desk* desk);
 void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk);
 
 void ToolWireRender(ToolManager* manager, Desk* desk);
+void ToolWireUpdate(ToolManager* manager, Desk* desk);
 void ToolWirePrimaryAction(ToolManager* manager, Desk* desk);
 
 void ToolPickEnable(ToolManager* manager, Desk* desk);

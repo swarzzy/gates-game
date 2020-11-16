@@ -22,6 +22,7 @@ struct Array {
     T* Data() { return data; }
 
     Array Clone();
+    void CopyTo(Array<T>* other);
     void FreeBuffers();
     void Clear();
     void Fill(T& value);
@@ -43,6 +44,8 @@ struct Array {
     void EraseUnsorted(const T* it);
     T* Insert(u32 index);
     void Insert(u32 index, const T& v);
+
+    void Flip();
 
     u32 IndexFromPtr(const T* it);
 

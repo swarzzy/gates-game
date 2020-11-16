@@ -239,7 +239,7 @@ void PropagateSignals(Desk* desk) {
 
 Wire* AddWire(Desk* desk) {
     Wire* wire = desk->wires.Add();
-    wire->nodes = Array<WireNode>(&desk->deskAllocator);
+    wire->nodes = Array<DeskPosition>(&desk->deskAllocator);
     return wire;
 }
 

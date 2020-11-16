@@ -24,6 +24,16 @@ Array<T> Array<T>::Clone() {
 }
 
 template <typename T>
+void Array<T>::CopyTo(Array<T>* other) {
+    if (count > other->capacity) {
+        other->Reserve(other->_GrowCapacity(count));
+    }
+    memcpy(other->data, data, sizeof(T) * count);
+    other->count = count;
+}
+
+
+template <typename T>
 void Array<T>::FreeBuffers() {
     if (data) {
         allocator->Dealloc(data);
@@ -162,4 +172,13 @@ template <typename T>
 u32 Array<T>::_GrowCapacity(u32 sz) {
     u32 newCapacity = capacity ? (capacity + capacity / 2) : 8;
     return newCapacity > sz ? newCapacity : sz;
+}
+
+template <typename T>
+void Array<T>::Flip() {
+    for (u32 i = 0, j = count - 1; i < j; i++, j--) {
+        T tmp = data[i];
+        data[i] = data[j];
+        data[j] = tmp;
+    }
 }
