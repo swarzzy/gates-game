@@ -82,6 +82,8 @@ void UnwirePart(Desk* desk, Part* part);
 Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type);
 void DestroyPart(Desk* desk, Part* part);
 
+void DestroyWire(Desk* desk, Wire* wire);
+
 Pin CreatePin(Part* part, i32 xRel, i32 yRel, PinType type);
 
 void PartProcessSignals(PartInfo* info, Part* part);

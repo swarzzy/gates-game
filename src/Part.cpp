@@ -98,6 +98,7 @@ DeskPosition ComputePinPosition(Pin* pin) {
     return ComputePinPosition(pin, pin->part->p);
 }
 
+// TODO: Think about better 'architecture' of this wire caching and updating stuff
 void UpdateCachedWirePositions(Part* part) {
     ForEach(&part->wires, record) {
         Wire* wire = record->wire;
@@ -267,4 +268,11 @@ Pin CreatePin(Part* part, i32 xRel, i32 yRel, PinType type) {
     pin.part = part;
     pin.pRelative = IV2(xRel, yRel);
     return pin;
+}
+
+void DestroyWire(Desk* desk, Wire* wire) {
+    bool unwired = UnwirePin(wire->input, wire);
+    assert(unwired);
+    unwired = UnwirePin(wire->output, wire);
+    RemoveWire(desk, wire);
 }

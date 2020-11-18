@@ -288,14 +288,27 @@ void ToolNonePrimaryAction(ToolManager* manager, Desk* desk) {
 
 void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk) {
     DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
+    bool handled = false;
     if (mouseCell) {
         switch (mouseCell->value) {
         case CellValue::Part: {
             Part* part = mouseCell->part;
             assert(part);
             DestroyPart(desk, part);
+            handled = true;
         } break;
         default: {} break;
+        }
+    }
+    if (!handled) {
+        // Delete all wires under cursor
+        while (true) {
+            auto wire = GetWireAt(desk, manager->mouseCanvasPos);
+            if (wire.wire) {
+                DestroyWire(desk, wire.wire);
+            } else {
+                break;
+            }
         }
     }
 }
