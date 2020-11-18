@@ -44,6 +44,11 @@ struct Desk {
     List<Wire> wires;
 };
 
+struct GetWireAtResult {
+    Wire* wire;
+    u32 nodeIndex;
+};
+
 void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* deskHeap);
 
 Part* GetPartMemory(Desk* desk);
@@ -70,3 +75,6 @@ void PropagateSignals(Desk* desk);
 
 Wire* AddWire(Desk* desk);
 void RemoveWire(Desk* desk, Wire* wire);
+
+// Position is desk-relative
+GetWireAtResult GetWireAt(Desk* desk, v2 p);

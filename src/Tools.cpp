@@ -1,44 +1,8 @@
 #include "Tools.h"
 
-// nocheckin
-// Move somewhere
-// TODO: Optimize this. Narrow down traversal subset. We cound for instance
-// compute line bounding box and check only inside it.
-struct GetWireAtResult {
-    Wire* wire;
-    u32 nodeIndex;
-};
-
-// Position is desk-relative
-GetWireAtResult GetWireAt(Desk* desk, v2 p) {
-    GetWireAtResult result {};
-
-    ListForEach(&desk->wires, wire) {
-        assert(wire->nodes.Count() >= 2);
-        for (u32 i = 1; i < wire->nodes.Count(); i++) {
-            DeskPosition* prev = wire->nodes.Data() + (i - 1);
-            DeskPosition* curr = wire->nodes.Data() + i;
-
-            v2 begin = prev->RelativeTo(desk->origin);
-            v2 end = curr->RelativeTo(desk->origin);
-
-            // TODO: Wire thickness
-            f32 thickness = 0.1f;
-            if (CheckWireSegmentHit(p, begin, end, thickness)) {
-                result.wire = wire;
-                result.nodeIndex = wire->nodes.IndexFromPtr(prev);
-                break;
-            }
-        }
-    } ListEndEach;
-
-    return result;
-}
-
 void ToolManagerInit(ToolManager* manager, Desk* desk) {
     manager->pendingWireNodes = Array<DeskPosition>(&desk->deskAllocator);
 }
-
 
 void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initializer) {
     ToolManagerDisableAll(manager);
