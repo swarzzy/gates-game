@@ -29,8 +29,8 @@ struct Wire {
     //DeskPosition pOutput;
 
     // Nodes are stored in sorted order
-    // 0 - input
-    // 1 = output
+    // 0 - output
+    // 1 = input
     Array<DeskPosition> nodes;
 };
 

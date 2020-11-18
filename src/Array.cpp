@@ -25,11 +25,42 @@ Array<T> Array<T>::Clone() {
 
 template <typename T>
 void Array<T>::CopyTo(Array<T>* other) {
-    if (count > other->capacity) {
-        other->Reserve(other->_GrowCapacity(count));
+    CopyTo(other, count);
+}
+
+template <typename T>
+void Array<T>::CopyTo(Array<T>* other, u32 copyCount) {
+    if (copyCount > other->capacity) {
+        other->Reserve(other->_GrowCapacity(copyCount));
     }
-    memcpy(other->data, data, sizeof(T) * count);
-    other->count = count;
+    memcpy(other->data, data, sizeof(T) * copyCount);
+    other->count = copyCount;
+}
+
+template <typename T>
+void Array<T>::Append(const Array<T>* other) {
+    Append(other.data, other.count);
+}
+
+template <typename T>
+void Array<T>::Append(T* data, u32 n) {
+    if (n > 0) {
+        T* mem = PushBackN(n);
+        memcpy(mem, data, sizeof(T) * n);
+    }
+}
+
+template <typename T>
+void Array<T>::Prepend(const Array<T>* other) {
+    Prepend(other.data, other.count);
+}
+
+template <typename T>
+void Array<T>::Prepend(T* data, u32 n) {
+    if (n > 0) {
+        T* mem = PushFrontN(n);
+        memcpy(mem, data, sizeof(T) * n);
+    }
 }
 
 
@@ -96,6 +127,18 @@ T* Array<T>::PushBack() {
 }
 
 template <typename T>
+T* Array<T>::PushBackN(u32 num) {
+    if ((count + num) >= capacity) {
+        Reserve(_GrowCapacity(count + num));
+    }
+
+    T* result = data + count;
+    count += num;
+    return result;
+}
+
+
+template <typename T>
 void Array<T>::PushBack(const T& v) {
     auto entry = PushBack();
     memcpy(entry, &v, sizeof(v));
@@ -108,6 +151,17 @@ T* Array<T>::PushFront() {
         result = PushBack();
     } else {
         result = Insert(0);
+    }
+    return result;
+}
+
+template <typename T>
+T* Array<T>::PushFrontN(u32 n) {
+    T* result = nullptr;
+    if (count == 0) {
+        result = PushBackN(n);
+    } else {
+        result = InsertN(0, n);
     }
     return result;
 }
@@ -143,6 +197,20 @@ void Array<T>::EraseUnsorted(const T* it) {
 }
 
 template <typename T>
+T* Array<T>::InsertN(u32 index, u32 n) {
+    assert(index < count);
+    if ((count + n) >= capacity) {
+        Reserve(_GrowCapacity(count + n));
+    }
+
+    if (index < count) {
+        memmove(data + index + n, data + index, ((size_t)count - (size_t)index) * sizeof(T));
+    }
+    count += n;
+    return data + index;
+}
+
+template <typename T>
 T* Array<T>::Insert(u32 index) {
     assert(index < count);
     if (count == capacity) {
@@ -175,7 +243,7 @@ u32 Array<T>::_GrowCapacity(u32 sz) {
 }
 
 template <typename T>
-void Array<T>::Flip() {
+void Array<T>::Reverse() {
     for (u32 i = 0, j = count - 1; i < j; i++, j--) {
         T tmp = data[i];
         data[i] = data[j];

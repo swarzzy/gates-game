@@ -103,7 +103,7 @@ void UpdateCachedWirePositions(Part* part) {
         Wire* wire = record->wire;
         Pin* pin = record->pin;
         assert(wire->nodes.Count() >= 4);
-        if (pin->type == PinType::Input) {
+        if (pin->type == PinType::Output) {
             DeskPosition p = ComputePinPosition(pin);
             wire->nodes[0] = p;
             wire->nodes[1] = DeskPosition(p.cell);

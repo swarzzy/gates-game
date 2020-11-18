@@ -16,6 +16,7 @@ struct Array {
 
     T& operator[](u32 i);
     T* Last();
+    T* First() { return data; }
 
     u32 Count() { return count; }
     u32 Capacity() { return capacity; }
@@ -23,9 +24,14 @@ struct Array {
 
     Array Clone();
     void CopyTo(Array<T>* other);
+    void CopyTo(Array<T>* other, u32 copyCount);
     void FreeBuffers();
     void Clear();
     void Fill(T& value);
+    void Append(const Array<T>* other);
+    void Append(T* data, u32 n);
+    void Prepend(const Array<T>* other);
+    void Prepend(T* data, u32 n);
 
     void Resize(u32 newSize);
     void Reserve(u32 newCapacity);
@@ -34,18 +40,21 @@ struct Array {
     // Resize a vector and reallocate storage
     void ShrinkBuffers(u32 newSize);
 
-
+    // TODO: N - versions are not tested
     T* PushBack();
     T* PushFront();
+    T* PushBackN(u32 n);
+    T* PushFrontN(u32 n);
     void PushFront(const T& v);
     void PushBack(const T& v);
     void Pop();
     void Erase(const T* it);
     void EraseUnsorted(const T* it);
     T* Insert(u32 index);
+    T* InsertN(u32 index, u32 n);
     void Insert(u32 index, const T& v);
 
-    void Flip();
+    void Reverse();
 
     u32 IndexFromPtr(const T* it);
 

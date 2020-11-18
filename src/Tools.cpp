@@ -1,5 +1,40 @@
 #include "Tools.h"
 
+// nocheckin
+// Move somewhere
+// TODO: Optimize this. Narrow down traversal subset. We cound for instance
+// compute line bounding box and check only inside it.
+struct GetWireAtResult {
+    Wire* wire;
+    u32 nodeIndex;
+};
+
+// Position is desk-relative
+GetWireAtResult GetWireAt(Desk* desk, v2 p) {
+    GetWireAtResult result {};
+
+    ListForEach(&desk->wires, wire) {
+        assert(wire->nodes.Count() >= 2);
+        for (u32 i = 1; i < wire->nodes.Count(); i++) {
+            DeskPosition* prev = wire->nodes.Data() + (i - 1);
+            DeskPosition* curr = wire->nodes.Data() + i;
+
+            v2 begin = prev->RelativeTo(desk->origin);
+            v2 end = curr->RelativeTo(desk->origin);
+
+            // TODO: Wire thickness
+            f32 thickness = 0.1f;
+            if (CheckWireSegmentHit(p, begin, end, thickness)) {
+                result.wire = wire;
+                result.nodeIndex = wire->nodes.IndexFromPtr(prev);
+                break;
+            }
+        }
+    } ListEndEach;
+
+    return result;
+}
+
 void ToolManagerInit(ToolManager* manager, Desk* desk) {
     manager->pendingWireNodes = Array<DeskPosition>(&desk->deskAllocator);
 }
@@ -42,37 +77,42 @@ void ToolWirePinClicked(ToolManager* manager, Desk* desk, Pin* pin) {
     } else {
         if (pin != manager->pendingWireBeginPin) {
             DeskPosition p = ComputePinPosition(pin);
-            manager->pendingWireNodes.PushBack(DeskPosition(p.cell));
-            manager->pendingWireNodes.PushBack(p);
+            // Ensure we can make straight line from pin to last wire node
+            DeskPosition lastNodeP = *manager->pendingWireNodes.Last();
+            if (p.cell.x == lastNodeP.cell.x || p.cell.y == lastNodeP.cell.y) {
 
-            Pin* input = nullptr;
-            Pin* output = nullptr;
+                manager->pendingWireNodes.PushBack(DeskPosition(p.cell));
+                manager->pendingWireNodes.PushBack(p);
 
-            switch (pin->type) {
-            case PinType::Input: { input = pin; } break;
-            case PinType::Output: { output = pin; } break;
-            invalid_default();
-            }
+                Pin* input = nullptr;
+                Pin* output = nullptr;
 
-            switch (manager->pendingWireBeginPin->type) {
-            case PinType::Input: { input = manager->pendingWireBeginPin; } break;
-            case PinType::Output: { output = manager->pendingWireBeginPin; } break;
-                invalid_default();
-            }
-
-            if (pin == input) {
-                manager->pendingWireNodes.Flip();
-            }
-
-            if (input && output) {
-                Wire* wire = TryWirePins(desk, input, output);
-                if (wire) {
-                    manager->pendingWireNodes.CopyTo(&wire->nodes);
+                switch (pin->type) {
+                case PinType::Input: { input = pin; } break;
+                case PinType::Output: { output = pin; } break;
+                    invalid_default();
                 }
-            }
 
-            assert(manager->currentTool == Tool::Wire);
-            manager->currentTool = Tool::None;
+                switch (manager->pendingWireBeginPin->type) {
+                case PinType::Input: { input = manager->pendingWireBeginPin; } break;
+                case PinType::Output: { output = manager->pendingWireBeginPin; } break;
+                    invalid_default();
+                }
+
+                if (pin == output) {
+                    manager->pendingWireNodes.Reverse();
+                }
+
+                if (input && output) {
+                    Wire* wire = TryWirePins(desk, input, output);
+                    if (wire) {
+                        manager->pendingWireNodes.CopyTo(&wire->nodes);
+                    }
+                }
+
+                assert(manager->currentTool == Tool::Wire);
+                manager->currentTool = Tool::None;
+            }
         }
     }
 }
@@ -88,7 +128,47 @@ void ToolWirePrimaryAction(ToolManager* manager, Desk* desk) {
             assert(mouseCell->pin);
             ToolWirePinClicked(manager, desk, mouseCell->pin);
         } else if (mouseCell->value == CellValue::Empty) {
-            manager->pendingWireNodes.PushBack(DeskPosition(manager->lastWireNodePos.cell));
+            bool handled = false;
+            if (manager->pendingWireBeginPin->type == PinType::Input) {
+                auto wireAt = GetWireAt(desk, manager->mouseCanvasPos);
+                if (wireAt.wire) {
+                    assert(wireAt.wire->input);
+                    assert(wireAt.wire->output);
+                    Pin* input = manager->pendingWireBeginPin;
+                    Pin* output = wireAt.wire->output;
+                    Wire* wire = TryWirePins(desk, input, output);
+                    if (wire) {
+                        // Search for nodes at this position
+                        i32 nodeAtThisPIndex = -1;
+                        ForEach(&wireAt.wire->nodes, node) {
+                            if (node->cell == manager->mouseDeskPos.cell) {
+                                nodeAtThisPIndex = index;
+                                break;
+                            }
+                        } EndEach;
+
+                        if (nodeAtThisPIndex == -1) {
+                            // Insert new node
+                            DeskPosition* newNode = wireAt.wire->nodes.Insert(wireAt.nodeIndex + 1);
+                            *newNode = DeskPosition(manager->mouseDeskPos.cell);
+                            nodeAtThisPIndex = wireAt.nodeIndex + 1;
+                        }
+
+                        assert(nodeAtThisPIndex != -1);
+
+                        manager->pendingWireNodes.Reverse();
+                        manager->pendingWireNodes.Prepend(wireAt.wire->nodes.data, nodeAtThisPIndex + 1);
+                        manager->pendingWireNodes.CopyTo(&wire->nodes);
+                        handled = true;
+                        assert(manager->currentTool == Tool::Wire);
+                        manager->currentTool = Tool::None;
+                    }
+                }
+            }
+
+            if (!handled) {
+                manager->pendingWireNodes.PushBack(DeskPosition(manager->lastWireNodePos.cell));
+            }
         }
     }
 }
@@ -170,6 +250,7 @@ void ToolPickSecondaryAction(ToolManager* manager, Desk* desk) {
 }
 
 void ToolNonePrimaryAction(ToolManager* manager, Desk* desk) {
+    bool processed = false;
     DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
     if (mouseCell) {
         if (mouseCell->value != CellValue::Empty) {
@@ -178,13 +259,29 @@ void ToolNonePrimaryAction(ToolManager* manager, Desk* desk) {
                 manager->currentTool = Tool::Pick;
                 ToolPickEnable(manager, desk);
                 //ToolNonePartClicked(manager, desk, mouseCell->part);
+                processed = true;
             } break;
             case CellValue::Pin: {
                 assert(mouseCell->pin);
                 ToolWirePinClicked(manager, desk, mouseCell->pin);
+                processed = true;
             } break;
             default: {} break;
             }
+        }
+    }
+
+    if (!processed) {
+        // Searching for wires under cursor
+        auto wireAt = GetWireAt(desk, manager->mouseCanvasPos);
+        if (wireAt.wire) {
+            // Beginning a new wire and copy all nodes from the beginning of hit wire to the hit index
+            manager->pendingWireNodes.Clear();
+            wireAt.wire->nodes.CopyTo(&manager->pendingWireNodes, wireAt.nodeIndex + 1);
+            manager->pendingWireNodes.PushBack(DeskPosition(manager->mouseDeskPos.cell));
+            manager->lastWireNodePos = *wireAt.wire->nodes.Last();
+            manager->pendingWireBeginPin = wireAt.wire->output;
+            manager->currentTool = Tool::Wire;
         }
     }
 }
