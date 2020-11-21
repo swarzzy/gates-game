@@ -54,5 +54,7 @@ void HeapFreeAPI(void* ptr, void* data);
 // Helpers for input handling
 inline bool KeyDown(Key key) { return GetInput()->keys[(u32)key].pressedNow; }
 inline bool KeyPressed(Key key) { return (GetInput()->keys[(u32)key].pressedNow) && !(GetInput()->keys[(u32)key].wasPressed); }
+inline bool KeyReleased(Key key) { return (GetInput()->keys[(u32)key].wasPressed) && !(GetInput()->keys[(u32)key].pressedNow); }
 inline bool MouseButtonDown(MouseButton button) { return GetInput()->mouseButtons[(u32)button].pressedNow; }
 inline bool MouseButtonPressed(MouseButton button) { return GetInput()->mouseButtons[(u32)button].pressedNow && !GetInput()->mouseButtons[(u32)button].wasPressed; }
+inline bool MouseButtonReleased(MouseButton button) { return GetInput()->mouseButtons[(u32)button].wasPressed && !GetInput()->mouseButtons[(u32)button].pressedNow; }

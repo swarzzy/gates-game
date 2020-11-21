@@ -150,48 +150,119 @@ void ToolWireUpdate(ToolManager* manager, Desk* desk) {
     }
 }
 
-void ToolPickPartPressed(ToolManager* manager, Desk* desk, Part* part) {
-    if (!manager->pickStarted) {
-        if (part) {
-            manager->selectedParts.Clear();
-            manager->selectedPartsBlockedStates.Clear();
-            manager->dragOffset = {};
-            manager->pickPartOverrideColorBlocked = V3(0.7f, 0.2f, 0.2f);
-            manager->pickPartOverrideColor = V3(0.2f, 0.2f, 0.2f);
+void ToolPickClearSelection(ToolManager* manager) {
+    manager->selectedParts.Clear();
+    manager->selectedPartsBlockedStates.Clear();
+    manager->dragOffset = {};
+    manager->pickPartOverrideColorBlocked = V3(0.7f, 0.2f, 0.2f);
+    manager->pickPartOverrideColor = V3(0.2f, 0.2f, 0.2f);
+    manager->dragAttempt = false;
+    manager->pickStarted = false;
+    manager->selectionMode = false;
+}
 
+void ToolPickLeftMouseDown(ToolManager* manager, Desk* desk) {
+    Part* part = nullptr;
+    bool selectionMode = KeyDown(Key::LeftShift);
+
+    DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
+    if (mouseCell && mouseCell->value == CellValue::Part) {
+        part = mouseCell->part;
+    }
+
+    if (part) {
+        if (manager->currentTool != Tool::Pick) {
+            ToolPickClearSelection(manager);
+        }
+
+        Part** selected = manager->selectedParts.FindFirst([&part](Part** it) { return (*it) == part; });
+
+        // Single-select so unselect all previous parts
+        if (!selected) {
+            if (!selectionMode) {
+                manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
+                ToolPickClearSelection(manager);
+            }
+        }
+
+        manager->currentTool = Tool::Pick;
+        // Start drag attempt
+        manager->pickPressedMousePos = manager->mouseCanvasPos;
+        manager->dragAttempt = true;
+        manager->selectionMode = selectionMode;
+
+        if (!selected) {
+            // Select if not already
+            assert(!manager->pickStarted);
             manager->selectedParts.PushBack(part);
             manager->selectedPartsBlockedStates.PushBack(false);
-            manager->pickPressedMousePos = manager->mouseCanvasPos;
-
             part->selected = true;
+        } else {
+            // Deselect if already selected
+            if (selectionMode) {
+                assert(manager->selectedParts.Count() == manager->selectedPartsBlockedStates.Count());
+                Part* partToDeselect = *selected;
+                u32 index = manager->selectedParts.IndexFromPtr(selected);
+                partToDeselect->selected = false;
+                manager->selectedParts.EraseUnsorted(selected);
+                manager->selectedPartsBlockedStates.EraseUnsorted(manager->selectedPartsBlockedStates.At(index));
+
+
+                if (manager->selectedParts.Count() == 0) {
+                    manager->currentTool = Tool::None;
+                }
+            }
         }
+    } else {
+        manager->currentTool = Tool::None;
+        manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
+        ToolManagerLeftMouseDown(manager);
+    }
+}
+
+void ToolPickLeftMouseUp(ToolManager* manager, Desk* desk) {
+    manager->dragAttempt = false;
+
+    if (!manager->pickStarted && manager->selectedParts.Count() == 1 && !manager->selectionMode) {
+        manager->currentTool = Tool::None;
+
+        assert(manager->selectedParts.Count() == 1);
+        // TODO: Here will be more complicated stuff
+        Part* part = *manager->selectedParts.Last();
+        switch (part->type) {
+        case PartType::Source: {
+            part->active = !part->active;
+        } break;
+        default: {} break;
+        }
+
+        manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
+    }
+
+    if (manager->pickStarted) {
+        u32 blockedCount = manager->selectedPartsBlockedStates.CountIf([](b32* it) { return *it; });
+        if (blockedCount == 0) {
+            ForEach(&manager->selectedParts, partPtr) {
+                Part* part = *partPtr;
+                iv2 p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset).cell;
+                TryChangePartLocation(desk, part, p);
+            } EndEach;
+        }
+
+        manager->pickStarted = false;
     }
 }
 
 void ToolPickUpdate(ToolManager* manager, Desk* desk) {
     if (!manager->pickStarted) {
-        assert(manager->selectedParts.Count() > 0);
-        if (MouseButtonDown(MouseButton::Left)) {
+        assert_paranoid(manager->selectedParts.Count() > 0);
+
+        if (manager->dragAttempt) {
             auto input = GetInput();
             f32 delta = Length(manager->mouseCanvasPos - manager->pickPressedMousePos);
             if (delta > ToolManager::PickMinThreshold) {
                 manager->pickStarted = true;
             }
-        } else {
-            manager->currentTool = Tool::None;
-            manager->pickStarted = false;
-
-            assert(manager->selectedParts.Count() == 1);
-            // TODO: Here will be more complicated stuff
-            Part* part = *manager->selectedParts.Last();
-            switch (part->type) {
-            case PartType::Source: {
-                part->active = !part->active;
-            } break;
-            default: {} break;
-            }
-
-            manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
         }
     } else {
         v2 offset = manager->mouseCanvasPos - manager->pickPressedMousePos;
@@ -209,22 +280,6 @@ void ToolPickUpdate(ToolManager* manager, Desk* desk) {
                 IRect bbox = CalcPartBoundingBox(part, p);
                 manager->selectedPartsBlockedStates[_index_] = !CanPlacePart(desk, bbox, part);
             } EndEach;
-        }
-
-        if (!MouseButtonDown(MouseButton::Left)) {
-            u32 blockedCount = manager->selectedPartsBlockedStates.CountIf([](b32* it) { return *it; });
-            if (blockedCount == 0) {
-                ForEach(&manager->selectedParts, partPtr) {
-                    Part* part = *partPtr;
-                    iv2 p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset).cell;
-                    TryChangePartLocation(desk, part, p);
-                    //manager->pickPart->selected = false;
-                } EndEach;
-            }
-            manager->currentTool = Tool::None;
-            manager->pickStarted = false;
-
-            manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
         }
     }
 }
@@ -245,16 +300,14 @@ void ToolPickSecondaryAction(ToolManager* manager, Desk* desk) {
     manager->currentTool = Tool::None;
 }
 
-void ToolNonePrimaryAction(ToolManager* manager, Desk* desk) {
+void ToolNoneLeftMouseDown(ToolManager* manager, Desk* desk) {
     bool processed = false;
     DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
     if (mouseCell) {
         if (mouseCell->value != CellValue::Empty) {
             switch (mouseCell->value) {
             case CellValue::Part: {
-                manager->currentTool = Tool::Pick;
-                ToolPickPartPressed(manager, desk, mouseCell->part);
-                //ToolNonePartClicked(manager, desk, mouseCell->part);
+                ToolPickLeftMouseDown(manager, desk);
                 processed = true;
             } break;
             case CellValue::Pin: {
@@ -280,6 +333,9 @@ void ToolNonePrimaryAction(ToolManager* manager, Desk* desk) {
             manager->currentTool = Tool::Wire;
         }
     }
+}
+
+void ToolNoneLeftMouseUp(ToolManager* manager, Desk* desk) {
 }
 
 void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk) {
@@ -332,13 +388,22 @@ void ToolManagerDisableAll(ToolManager* manager) {
     manager->currentTool = Tool::None;
 }
 
-void ToolManagerPrimaryAction(ToolManager* manager) {
+void ToolManagerLeftMouseDown(ToolManager* manager) {
     auto desk = GetDesk();
     switch (manager->currentTool) {
     case Tool::Part: { ToolPartPrimaryAction(manager, desk); } break;
-    //case Tool::Pick: { ToolPickPrimaryAction(manager, desk); } break;
+    case Tool::Pick: { ToolPickLeftMouseDown(manager, desk); } break;
     case Tool::Wire: { ToolWirePrimaryAction(manager, desk); } break;
-    case Tool::None: { ToolNonePrimaryAction(manager, desk); } break;
+    case Tool::None: { ToolNoneLeftMouseDown(manager, desk); } break;
+    default: {} break;
+    }
+}
+
+void ToolManagerLeftMouseUp(ToolManager* manager) {
+    auto desk = GetDesk();
+    switch (manager->currentTool) {
+    case Tool::None: { ToolNoneLeftMouseUp(manager, desk); } break;
+    case Tool::Pick: { ToolPickLeftMouseUp(manager, desk); } break;
     default: {} break;
     }
 }

@@ -19,7 +19,9 @@ struct ToolManager {
     DeskPosition lastWireNodePos;
 
     v2 pickPressedMousePos;
+    b32 selectionMode;
     b32 pickStarted;
+    b32 dragAttempt;
     Array<Part*> selectedParts;
     Array<b32> selectedPartsBlockedStates;
     iv2 dragOffset;
@@ -46,7 +48,8 @@ void ToolPartPrimaryAction(ToolManager* manager, Desk* desk);
 void ToolPartUpdate(ToolManager* manager, Desk* desk);
 void ToolPartRender(ToolManager* manager, Desk* desk);
 
-void ToolNonePrimaryAction(ToolManager* manager, Desk* desk);
+void ToolNoneLeftMouseDown(ToolManager* manager, Desk* desk);
+void ToolNoneLeftMouseUp(ToolManager* manager, Desk* desk);
 void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk);
 
 void ToolWireRender(ToolManager* manager, Desk* desk);
@@ -55,12 +58,15 @@ void ToolWirePrimaryAction(ToolManager* manager, Desk* desk);
 
 void ToolPickEnable(ToolManager* manager, Desk* desk);
 void ToolPickUpdate(ToolManager* manager, Desk* desk);
-void ToolPickPrimaryAction(ToolManager* manager, Desk* desk);
+void ToolPickLeftMouseDown(ToolManager* manager, Desk* desk);
+void ToolPickLeftMouseUp(ToolManager* manager, Desk* desk);
 void ToolPickSecondaryAction(ToolManager* manager, Desk* desk);
 void ToolPickRender(ToolManager* manager, Desk* desk);
 
 void ToolManagerDisableAll(ToolManager* manager);
-void ToolManagerPrimaryAction(ToolManager* manager);
+void ToolManagerLeftMouseDown(ToolManager* manager);
+void ToolManagerLeftMouseUp(ToolManager* manager);
+
 void ToolManagerSecondaryAction(ToolManager* manager);
 void ToolManagerUpdate(ToolManager* manager);
 void ToolManagerRender(ToolManager* manager);

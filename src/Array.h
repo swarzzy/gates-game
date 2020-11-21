@@ -17,6 +17,7 @@ struct Array {
     T& operator[](u32 i);
     T* Last();
     T* First() { return data; }
+    T* At(u32 index);
 
     u32 Count() { return count; }
     u32 Capacity() { return capacity; }
@@ -50,6 +51,7 @@ struct Array {
     void Pop();
     void Erase(const T* it);
     void EraseUnsorted(const T* it);
+
     T* Insert(u32 index);
     T* InsertN(u32 index, u32 n);
     void Insert(u32 index, const T& v);
@@ -62,6 +64,9 @@ struct Array {
 
     template <typename Fn>
     void Each(Fn callback);
+
+    template <typename Fn>
+    T* FindFirst(Fn callback);
 
     u32 IndexFromPtr(const T* it);
 

@@ -173,9 +173,18 @@ void GameRender() {
 
     if (MouseButtonPressed(MouseButton::Right)) {
         ToolManagerSecondaryAction(toolManager);
-    } else if (MouseButtonPressed(MouseButton::Left)) {
-        ToolManagerPrimaryAction(toolManager);
     }
+
+    if (MouseButtonPressed(MouseButton::Left)) {
+        ToolManagerLeftMouseDown(toolManager);
+    }
+
+    if (MouseButtonReleased(MouseButton::Left)) {
+        ToolManagerLeftMouseUp(toolManager);
+    }
+
+    DEBUG_OVERLAY_TRACE(toolManager->pickStarted);
+    DEBUG_OVERLAY_TRACE(toolManager->dragAttempt);
 
     ToolManagerUpdate(toolManager);
 

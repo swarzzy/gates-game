@@ -7,6 +7,12 @@ T& Array<T>::operator[](u32 i) {
 }
 
 template <typename T>
+T* Array<T>::At(u32 i) {
+    assert(i < count);
+    return data + i;
+}
+
+template <typename T>
 T* Array<T>::Last() {
     T* result = nullptr;
     if (count) {
@@ -267,4 +273,17 @@ void Array<T>::Each(Fn callback) {
     ForEach(this, it) {
         callback(it);
     } EndEach;
+}
+
+template <typename T>
+template <typename Fn>
+T* Array<T>::FindFirst(Fn callback) {
+    T* result = nullptr;
+    ForEach(this, it) {
+        if (callback(it)) {
+            result = it;
+            break;
+        }
+    } EndEach;
+    return result;
 }
