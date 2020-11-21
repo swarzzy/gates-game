@@ -1,6 +1,6 @@
 #pragma once
 
-#define ForEach(array, it) do { for (u32 index = 0; index < (array)->Count(); index++) { auto it = (array)->Data() + index;
+#define ForEach(array, it) do { for (u32 _index_ = 0; _index_ < (array)->Count(); _index_++) { auto it = (array)->Data() + _index_;
 #define EndEach } } while(false)
 
 template <typename T>
@@ -54,7 +54,14 @@ struct Array {
     T* InsertN(u32 index, u32 n);
     void Insert(u32 index, const T& v);
 
+    // Some crazy functional stuff
     void Reverse();
+
+    template <typename Fn>
+    u32 CountIf(Fn callback);
+
+    template <typename Fn>
+    void Each(Fn callback);
 
     u32 IndexFromPtr(const T* it);
 

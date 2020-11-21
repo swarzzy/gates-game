@@ -5,6 +5,8 @@ enum struct Tool {
 };
 
 struct ToolManager {
+    inline static const f32 PickMinThreshold = 0.1f; // 1mm
+
     Tool currentTool;
     // TODO: Subject to change
     Part prefabPart;
@@ -16,14 +18,26 @@ struct ToolManager {
     Array<DeskPosition> pendingWireNodes;
     DeskPosition lastWireNodePos;
 
-    Part* pickPart;
-    iv2 pickPartOverridePos;
+    v2 pickPressedMousePos;
+    b32 pickStarted;
+    Array<Part*> selectedParts;
+    Array<b32> selectedPartsBlockedStates;
+    iv2 dragOffset;
+
     v3 pickPartOverrideColor;
+    v3 pickPartOverrideColorBlocked;
 
     bool toolPickActuallyEnabled;
     iv2 toolPickLastMouseP;
     v2 clickedPartOffset;
 };
+
+// TODO: Update order
+// Something like
+// EarlyUpdate() - precompute mouse positions and stuff
+// ProcessInput()
+// Update()
+// Render()
 
 void ToolManagerInit(ToolManager* manager, Desk* desk);
 

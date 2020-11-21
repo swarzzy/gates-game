@@ -2,6 +2,8 @@
 
 void ToolManagerInit(ToolManager* manager, Desk* desk) {
     manager->pendingWireNodes = Array<DeskPosition>(&desk->deskAllocator);
+    manager->selectedParts = Array<Part*>(&desk->deskAllocator);
+    manager->selectedPartsBlockedStates = Array<b32>(&desk->deskAllocator);
 }
 
 void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initializer) {
@@ -106,7 +108,7 @@ void ToolWirePrimaryAction(ToolManager* manager, Desk* desk) {
                         i32 nodeAtThisPIndex = -1;
                         ForEach(&wireAt.wire->nodes, node) {
                             if (node->cell == manager->mouseDeskPos.cell) {
-                                nodeAtThisPIndex = index;
+                                nodeAtThisPIndex = _index_;
                                 break;
                             }
                         } EndEach;
@@ -148,64 +150,94 @@ void ToolWireUpdate(ToolManager* manager, Desk* desk) {
     }
 }
 
-void ToolPickEnable(ToolManager* manager, Desk* desk) {
-    manager->pickPart = nullptr;
-    manager->pickPartOverridePos = manager->mouseDeskPos.cell;
-    manager->pickPartOverrideColor = V3(0.7f, 0.2f, 0.2f);
-    DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
-    if (mouseCell->value == CellValue::Part) {
-        manager->pickPart = mouseCell->part;
-        manager->toolPickActuallyEnabled = false;
-        manager->toolPickLastMouseP = manager->mouseDeskPos.cell;
-    } else {
-        manager->currentTool = Tool::None;
+void ToolPickPartPressed(ToolManager* manager, Desk* desk, Part* part) {
+    if (!manager->pickStarted) {
+        if (part) {
+            manager->selectedParts.Clear();
+            manager->selectedPartsBlockedStates.Clear();
+            manager->dragOffset = {};
+            manager->pickPartOverrideColorBlocked = V3(0.7f, 0.2f, 0.2f);
+            manager->pickPartOverrideColor = V3(0.2f, 0.2f, 0.2f);
+
+            manager->selectedParts.PushBack(part);
+            manager->selectedPartsBlockedStates.PushBack(false);
+            manager->pickPressedMousePos = manager->mouseCanvasPos;
+
+            part->selected = true;
+        }
     }
 }
 
 void ToolPickUpdate(ToolManager* manager, Desk* desk) {
-    if (!manager->toolPickActuallyEnabled) {
-        if (manager->mouseDeskPos.cell != manager->toolPickLastMouseP) {
-            manager->toolPickActuallyEnabled = true;
-        } else {
-            manager->toolPickLastMouseP = manager->mouseDeskPos.cell;
-
-            // TODO: For now primary action of kind of input button agnostic
-            // That was probably a bad decision. Tool manager should alway know
-            // his input layout and do things based on that layout
-            if (!MouseButtonDown(MouseButton::Left)) {
-                manager->currentTool = Tool::None;
-
-                // TODO: Here will be more complicated stuff
-                switch (manager->pickPart->type) {
-                case PartType::Source: {
-                    manager->pickPart->active = !manager->pickPart->active;
-                } break;
-                default: {} break;
-                }
+    if (!manager->pickStarted) {
+        assert(manager->selectedParts.Count() > 0);
+        if (MouseButtonDown(MouseButton::Left)) {
+            auto input = GetInput();
+            f32 delta = Length(manager->mouseCanvasPos - manager->pickPressedMousePos);
+            if (delta > ToolManager::PickMinThreshold) {
+                manager->pickStarted = true;
             }
+        } else {
+            manager->currentTool = Tool::None;
+            manager->pickStarted = false;
+
+            assert(manager->selectedParts.Count() == 1);
+            // TODO: Here will be more complicated stuff
+            Part* part = *manager->selectedParts.Last();
+            switch (part->type) {
+            case PartType::Source: {
+                part->active = !part->active;
+            } break;
+            default: {} break;
+            }
+
+            manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
         }
     } else {
-        iv2 p = manager->mouseDeskPos.Offset(-V2(manager->pickPart->dim) * 0.5f * DeskCellSize).cell;
-        if (manager->pickPartOverridePos != p) {
-            manager->pickPartOverridePos = p;
-            IRect bbox = CalcPartBoundingBox(manager->pickPart, p);
-            if (CanPlacePart(desk, bbox, manager->pickPart)) {
-                manager->pickPartOverrideColor = V3(0.7f, 0.7f, 0.7f);
-            } else {
-                manager->pickPartOverrideColor = V3(0.7f, 0.2f, 0.2f);
-            }
+        v2 offset = manager->mouseCanvasPos - manager->pickPressedMousePos;
+
+        DeskPosition prevDesk = DeskPosition(manager->dragOffset);
+        DeskPosition currDesk = DeskPosition(offset);
+
+        if (prevDesk.cell != currDesk.cell) {
+            manager->dragOffset = currDesk.cell;
+
+            assert_paranoid(manager->selectedParts.Count() == manager->selectedPartsBlockedStates.Count());
+            ForEach(&manager->selectedParts, partPtr) {
+                Part* part = *partPtr;
+                iv2 p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset).cell;
+                IRect bbox = CalcPartBoundingBox(part, p);
+                manager->selectedPartsBlockedStates[_index_] = !CanPlacePart(desk, bbox, part);
+            } EndEach;
         }
 
         if (!MouseButtonDown(MouseButton::Left)) {
-            TryChangePartLocation(desk, manager->pickPart, manager->pickPartOverridePos);
+            u32 blockedCount = manager->selectedPartsBlockedStates.CountIf([](b32* it) { return *it; });
+            if (blockedCount == 0) {
+                ForEach(&manager->selectedParts, partPtr) {
+                    Part* part = *partPtr;
+                    iv2 p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset).cell;
+                    TryChangePartLocation(desk, part, p);
+                    //manager->pickPart->selected = false;
+                } EndEach;
+            }
             manager->currentTool = Tool::None;
+            manager->pickStarted = false;
+
+            manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
         }
     }
 }
 
 void ToolPickRender(ToolManager* manager, Desk* desk) {
-    if (manager->toolPickActuallyEnabled) {
-        DrawPart(desk, desk->canvas, manager->pickPart, DeskPosition(manager->pickPartOverridePos), manager->pickPartOverrideColor, 0.7f, 0.5f);
+    if (manager->pickStarted) {
+        ForEach(&manager->selectedParts, partPtr) {
+            Part* part = *partPtr;
+            b32 blocked = manager->selectedPartsBlockedStates[_index_];
+            v3 overrideColor = blocked ? manager->pickPartOverrideColorBlocked : manager->pickPartOverrideColor;
+            DeskPosition p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset);
+            DrawPart(desk, desk->canvas, part, p, overrideColor, 0.7f, 0.5f);
+        } EndEach;
     }
 }
 
@@ -221,7 +253,7 @@ void ToolNonePrimaryAction(ToolManager* manager, Desk* desk) {
             switch (mouseCell->value) {
             case CellValue::Part: {
                 manager->currentTool = Tool::Pick;
-                ToolPickEnable(manager, desk);
+                ToolPickPartPressed(manager, desk, mouseCell->part);
                 //ToolNonePartClicked(manager, desk, mouseCell->part);
                 processed = true;
             } break;

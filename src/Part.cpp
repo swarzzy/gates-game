@@ -36,8 +36,8 @@ v4 GetPartColor(Part* element) {
     return element->active ? element->activeColor : element->inactiveColor;
 }
 
-void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePos, v3 overrideColor, f32 overrideColorFactor, f32 alpha) {
-    DeskPosition maxP = DeskPosition(overridePos.cell + element->dim);
+void DrawPart(Desk* desk, Canvas* canvas, Part* part, DeskPosition overridePos, v3 overrideColor, f32 overrideColorFactor, f32 alpha) {
+    DeskPosition maxP = DeskPosition(overridePos.cell + part->dim);
     v2 min = DeskPosition(overridePos.cell).RelativeTo(desk->origin) - DeskCellHalfSize;
     v2 max = maxP.RelativeTo(desk->origin) - DeskCellHalfSize;
 
@@ -46,14 +46,18 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePo
     v2 p2 = max;
     v2 p3 = V2(min.x, max.y);
 
-    v3 partColor = GetPartColor(element).xyz;
+    v3 partColor = GetPartColor(part).xyz;
     v4 color = V4(Lerp(partColor, overrideColor, overrideColorFactor), alpha);
+
+    if (part->selected) {
+        color.xyz *= 0.5f;
+    }
 
     DrawListPushRect(&canvas->drawList, min, max, 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f));
     DrawListPushRect(&canvas->drawList, min + V2(0.1f), max - V2(0.1f), 0.0f, color);
 
-    for (u32 pinIndex = 0; pinIndex < element->inputCount; pinIndex++) {
-        Pin* pin = GetInput(element, pinIndex);
+    for (u32 pinIndex = 0; pinIndex < part->inputCount; pinIndex++) {
+        Pin* pin = GetInput(part, pinIndex);
         v4 color = V4(0.0f, 0.0f, 0.0f, 1.0f);
         DeskPosition pinPos = ComputePinPosition(pin, overridePos);
         v2 relPos = pinPos.RelativeTo(desk->origin);
@@ -61,8 +65,8 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePo
         v2 pinMax = relPos + V2(0.1);
         DrawListPushRect(&canvas->drawList, pinMin, pinMax, 0.0f, color);
     }
-    for (u32 pinIndex = 0; pinIndex < element->outputCount; pinIndex++) {
-        Pin* pin = GetOutput(element, pinIndex);
+    for (u32 pinIndex = 0; pinIndex < part->outputCount; pinIndex++) {
+        Pin* pin = GetOutput(part, pinIndex);
         v4 color = V4(0.0f, 0.0f, 0.0f, 1.0f);
         DeskPosition pinPos = ComputePinPosition(pin, overridePos);
         v2 relPos = pinPos.RelativeTo(desk->origin);
@@ -70,11 +74,11 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePo
         v2 pinMax = relPos + V2(0.1);
         DrawListPushRect(&canvas->drawList, pinMin, pinMax, 0.0f, color);
     }
-    if (element->label) {
+    if (part->label) {
         v2 center = min + (max - min) * 0.5f;
         v3 p = V3(center, 0.0f);
         auto context = GetContext();
-        DrawText(&canvas->drawList, &context->sdfFont, element->label, p, V4(0.0f, 0.0f, 0.0f, 1.0f), V2(canvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Left, canvas->scale);
+        DrawText(&canvas->drawList, &context->sdfFont, part->label, p, V4(0.0f, 0.0f, 0.0f, 1.0f), V2(canvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Left, canvas->scale);
     }
 }
 

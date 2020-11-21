@@ -47,6 +47,8 @@ struct Part {
 
     b32 active;
 
+    b32 selected;
+
     u32 inputCount;
     u32 outputCount;
 

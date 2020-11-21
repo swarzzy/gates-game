@@ -250,3 +250,21 @@ void Array<T>::Reverse() {
         data[j] = tmp;
     }
 }
+
+template <typename T>
+template <typename Fn>
+u32 Array<T>::CountIf(Fn callback) {
+    u32 n = 0;
+    ForEach(this, it) {
+        if (callback(it)) n++;
+    } EndEach;
+    return n;
+}
+
+template <typename T>
+template <typename Fn>
+void Array<T>::Each(Fn callback) {
+    ForEach(this, it) {
+        callback(it);
+    } EndEach;
+}
