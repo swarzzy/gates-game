@@ -1,11 +1,11 @@
 #pragma once
 
 #define ListForEach(list, iter) do {\
-    auto __current = (list)->head;\
-    while (__current) { \
-    auto iter = &__current->value;
+    auto concat(iter, __current) = (list)->head;    \
+    while (concat(iter, __current)) { \
+    auto iter = &concat(iter, __current)->value;
 
-#define ListEndEach __current = __current->next; }} while(false)
+#define ListEndEach(iter) concat(iter, __current) = concat(iter, __current)->next; }} while(false)
 
 template <typename T>
 struct ListNode {

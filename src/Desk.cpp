@@ -228,7 +228,7 @@ DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create) {
 void DrawDesk(Desk* desk, Canvas* canvas) {
     ListForEach(&desk->parts, part) {
         DrawPart(desk, canvas, part, {}, 0.0f, 1.0f);
-    } ListEndEach;
+    } ListEndEach(part);
 }
 
 void PropagateSignals(Desk* desk) {
@@ -236,7 +236,7 @@ void PropagateSignals(Desk* desk) {
         Pin* input = wire->input;
         Pin* output = wire->output;
         input->value = output->value;
-    } ListEndEach;
+    } ListEndEach(wire);
 }
 
 Wire* AddWire(Desk* desk) {
@@ -274,7 +274,7 @@ GetWireAtResult GetWireAt(Desk* desk, v2 p) {
                 break;
             }
         }
-    } ListEndEach;
+    } ListEndEach(wire);
 
     return result;
 }

@@ -242,7 +242,7 @@ void GameRender() {
 
     ListForEach(&desk->parts, part) {
         PartProcessSignals(partInfo, part);
-    } ListEndEach;
+    } ListEndEach(part);
 
     switch (context->drawMode) {
     case DrawMode::Normal: { DrawDesk(desk, deskCanvas); } break;
@@ -337,7 +337,7 @@ void GameRender() {
             DrawListPushRectBatch(&deskCanvas->drawList, min, max, 0.0f, {}, {}, V4(0.2f, 0.2f, 0.2f, 1.0f), 0.0f);
         } EndEach;
 #endif
-    } ListEndEach;
+    } ListEndEach(wire);
 
     DrawListEndBatch(&deskCanvas->drawList);
     //const char16* string = u"&";
