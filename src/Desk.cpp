@@ -107,6 +107,7 @@ void UnregisterPartPlacement(Desk* desk, Part* part) {
     } EndEach;
 }
 
+// Does not update wire positions
 bool TryChangePartLocation(Desk* desk, Part* part, iv2 newP) {
     bool result = false;
     IRect bbox = CalcPartBoundingBox(part, newP);
@@ -117,7 +118,7 @@ bool TryChangePartLocation(Desk* desk, Part* part, iv2 newP) {
             // TODO: TryRegisterPartPlacement also performs checks and desk expansion. Not efficient!
             bool registered = TryRegisterPartPlacement(desk, part);
             assert(registered);
-            UpdateCachedWirePositions(part);
+            //UpdateCachedWirePositions(part);
             result = true;
         }
     }
@@ -175,6 +176,7 @@ void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* desk
     desk->parts = List<Part>(&desk->deskAllocator);
     desk->canvas = canvas;
     desk->partInfo = partInfo;
+    desk->wireNodeCleanerBuffer = Array<DeskPosition>(&desk->deskAllocator);
 }
 
 DeskTile* CreateDeskTile(Desk* desk, iv2 p) {

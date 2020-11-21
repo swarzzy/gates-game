@@ -45,6 +45,12 @@ DeskPosition DeskPosition::Offset(v2 offset) const {
     return result;
 }
 
+DeskPosition DeskPosition::Offset(iv2 offset) const {
+    DeskPosition result = *this;
+    result.cell += offset;
+    return result;
+}
+
 v2 DeskPosition::Sub(DeskPosition other) const {
     v2 result;
     iv2 cellDiff = cell - other.cell;

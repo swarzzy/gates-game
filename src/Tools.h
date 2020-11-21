@@ -32,6 +32,10 @@ struct ToolManager {
     bool toolPickActuallyEnabled;
     iv2 toolPickLastMouseP;
     v2 clickedPartOffset;
+
+    Array<Wire*> fullRebuildWiresBuffer;
+    Array<Wire*> partialRebuildWiresBuffer;
+    Array<u8> partialRebuildWiresSelectedEndsBuffer;
 };
 
 // TODO: Update order

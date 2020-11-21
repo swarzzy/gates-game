@@ -23,6 +23,7 @@ struct DeskPosition {
 
     DeskPosition Normalized() const;
     DeskPosition Add(DeskPosition other) const;
+    DeskPosition Offset(iv2 offset) const;
     DeskPosition Offset(v2 offset) const;
     v2 Sub(DeskPosition other) const;
     v2 RelativeTo(DeskPosition origin) const;

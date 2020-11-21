@@ -42,6 +42,7 @@ struct Desk {
     HashMap<iv2, DeskTile*, DeskHash, DeskCompare> tileHashMap;
     List<Part> parts;
     List<Wire> wires;
+    Array<DeskPosition> wireNodeCleanerBuffer;
 };
 
 struct GetWireAtResult {

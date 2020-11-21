@@ -1,6 +1,6 @@
 #pragma once
 
-#define ForEach(array, it) do { for (u32 _index_ = 0; _index_ < (array)->Count(); _index_++) { auto it = (array)->Data() + _index_;
+#define ForEach(array, it) do { for (u32 concat(concat(_index_, it), _) = 0; concat(concat(_index_, it), _) < (array)->Count(); concat(concat(_index_, it), _)++) { auto it = (array)->Data() + concat(concat(_index_, it), _);
 #define EndEach } } while(false)
 
 template <typename T>

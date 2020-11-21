@@ -102,6 +102,7 @@ IRect CalcPartBoundingBox(Part* part);
 IRect CalcPartBoundingBox(Part* part, iv2 overridePos);
 
 void UpdateCachedWirePositions(Part* part);
+void WireCleanupNodes(Wire* wire, Array<DeskPosition>* buffer);
 
 void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePos, v3 overrideColor, f32 overrideColorFactor, f32 alpha);
 void DrawPart(Desk* desk, Canvas* canvas, Part* element, v3 overrideColor, f32 overrideColorFactor, f32 alpha);

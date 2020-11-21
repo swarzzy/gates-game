@@ -4,6 +4,9 @@ void ToolManagerInit(ToolManager* manager, Desk* desk) {
     manager->pendingWireNodes = Array<DeskPosition>(&desk->deskAllocator);
     manager->selectedParts = Array<Part*>(&desk->deskAllocator);
     manager->selectedPartsBlockedStates = Array<b32>(&desk->deskAllocator);
+    manager->fullRebuildWiresBuffer = Array<Wire*>(&desk->deskAllocator);
+    manager->partialRebuildWiresBuffer = Array<Wire*>(&desk->deskAllocator);
+    manager->partialRebuildWiresSelectedEndsBuffer = Array<u8>(&desk->deskAllocator);
 }
 
 void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initializer) {
@@ -108,7 +111,7 @@ void ToolWirePrimaryAction(ToolManager* manager, Desk* desk) {
                         i32 nodeAtThisPIndex = -1;
                         ForEach(&wireAt.wire->nodes, node) {
                             if (node->cell == manager->mouseDeskPos.cell) {
-                                nodeAtThisPIndex = _index_;
+                                nodeAtThisPIndex = _index_node_;
                                 break;
                             }
                         } EndEach;
@@ -220,6 +223,80 @@ void ToolPickLeftMouseDown(ToolManager* manager, Desk* desk) {
     }
 }
 
+void OffsetWire(Wire* wire, iv2 offset) { // TODO: v2?
+    ForEach(&wire->nodes, node) {
+        *node = node->Offset(offset);
+    } EndEach;
+}
+
+// TODO: This function is extremely slow and unoptimized.
+// Need otpimize this in the future.
+// Also probably it is a good idea to execute this function asyncronously
+void ToolPickRebuildWires(ToolManager* manager, Desk* desk) {
+    // TODO: Ensure these buffers are not getting too large
+    manager->fullRebuildWiresBuffer.Clear();
+    manager->partialRebuildWiresBuffer.Clear();
+    manager->partialRebuildWiresSelectedEndsBuffer.Clear();
+
+    ForEach(&manager->selectedParts, partPtr) {
+        Part* part = *partPtr;
+        ForEach(&part->wires, record) {
+            Wire* wire = record->wire;
+            bool bothEndsSelected = false;
+            if (wire->input->part == part && manager->selectedParts.FindFirst([&wire](Part** it) { return (*it) == wire->output->part; })) {
+                bothEndsSelected = true;
+            } else if (wire->output->part == part && manager->selectedParts.FindFirst([&wire](Part** it) { return (*it) == wire->input->part; })) {
+                bothEndsSelected = true;
+            }
+
+            if (bothEndsSelected) {
+                if (!manager->fullRebuildWiresBuffer.FindFirst([&record](Wire** it) { return (*it) == record->wire; })) {
+                    manager->fullRebuildWiresBuffer.PushBack(wire);
+                }
+            } else {
+                assert(wire->input->part == part || wire->output->part == part);
+                if (!manager->partialRebuildWiresBuffer.FindFirst([&record](Wire** it) { return (*it) == record->wire; })) {
+                    manager->partialRebuildWiresBuffer.PushBack(wire);
+                    manager->partialRebuildWiresSelectedEndsBuffer.PushBack(wire->input->part == part ? 1 : 0);
+                }
+            }
+        } EndEach;
+    } EndEach;
+
+    ForEach(&manager->fullRebuildWiresBuffer, wirePtr) {
+        OffsetWire(*wirePtr, manager->dragOffset);
+    } EndEach;
+
+    ForEach(&manager->partialRebuildWiresBuffer, wirePtr) {
+        Wire* wire = *wirePtr;
+        bool outputConnected = manager->partialRebuildWiresSelectedEndsBuffer[_index_wirePtr_] == 0 ? true : false;
+
+        DeskPosition newPositions[3];
+        DeskPosition pinPos = ComputePinPosition(outputConnected ? wire->output : wire->input);
+
+        i32 x1 = pinPos.cell.x;
+        i32 y1 = outputConnected ? wire->nodes[0].cell.y : wire->nodes.Last()->cell.y;
+        i32 x2 = x1;
+        i32 y2 = pinPos.cell.y;
+        newPositions[0] = DeskPosition(IV2(x1, y1));
+        newPositions[1] = DeskPosition(IV2(x2, y2));
+        newPositions[2] = pinPos;
+
+        if (outputConnected) {
+            wire->nodes[0] = newPositions[0];
+            DeskPosition tmp = newPositions[1];
+            newPositions[1] = newPositions[2];
+            newPositions[2] = tmp;
+            wire->nodes.Prepend(newPositions + 1, 2);
+        } else {
+            *wire->nodes.Last() = newPositions[0];
+            wire->nodes.Append(newPositions + 1, 2);
+        }
+
+        WireCleanupNodes(wire, &desk->wireNodeCleanerBuffer);
+    } EndEach;
+}
+
 void ToolPickLeftMouseUp(ToolManager* manager, Desk* desk) {
     manager->dragAttempt = false;
 
@@ -247,6 +324,9 @@ void ToolPickLeftMouseUp(ToolManager* manager, Desk* desk) {
                 iv2 p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset).cell;
                 TryChangePartLocation(desk, part, p);
             } EndEach;
+
+            // TODO: Do this asyncronously
+            ToolPickRebuildWires(manager, desk);
         }
 
         manager->pickStarted = false;
@@ -259,9 +339,11 @@ void ToolPickUpdate(ToolManager* manager, Desk* desk) {
 
         if (manager->dragAttempt) {
             auto input = GetInput();
-            f32 delta = Length(manager->mouseCanvasPos - manager->pickPressedMousePos);
+            v2 offset = manager->mouseCanvasPos - manager->pickPressedMousePos;
+            f32 delta = Length(offset);
             if (delta > ToolManager::PickMinThreshold) {
                 manager->pickStarted = true;
+                manager->dragOffset = DeskPosition(offset).cell;
             }
         }
     } else {
@@ -278,7 +360,7 @@ void ToolPickUpdate(ToolManager* manager, Desk* desk) {
                 Part* part = *partPtr;
                 iv2 p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset).cell;
                 IRect bbox = CalcPartBoundingBox(part, p);
-                manager->selectedPartsBlockedStates[_index_] = !CanPlacePart(desk, bbox, part);
+                manager->selectedPartsBlockedStates[_index_partPtr_] = !CanPlacePart(desk, bbox, part);
             } EndEach;
         }
     }
@@ -288,7 +370,7 @@ void ToolPickRender(ToolManager* manager, Desk* desk) {
     if (manager->pickStarted) {
         ForEach(&manager->selectedParts, partPtr) {
             Part* part = *partPtr;
-            b32 blocked = manager->selectedPartsBlockedStates[_index_];
+            b32 blocked = manager->selectedPartsBlockedStates[_index_partPtr_];
             v3 overrideColor = blocked ? manager->pickPartOverrideColorBlocked : manager->pickPartOverrideColor;
             DeskPosition p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset);
             DrawPart(desk, desk->canvas, part, p, overrideColor, 0.7f, 0.5f);

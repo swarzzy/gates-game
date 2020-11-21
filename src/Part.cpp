@@ -103,6 +103,7 @@ DeskPosition ComputePinPosition(Pin* pin) {
 }
 
 // TODO: Think about better 'architecture' of this wire caching and updating stuff
+// noheckin remove this
 void UpdateCachedWirePositions(Part* part) {
     ForEach(&part->wires, record) {
         Wire* wire = record->wire;
@@ -124,6 +125,35 @@ void UpdateCachedWirePositions(Part* part) {
             }
         }
     } EndEach;
+}
+
+void WireCleanupNodes(Wire* wire, Array<DeskPosition>* buffer) {
+    assert(wire->nodes.Count() >= 4);
+    buffer->Clear();
+    buffer->PushBack(wire->nodes[0]);
+    for (u32 i = 1; i < wire->nodes.Count() - 1; i++) {
+        buffer->PushBack(wire->nodes[i]);
+        bool xWasTheSame = true;
+        bool yWasTheSame = true;
+        for (u32 j = i + 1; j < wire->nodes.Count() - 1; j++) {
+            if ((wire->nodes[i].cell.x != wire->nodes[j].cell.x)) {
+                xWasTheSame = false;
+            }
+
+            if (wire->nodes[i].cell.y != wire->nodes[j].cell.y) {
+                yWasTheSame = false;
+            }
+
+            if (!xWasTheSame && !yWasTheSame) {
+                buffer->PushBack(wire->nodes[j - 1]);
+                i = j - 2;
+                break;
+            }
+        }
+    }
+
+    buffer->PushBack(*wire->nodes.Last());
+    buffer->CopyTo(&wire->nodes);
 }
 
 IRect CalcPartBoundingBox(Part* part, iv2 overridePos) {
