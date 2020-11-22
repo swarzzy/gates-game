@@ -1,6 +1,7 @@
 #pragma once
 #include <stdlib.h>
 #include "Intrinsics.h"
+#include "StaticArray.h"
 
 struct RandomSeries {
     // TODO: Random
@@ -811,6 +812,41 @@ v3 GetBarycentric(v3 boxMin, v3 boxMax, v3 p) {
     result.x = SafeRatio0(p.x - boxMin.x, boxMax.x - boxMin.x);
     result.y = SafeRatio0(p.y - boxMin.y, boxMax.y - boxMin.y);
     result.z = SafeRatio0(p.z - boxMin.z, boxMax.z - boxMin.z);
+    return result;
+}
+
+struct Box2D {
+    v2 min;
+    v2 max;
+
+    Box2D() = default;
+    Box2D(v2 Min, v2 Max) : min(Min), max(Max) {}
+
+    StaticArray<v2, 4> GetPoints() const {
+        StaticArray<v2, 4> points;
+        points[0] = min;
+        points[1] = V2(max.x, min.y);
+        points[2] = max;
+        points[3] = V2(min.x, max.y);
+        return points;
+    }
+};
+
+
+bool PointInBox2D(Box2D box, v2 point) {
+    bool result = ((point.x >= box.min.x) &&
+                   (point.y >= box.min.y) &&
+                   (point.x < box.max.x) &&
+                   (point.y < box.max.y));
+    return result;
+}
+
+
+bool BoxesIntersect2D(Box2D a, Box2D b) {
+    bool result = !((b.max.x <= a.min.x) ||
+                    (b.min.x >= a.max.x) ||
+                    (b.max.y <= a.min.y) ||
+                    (b.min.y >= a.max.y));
     return result;
 }
 

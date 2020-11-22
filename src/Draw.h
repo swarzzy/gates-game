@@ -58,12 +58,6 @@ struct DrawList {
     DrawCommand scratchCommand;
 };
 
-// TODO: Move somewhere else
-struct Rectangle2 {
-    v2 min;
-    v2 max;
-};
-
 enum struct TextAlign {
     Left, Center
 };
@@ -81,6 +75,7 @@ void DrawListPushQuadAlphaMask(DrawList* list, v2 lb, v2 rb, v2 rt, v2 lt, f32 z
 DrawCommand* DrawListBeginBatch(DrawList* list, TextureMode mode, TextureID texture = 0);
 forceinline void DrawListPushRectBatch(DrawList* list, v2 min, v2 max, f32 z, v2 uv0, v2 uv1, v4 color, f32 blend);
 forceinline void DrawSimpleLineBatch(DrawList* list, v2 begin, v2 end, f32 z, f32 thickness, v4 color);
+forceinline void DrawBoxBatch(DrawList* list, Box2D box, f32 z, f32 thickness, v4 color);
 void DrawListEndBatch(DrawList* list);
 
 Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char16* string, f32 maxWidth);

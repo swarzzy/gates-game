@@ -27,6 +27,7 @@ struct DeskPosition {
     DeskPosition Offset(v2 offset) const;
     v2 Sub(DeskPosition other) const;
     v2 RelativeTo(DeskPosition origin) const;
+    v2 ToOffset() const;
 
     TilePosition ToTilePos() const;
 };

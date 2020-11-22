@@ -55,10 +55,16 @@ struct Part {
     Array<Pin> pins;
     Array<WireRecord> wires;
 
+    Box2D boundingBox;
+    Box2D partBoundingBox;
+    Array<Box2D> pinBoundingBoxes;
+
     v4 activeColor;
     v4 inactiveColor;
 
     const char16* label;
+
+    b32 placed;
 };
 
 struct IRect {
@@ -106,6 +112,7 @@ void WireCleanupNodes(Wire* wire, Array<DeskPosition>* buffer);
 
 void DrawPart(Desk* desk, Canvas* canvas, Part* element, DeskPosition overridePos, v3 overrideColor, f32 overrideColorFactor, f32 alpha);
 void DrawPart(Desk* desk, Canvas* canvas, Part* element, v3 overrideColor, f32 overrideColorFactor, f32 alpha);
+void DrawPartBoundingBoxes(Desk* desk, Canvas* canvas, Part* part);
 
 DeskPosition ComputePinPosition(Pin* pin,  DeskPosition partPosition);
 DeskPosition ComputePinPosition(Pin* pin);

@@ -2,12 +2,41 @@
 
 #include "PartInfo.h"
 
+Box2D ComputePinBoundingBox(Pin* pin) {
+    Box2D result;
+    DeskPosition pPin = ComputePinPosition(pin, DeskPosition {});
+    v2 p = V2(pPin.cell.x * DeskCellSize, pPin.cell.y * DeskCellSize);
+    result.min = p;
+    result.max = p + DeskCellSize;
+    return result;
+}
+
+void ComputePartBoundingBoxes(Part* part) {
+    part->partBoundingBox = Box2D(V2(0.0f), V2(part->dim) * DeskCellSize);
+
+    ForEach(&part->pins, pin) {
+        part->pinBoundingBoxes.PushBack(ComputePinBoundingBox(pin));
+    } EndEach;
+
+    Box2D box = part->partBoundingBox;
+
+    ForEach(&part->pinBoundingBoxes, pinBox) {
+        box.min = Min(box.min, pinBox->min);
+        box.max = Max(box.max, pinBox->max);
+    } EndEach;
+
+    part->boundingBox = box;
+}
+
 void InitPart(PartInfo* info, Desk* desk, Part* part, iv2 p, PartType type) {
     assert((u32)type < (u32)PartType::_Count);
     auto initializer = info->partInitializers[(u32)type];
     initializer(desk, part);
     part->p = DeskPosition(p).Normalized();
     part->wires = Array<WireRecord>(&desk->deskAllocator);
+    part->pinBoundingBoxes = Array<Box2D>(&desk->deskAllocator);
+
+    ComputePartBoundingBoxes(part);
 }
 
 void DeinitPart(Desk* desk, Part* part) {
@@ -34,6 +63,21 @@ u32 PinCount(Part* part) {
 
 v4 GetPartColor(Part* element) {
     return element->active ? element->activeColor : element->inactiveColor;
+}
+
+void DrawPartBoundingBoxes(Desk* desk, Canvas* canvas, Part* part) {
+    v2 p = part->p.RelativeTo(desk->origin) - DeskCellHalfSize;
+
+    Box2D partBox = Box2D(part->partBoundingBox.min + p, part->partBoundingBox.max + p);
+    DrawBoxBatch(&canvas->drawList, partBox, 0.0f, 0.05f, V4(0.0f, 0.0f, 1.0f, 1.0f));
+
+    ForEach(&part->pinBoundingBoxes, box) {
+        Box2D pinBox = Box2D(box->min + p, box->max + p);
+        DrawBoxBatch(&canvas->drawList, pinBox, 0.0f, 0.02f, V4(0.0f, 1.0f, 0.0f, 1.0f));
+    } EndEach;
+
+    Box2D wholePartBox = Box2D(part->boundingBox.min + p, part->boundingBox.max + p);
+    DrawBoxBatch(&canvas->drawList, wholePartBox, 0.0f, 0.03f, V4(1.0f, 0.0f, 0.0f, 1.0f));
 }
 
 void DrawPart(Desk* desk, Canvas* canvas, Part* part, DeskPosition overridePos, v3 overrideColor, f32 overrideColorFactor, f32 alpha) {

@@ -91,6 +91,18 @@ forceinline void DrawSimpleLineBatch(DrawList* list, v2 begin, v2 end, f32 z, f3
     DrawListPushQuadBatch(list, p0, p1, p2, p3, z, {}, {}, color, 0.0f);
 }
 
+forceinline void DrawBoxBatch(DrawList* list, Box2D box, f32 z, f32 thickness, v4 color) {
+    v2 p0 = box.min;
+    v2 p1 = V2(box.max.x, box.min.y);
+    v2 p2 = box.max;
+    v2 p3 = V2(box.min.x, box.max.y);
+
+    DrawSimpleLineBatch(list, p0, p1, z, thickness, color);
+    DrawSimpleLineBatch(list, p1, p2, z, thickness, color);
+    DrawSimpleLineBatch(list, p2, p3, z, thickness, color);
+    DrawSimpleLineBatch(list, p3, p0, z, thickness, color);
+}
+
 void DrawListEndBatch(DrawList* list) {
     assert(list->pendingCommand);
     u32 indexCount = list->indexBuffer.Count() - list->scratchCommand.indexBufferOffset;

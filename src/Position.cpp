@@ -64,6 +64,12 @@ v2 DeskPosition::RelativeTo(DeskPosition origin) const {
     return result;
 }
 
+v2 DeskPosition::ToOffset() const {
+    v2 result = V2(cell) * DeskCellSize + offset;
+    return result;
+}
+
+
 TilePosition DeskPosition::ToTilePos() const {
     TilePosition result;
     result.tile = TileFromCell(cell);
