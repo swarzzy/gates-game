@@ -1,12 +1,56 @@
 #pragma once
 
-#define ForEach(array, it) do { for (u32 concat(concat(_index_, it), _) = 0; concat(concat(_index_, it), _) < (array)->Count(); concat(concat(_index_, it), _)++) { auto it = (array)->Data() + concat(concat(_index_, it), _);
+#define ForEach(array, it) do { for (u32 concat(concat(_index_, it), _) = 0; concat(concat(_index_, it), _) < (array)->count; concat(concat(_index_, it), _)++) { auto it = (array)->_DataPtr() + concat(concat(_index_, it), _);
 #define EndEach } } while(false)
 
+template <typename T, u32 Size> struct StaticArray;
+template <typename T> struct Array;
+
+template <typename T, u32 Size>
+using SArray = StaticArray<T, Size>;
+
 template <typename T>
-struct Array {
-    T* data = nullptr;
+using DArray = Array<T>;
+
+template <typename T, typename Derived>
+struct ArrayBase {
     u32 count = 0;
+
+    u32 Count() { return count; }
+
+    T& operator[](u32 i);
+    T* At(u32 index);
+
+    T* Last();
+    T* First() { return data; }
+
+    void Fill(T& value);
+
+    u32 IndexFromPtr(const T* it);
+
+    void Reverse();
+
+    template <typename Fn>
+    u32 CountIf(Fn callback);
+
+    template <typename Fn>
+    void Each(Fn callback);
+
+    template <typename Fn>
+    T* FindFirst(Fn callback);
+
+    forceinline T* _DataPtr();
+};
+
+template <typename T, u32 Size>
+struct StaticArray : ArrayBase<T, StaticArray<T, Size>> {
+    T data[Size];
+    forceinline T* Data() { return data; }
+};
+
+template <typename T>
+struct Array : ArrayBase<T, Array<T>> {
+    T* data = nullptr;
     u32 capacity = 0;
     Allocator* allocator = nullptr;
 
@@ -14,21 +58,17 @@ struct Array {
     Array(Allocator* alloc) : allocator(alloc) {}
     Array(Allocator* alloc, u32 size) : allocator(alloc) { Resize(size); }
 
-    T& operator[](u32 i);
-    T* Last();
-    T* First() { return data; }
-    T* At(u32 index);
+    forceinline T* Data() { return data; }
 
-    u32 Count() { return count; }
     u32 Capacity() { return capacity; }
-    T* Data() { return data; }
 
     Array Clone();
     void CopyTo(Array<T>* other);
     void CopyTo(Array<T>* other, u32 copyCount);
-    void FreeBuffers();
+
     void Clear();
-    void Fill(T& value);
+    void FreeBuffers();
+
     void Append(const Array<T>* other);
     void Append(T* data, u32 n);
     void Prepend(const Array<T>* other);
@@ -55,20 +95,6 @@ struct Array {
     T* Insert(u32 index);
     T* InsertN(u32 index, u32 n);
     void Insert(u32 index, const T& v);
-
-    // Some crazy functional stuff
-    void Reverse();
-
-    template <typename Fn>
-    u32 CountIf(Fn callback);
-
-    template <typename Fn>
-    void Each(Fn callback);
-
-    template <typename Fn>
-    T* FindFirst(Fn callback);
-
-    u32 IndexFromPtr(const T* it);
 
     u32 _GrowCapacity(u32 sz);
 };

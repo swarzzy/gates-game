@@ -1,23 +1,85 @@
 #include "Array.h"
 
-template <typename T>
-T& Array<T>::operator[](u32 i) {
-    assert(i < count);
-    return data[i];
+template <typename T, typename Derived>
+T* ArrayBase<T, Derived>::_DataPtr() {
+    T* result = ((Derived*)this)->Data();
+    return result;
 }
 
-template <typename T>
-T* Array<T>::At(u32 i) {
+template <typename T, typename Derived>
+T& ArrayBase<T, Derived>::operator[](u32 i) {
     assert(i < count);
-    return data + i;
+    return _DataPtr()[i];
 }
 
-template <typename T>
-T* Array<T>::Last() {
+template <typename T, typename Derived>
+T* ArrayBase<T, Derived>::At(u32 i) {
+    assert(i < count);
+    return _DataPtr() + i;
+}
+
+template <typename T, typename Derived>
+T* ArrayBase<T, Derived>::Last() {
     T* result = nullptr;
     if (count) {
-        result = data + (count - 1);
+        result = _DataPtr() + (count - 1);
     }
+    return result;
+}
+
+template <typename T, typename Derived>
+u32 ArrayBase<T, Derived>::IndexFromPtr(const T* it) {
+    auto data = _DataPtr();
+    assert(it >= data && it < data + count);
+    uptr off = it - data;
+    return (u32)off;
+}
+
+template <typename T, typename Derived>
+void ArrayBase<T, Derived>::Fill(T& value) {
+    for (u32 i = 0; i < count; i++) {
+        memcpy(_DataPtr() + i, &value, sizeof(T));
+    }
+}
+
+template <typename T, typename Derived>
+void ArrayBase<T, Derived>::Reverse() {
+    auto data = _DataPtr();
+    for (u32 i = 0, j = count - 1; i < j; i++, j--) {
+        T tmp = data[i];
+        data[i] = data[j];
+        data[j] = tmp;
+    }
+}
+
+template <typename T, typename Derived>
+template <typename Fn>
+u32 ArrayBase<T, Derived>::CountIf(Fn callback) {
+    u32 n = 0;
+    ForEach(this, it) {
+        if (callback(it)) n++;
+    } EndEach;
+    return n;
+}
+
+template <typename T, typename Derived>
+template <typename Fn>
+void ArrayBase<T, Derived>::Each(Fn callback) {
+    ForEach(this, it) {
+        callback(it);
+    } EndEach;
+}
+
+template <typename T, typename Derived>
+template <typename Fn>
+T* ArrayBase<T, Derived>::FindFirst(Fn callback) {
+    T* result = nullptr;
+    ForEach(this, it) {
+        if (callback(it)) {
+            result = it;
+            break;
+        }
+    } EndEach;
     return result;
 }
 
@@ -83,13 +145,6 @@ void Array<T>::FreeBuffers() {
 template <typename T>
 void Array<T>::Clear() {
     count = 0;
-}
-
-template <typename T>
-void Array<T>::Fill(T& value) {
-    for (u32 i = 0; i < count; i++) {
-        memcpy(data + i, &value, sizeof(T));
-    }
 }
 
 template <typename T>
@@ -236,54 +291,7 @@ void Array<T>::Insert(u32 index, const T& v) {
 }
 
 template <typename T>
-u32 Array<T>::IndexFromPtr(const T* it) {
-    assert(it >= data && it < data + count);
-    uptr off = it - data;
-    return (u32)off;
-}
-
-template <typename T>
 u32 Array<T>::_GrowCapacity(u32 sz) {
     u32 newCapacity = capacity ? (capacity + capacity / 2) : 8;
     return newCapacity > sz ? newCapacity : sz;
-}
-
-template <typename T>
-void Array<T>::Reverse() {
-    for (u32 i = 0, j = count - 1; i < j; i++, j--) {
-        T tmp = data[i];
-        data[i] = data[j];
-        data[j] = tmp;
-    }
-}
-
-template <typename T>
-template <typename Fn>
-u32 Array<T>::CountIf(Fn callback) {
-    u32 n = 0;
-    ForEach(this, it) {
-        if (callback(it)) n++;
-    } EndEach;
-    return n;
-}
-
-template <typename T>
-template <typename Fn>
-void Array<T>::Each(Fn callback) {
-    ForEach(this, it) {
-        callback(it);
-    } EndEach;
-}
-
-template <typename T>
-template <typename Fn>
-T* Array<T>::FindFirst(Fn callback) {
-    T* result = nullptr;
-    ForEach(this, it) {
-        if (callback(it)) {
-            result = it;
-            break;
-        }
-    } EndEach;
-    return result;
 }

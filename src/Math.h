@@ -1,7 +1,7 @@
 #pragma once
 #include <stdlib.h>
 #include "Intrinsics.h"
-#include "StaticArray.h"
+#include "Array.h"
 
 struct RandomSeries {
     // TODO: Random
