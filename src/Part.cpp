@@ -216,15 +216,16 @@ IRect CalcPartBoundingBox(Part* part) {
     return CalcPartBoundingBox(part, part->p.cell);
 }
 
-Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type) {
+Part* TryCreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type) {
     Part* result = nullptr;
-    // TODO: Check if we can place the part before allocate it!!
     Part* part = GetPartMemory(desk);
     if (part) {
         InitPart(info, desk, part, p, type);
-        if (AddPartToDesk(desk, part)) {
+        if (!CheckCollisions(desk, part)) {
+            RegisterPart(desk, part);
             result = part;
         } else {
+            DeinitPart(desk, part);
             ReleasePartMemory(desk, part);
         }
     }
@@ -251,7 +252,7 @@ void UnwirePart(Desk* desk, Part* part) {
 
 void DestroyPart(Desk* desk, Part* part) {
     UnwirePart(desk, part);
-    UnregisterPartPlacement(desk, part);
+    UnregisterPart(desk, part);
     DeinitPart(desk, part);
     ReleasePartMemory(desk, part);
 }

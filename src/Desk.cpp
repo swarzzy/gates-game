@@ -16,19 +16,20 @@ bool DeskCompare(void* a, void* b) {
 
 DeskTile* GetDeskTile(Desk* desk, iv2 tileP, bool create) {
     DeskTile* result = nullptr;
-    DeskTile** bucket = HashMapGet(&desk->tileHashMap, &tileP);
+    iv2 p = TileFromCell(tileP);
+    DeskTile** bucket = HashMapGet(&desk->tileHashMap, &p);
     if (bucket) {
         assert(*bucket);
         result = *bucket;
     } else if (create) {
-        DeskTile** newBucket = HashMapAdd(&desk->tileHashMap, &tileP);
+        DeskTile** newBucket = HashMapAdd(&desk->tileHashMap, &p);
         if (newBucket) {
-            DeskTile* newTile = CreateDeskTile(desk, tileP);
+            DeskTile* newTile = CreateDeskTile(desk, p);
             if (newTile) {
                 *newBucket = newTile;
                 result = newTile;
             } else {
-                bool deleted = HashMapDelete(&desk->tileHashMap, &tileP);
+                bool deleted = HashMapDelete(&desk->tileHashMap, &p);
                 assert(deleted);
             }
         }
@@ -36,91 +37,109 @@ DeskTile* GetDeskTile(Desk* desk, iv2 tileP, bool create) {
     return result;
 }
 
-u32 CollapseSamePoints(StaticArray<iv2, 4>* array) {
-    StaticArray<iv2, 4> temp;
+u32 CollapseSamePoints(ArrayRef<iv2> array) {
     u32 newCount = 0;
-    ForEach(array, point) {
+    ForEach(&array, it) {
+        iv2 point = *it;
         bool alreadyAdded = false;
-        ForEach(&temp, t) {
-            if (*t == *point) {
+        for (u32 i = 0; i < newCount; i++) {
+            if (TileFromCell(array[i]) == TileFromCell(point)) {
                 alreadyAdded = true;
                 break;
             }
-        } EndEach;
+        }
 
         if (!alreadyAdded) {
-            temp[newCount] = *point;
+            array[newCount] = point;
             newCount++;
         }
     } EndEach;
 
-    *array = temp;
     return newCount;
 }
 
-void RegisterPart(Desk* desk, Part* part) {
-    assert(!part->placed);
-
-    // TODO: Factor this out everywhere below
+Tuple<SArray<iv2, 4>, u32> ComputePartUniqueTilePoints(Part* part) {
     auto pointsRel = part->boundingBox.GetPoints();
 
-    StaticArray<iv2, 4> points;
+    SArray<iv2, 4> points;
     ForEach(&pointsRel, point) {
         points[_index_point_] = part->p.Offset(*point).cell;
     } EndEach;
 
-    u32 uniqueCount = CollapseSamePoints(&points);
+    u32 uniqueCount = CollapseSamePoints(points.AsRef());
 
-    for (u32 i = 0; i < uniqueCount; i++) {
-        DeskTile* tile = GetDeskTile(desk, part->p.Offset(points[i]).cell, true);
-        assert(tile);
-        Part** entry = tile->parts.FindFirst([&part](Part** it) { return (*it) == part; });
-        assert(entry);
-        tile->parts.EraseUnsorted(entry);
-    }
-    part->placed = false;
+    return MakeTuple(points, uniqueCount);
 }
 
 void UnregisterPart(Desk* desk, Part* part) {
     assert(!part->placed);
 
-    auto pointsRel = part->boundingBox.GetPoints();
+    auto[points, count] = ComputePartUniqueTilePoints(part);
 
-    StaticArray<iv2, 4> points;
-    ForEach(&pointsRel, point) {
-        points[_index_point_] = part->p.Offset(*point).cell;
-    } EndEach;
+    for (u32 i = 0; i < count; i++) {
+        DeskTile* tile = GetDeskTile(desk, points[i], true);
+        assert(tile);
+        Part** entry = tile->parts.FindFirst([&part](Part** it) { return (*it) == part; });
+        assert(entry);
+        tile->parts.EraseUnsorted(entry);
+    }
 
-    u32 uniqueCount = CollapseSamePoints(&points);
+    part->placed = false;
+}
 
-    for (u32 i = 0; i < uniqueCount; i++) {
-        DeskTile* tile = GetDeskTile(desk, part->p.Offset(points[i]).cell, true);
+void RegisterPart(Desk* desk, Part* part) {
+    assert(!part->placed);
+
+    auto[points, count] = ComputePartUniqueTilePoints(part);
+
+    for (u32 i = 0; i < count; i++) {
+        DeskTile* tile = GetDeskTile(desk, points[i], true);
         assert(tile);
         assert(!tile->parts.FindFirst([&part](Part** it) { return (*it) == part; }));
         tile->parts.PushBack(part);
     }
+
     part->placed = false;
 }
 
-bool CheckCollisions(Desk* desk, Part* part) {
+void ChangePartLocation(Desk* desk, Part* part, DeskPosition pNew) {
+    UnregisterPart(desk, part);
+    part->p = pNew;
+    RegisterPart(desk, part);
+}
+
+bool CheckCollisions(Desk* desk, Part* part, ArrayRef<Part*> ignoreParts) {
+    DeskPosition min = part->p;
+    DeskPosition max = part->p.Offset(part->boundingBox.max);
+    bool result = CheckCollisions(desk, min, max, ignoreParts);
+    return result;
+}
+
+
+bool CheckCollisions(Desk* desk, DeskPosition min, DeskPosition max, ArrayRef<Part*> ignoreParts) {
     bool collided = false;
-    auto pointsRel = part->boundingBox.GetPoints();
 
-    StaticArray<iv2, 4> points;
-    ForEach(&pointsRel, point) {
-        points[_index_point_] = part->p.Offset(*point).cell;
-    } EndEach;
+    SArray<iv2, 4> points;
+    points[0] = min.cell;
+    points[1] = IV2(max.cell.x, min.cell.y);
+    points[2] = IV2(max.cell.x, max.cell.y);
+    points[3] = max.cell;
 
-    u32 uniqueCount = CollapseSamePoints(&points);
+    u32 count = CollapseSamePoints(points.AsRef());
 
-    for (u32 i = 0; i < uniqueCount; i++) {
-        DeskTile* tile = GetDeskTile(desk, part->p.Offset(points[i]).cell, true);
+    Box2D testBox = Box2D(V2(0.0f), max.RelativeTo(min));
+
+    for (u32 i = 0; i < count; i++) {
+        DeskTile* tile = GetDeskTile(desk, points[i], true);
         assert(tile);
         ForEach(&tile->parts, it) {
             Part* testPart = *it;
-            if (BoxesIntersect2D(part->boundingBox, testPart->boundingBox)) {
-                collided = true;
-                break;
+            v2 offset = testPart->p.RelativeTo(min);
+            if (BoxesIntersect2D(testBox, testPart->boundingBox.Offset(offset))) {
+                if (!ignoreParts.FindFirst([&testPart](Part** it) { return  ((*it) == testPart); })) {
+                    collided = true;
+                    break;
+                }
             }
         } EndEach;
     }
@@ -175,109 +194,6 @@ Pin* GetPinAt(Desk* desk, DeskPosition p) {
     return result;
 }
 
-bool CanPlacePart(Desk* desk, IRect box, Part* self) {
-    for (i32 y = box.min.y; y < box.max.y; y++) {
-        for (i32 x = box.min.x; x < box.max.x; x++) {
-            // TODO: Optimize. Here is a lot of unnecessary hash lookups!
-            iv2 testP = IV2(x, y);
-            DeskCell* cell = GetDeskCell(desk, testP, false);
-            if (cell) {
-                if (cell->value != CellValue::Empty) {
-                    if (self && cell->value == CellValue::Part && cell->part == self) continue;
-                    if (self && cell->value == CellValue::Pin && cell->pin->part == self) continue;
-                    return false;
-                }
-            }
-        }
-    }
-    return true;
-}
-
-void ExpandDeskFor(Desk* desk, IRect box) {
-    iv2 points[] = {
-        box.min,
-        IV2(box.max.x, box.min.y),
-        box.max,
-        IV2(box.min.x, box.max.y)
-    };
-
-    for (i32 i = 0; i < array_count(points); i++) {
-        TilePosition tileP = CellToTilePos(points[i]);
-        DeskTile* tile = GetDeskTile(desk, tileP.tile, true);
-        assert(tile);
-    }
-}
-
-bool TryRegisterPartPlacement(Desk* desk, Part* part) {
-    bool result = false;
-    IRect boundingBox = CalcPartBoundingBox(part);
-    if (CanPlacePart(desk, boundingBox)) {
-        ExpandDeskFor(desk, boundingBox);
-        // Register part body
-        for (i32 y = 0; y < part->dim.y; y++) {
-            for (i32 x = 0; x < part->dim.x; x++) {
-                // TODO: Optimize. Here is a lot of unnecessary hash lookups!
-                iv2 testP = IV2(part->p.cell.x + x, part->p.cell.y + y);
-                DeskCell* cell = GetDeskCell(desk, testP, false);
-                assert(cell);
-                assert(cell->value == CellValue::Empty);
-                cell->value = CellValue::Part;
-                cell->part = part;
-            }
-        }
-        ForEach(&part->pins, pin) {
-            iv2 pinP = part->p.cell + pin->pRelative;
-            DeskCell* cell = GetDeskCell(desk, pinP, false);
-            assert(cell);
-            assert(cell->value == CellValue::Empty);
-            cell->value = CellValue::Pin;
-            cell->pin = pin;
-        } EndEach;
-        result = true;
-    }
-    return result;
-}
-
-void UnregisterPartPlacement(Desk* desk, Part* part) {
-    // Register part body
-    for (i32 y = 0; y < part->dim.y; y++) {
-        for (i32 x = 0; x < part->dim.x; x++) {
-            // TODO: Optimize. Here is a lot of unnecessary hash lookups!
-            iv2 testP = IV2(part->p.cell.x + x, part->p.cell.y + y);
-            DeskCell* cell = GetDeskCell(desk, testP, false);
-            assert(cell);
-            assert(cell->value == CellValue::Part && cell->part == part);
-            cell->value = CellValue::Empty;
-            cell->part = nullptr;
-        }
-    }
-    ForEach(&part->pins, pin) {
-        iv2 pinP = part->p.cell + pin->pRelative;
-        DeskCell* cell = GetDeskCell(desk, pinP, false);
-        assert(cell);
-        assert(cell->value == CellValue::Pin && cell->pin == pin);
-        cell->value = CellValue::Empty;
-        cell->pin = nullptr;
-    } EndEach;
-}
-
-// Does not update wire positions
-bool TryChangePartLocation(Desk* desk, Part* part, iv2 newP) {
-    bool result = false;
-    IRect bbox = CalcPartBoundingBox(part, newP);
-    if (CanPlacePart(desk, bbox, part)) {
-        ExpandDeskFor(desk, bbox);
-        UnregisterPartPlacement(desk, part);
-        part->p = DeskPosition(newP);
-        // TODO: TryRegisterPartPlacement also performs checks and desk expansion. Not efficient!
-        bool registered = TryRegisterPartPlacement(desk, part);
-        assert(registered);
-        //UpdateCachedWirePositions(part);
-        result = true;
-    }
-    return result;
-}
-
 Part* GetPartMemory(Desk* desk) {
     Part* result = desk->parts.Add();
     return result;
@@ -285,16 +201,6 @@ Part* GetPartMemory(Desk* desk) {
 
 void ReleasePartMemory(Desk* desk, Part* part) {
     desk->parts.Remove(part);
-}
-
-bool AddPartToDesk(Desk* desk, Part* part) {
-    bool result = false;
-    IRect boundingBox = CalcPartBoundingBox(part);
-    if (TryRegisterPartPlacement(desk, part)) {
-        result = true;
-    }
-
-    return result;
 }
 
 void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* deskHeap) {
@@ -313,22 +219,6 @@ DeskTile* CreateDeskTile(Desk* desk, iv2 p) {
     if (result) {
         result->p = p;
         result->parts = Array<Part*>(&desk->deskAllocator);
-    }
-    return result;
-}
-
-DeskCell* GetDeskCell(DeskTile* tile, uv2 cell) {
-    assert(cell.x < DeskTileSize && cell.y < DeskTileSize);
-    DeskCell* result = tile->cells + (cell.y * DeskTileSize + cell.x);
-    return result;
-}
-
-DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create) {
-    DeskCell* result = nullptr;
-    TilePosition tileP = CellToTilePos(p);
-    DeskTile* tile = GetDeskTile(desk, tileP.tile, create);
-    if (tile) {
-        result = GetDeskCell(tile, tileP.cell);
     }
     return result;
 }

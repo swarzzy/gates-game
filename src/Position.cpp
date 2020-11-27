@@ -12,6 +12,15 @@ DeskPosition::DeskPosition(v2 offsetValue) : cell({}), offset(offsetValue) {
 
 DeskPosition::DeskPosition(TilePosition p) { unreachable(); }
 
+bool DeskPosition::IsValid() const {
+    bool result = cell.x != DeskCoordInvalid && cell.y != DeskCoordInvalid;
+    return result;
+}
+
+DeskPosition InvalidDeskPosition() {
+    DeskPosition result = DeskPosition(IV2(DeskCoordInvalid));
+    return result;
+}
 
 DeskPosition DeskPosition::Normalized() const {
     DeskPosition result;

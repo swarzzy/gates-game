@@ -16,7 +16,7 @@ void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initial
 }
 
 void ToolPartPrimaryAction(ToolManager* manager, Desk* desk) {
-    CreatePart(desk, desk->partInfo, manager->prefabPartPos.cell, manager->prefabPart.type);
+    TryCreatePart(desk, desk->partInfo, manager->prefabPartPos.cell, manager->prefabPart.type);
 }
 
 void ToolPartSecondaryAction(ToolManager* manager, Desk* desk) {
@@ -91,53 +91,51 @@ void ToolWireSecondaryAction(ToolManager* manager, Desk* desk) {
 }
 
 void ToolWirePrimaryAction(ToolManager* manager, Desk* desk) {
-    DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, true);
-    if (mouseCell) {
-        if (mouseCell->value == CellValue::Pin) {
-            assert(mouseCell->pin);
-            ToolWirePinClicked(manager, desk, mouseCell->pin);
-        } else if (mouseCell->value == CellValue::Empty) {
-            bool handled = false;
-            if (manager->pendingWireBeginPin->type == PinType::Input) {
-                auto wireAt = GetWireAt(desk, manager->mouseCanvasPos);
-                if (wireAt.wire) {
-                    assert(wireAt.wire->input);
-                    assert(wireAt.wire->output);
-                    Pin* input = manager->pendingWireBeginPin;
-                    Pin* output = wireAt.wire->output;
-                    Wire* wire = TryWirePins(desk, input, output);
-                    if (wire) {
-                        // Search for nodes at this position
-                        i32 nodeAtThisPIndex = -1;
-                        ForEach(&wireAt.wire->nodes, node) {
-                            if (node->cell == manager->mouseDeskPos.cell) {
-                                nodeAtThisPIndex = _index_node_;
-                                break;
-                            }
-                        } EndEach;
-
-                        if (nodeAtThisPIndex == -1) {
-                            // Insert new node
-                            DeskPosition* newNode = wireAt.wire->nodes.Insert(wireAt.nodeIndex + 1);
-                            *newNode = DeskPosition(manager->mouseDeskPos.cell);
-                            nodeAtThisPIndex = wireAt.nodeIndex + 1;
+    DeskEntity entity = GetAnyAt(desk, manager->mouseDeskPos);
+    if (entity.type == DeskEntityType::Pin) {
+        assert(entity.pin);
+        ToolWirePinClicked(manager, desk, entity.pin);
+    } else if (entity.type == DeskEntityType::None) {
+        bool handled = false;
+        if (manager->pendingWireBeginPin->type == PinType::Input) {
+            auto wireAt = GetWireAt(desk, manager->mouseCanvasPos);
+            if (wireAt.wire) {
+                assert(wireAt.wire->input);
+                assert(wireAt.wire->output);
+                Pin* input = manager->pendingWireBeginPin;
+                Pin* output = wireAt.wire->output;
+                Wire* wire = TryWirePins(desk, input, output);
+                if (wire) {
+                    // Search for nodes at this position
+                    i32 nodeAtThisPIndex = -1;
+                    ForEach(&wireAt.wire->nodes, node) {
+                        if (node->cell == manager->mouseDeskPos.cell) {
+                            nodeAtThisPIndex = _index_node_;
+                            break;
                         }
+                    } EndEach;
 
-                        assert(nodeAtThisPIndex != -1);
-
-                        manager->pendingWireNodes.Reverse();
-                        manager->pendingWireNodes.Prepend(wireAt.wire->nodes.data, nodeAtThisPIndex + 1);
-                        manager->pendingWireNodes.CopyTo(&wire->nodes);
-                        handled = true;
-                        assert(manager->currentTool == Tool::Wire);
-                        manager->currentTool = Tool::None;
+                    if (nodeAtThisPIndex == -1) {
+                        // Insert new node
+                        DeskPosition* newNode = wireAt.wire->nodes.Insert(wireAt.nodeIndex + 1);
+                        *newNode = DeskPosition(manager->mouseDeskPos.cell);
+                        nodeAtThisPIndex = wireAt.nodeIndex + 1;
                     }
+
+                    assert(nodeAtThisPIndex != -1);
+
+                    manager->pendingWireNodes.Reverse();
+                    manager->pendingWireNodes.Prepend(wireAt.wire->nodes.data, nodeAtThisPIndex + 1);
+                    manager->pendingWireNodes.CopyTo(&wire->nodes);
+                    handled = true;
+                    assert(manager->currentTool == Tool::Wire);
+                    manager->currentTool = Tool::None;
                 }
             }
+        }
 
-            if (!handled) {
-                manager->pendingWireNodes.PushBack(DeskPosition(manager->lastWireNodePos.cell));
-            }
+        if (!handled) {
+            manager->pendingWireNodes.PushBack(DeskPosition(manager->lastWireNodePos.cell));
         }
     }
 }
@@ -168,9 +166,10 @@ void ToolPickLeftMouseDown(ToolManager* manager, Desk* desk) {
     Part* part = nullptr;
     bool selectionMode = KeyDown(Key::LeftShift);
 
-    DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
-    if (mouseCell && mouseCell->value == CellValue::Part) {
-        part = mouseCell->part;
+    DeskEntity entity = GetAnyAt(desk, manager->mouseDeskPos);
+
+    if (entity.type == DeskEntityType::Part) {
+        part = entity.part;
     }
 
     if (part) {
@@ -322,7 +321,7 @@ void ToolPickLeftMouseUp(ToolManager* manager, Desk* desk) {
             ForEach(&manager->selectedParts, partPtr) {
                 Part* part = *partPtr;
                 iv2 p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset).cell;
-                TryChangePartLocation(desk, part, p);
+                ChangePartLocation(desk, part, DeskPosition(p));
             } EndEach;
 
             // TODO: Do this asyncronously
@@ -360,7 +359,7 @@ void ToolPickUpdate(ToolManager* manager, Desk* desk) {
                 Part* part = *partPtr;
                 iv2 p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset).cell;
                 IRect bbox = CalcPartBoundingBox(part, p);
-                manager->selectedPartsBlockedStates[_index_partPtr_] = !CanPlacePart(desk, bbox, part);
+                manager->selectedPartsBlockedStates[_index_partPtr_] = CheckCollisions(desk, DeskPosition(bbox.min), DeskPosition(bbox.max), manager->selectedParts.AsRef());
             } EndEach;
         }
     }
@@ -384,22 +383,18 @@ void ToolPickSecondaryAction(ToolManager* manager, Desk* desk) {
 
 void ToolNoneLeftMouseDown(ToolManager* manager, Desk* desk) {
     bool processed = false;
-    DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
-    if (mouseCell) {
-        if (mouseCell->value != CellValue::Empty) {
-            switch (mouseCell->value) {
-            case CellValue::Part: {
-                ToolPickLeftMouseDown(manager, desk);
-                processed = true;
-            } break;
-            case CellValue::Pin: {
-                assert(mouseCell->pin);
-                ToolWirePinClicked(manager, desk, mouseCell->pin);
-                processed = true;
-            } break;
-            default: {} break;
-            }
-        }
+    DeskEntity entity = GetAnyAt(desk, manager->mouseDeskPos);
+    switch (entity.type) {
+    case DeskEntityType::Part: {
+        ToolPickLeftMouseDown(manager, desk);
+        processed = true;
+    } break;
+    case DeskEntityType::Pin: {
+        assert(entity.pin);
+        ToolWirePinClicked(manager, desk, entity.pin);
+        processed = true;
+    } break;
+    default: {} break;
     }
 
     if (!processed) {
@@ -421,19 +416,19 @@ void ToolNoneLeftMouseUp(ToolManager* manager, Desk* desk) {
 }
 
 void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk) {
-    DeskCell* mouseCell = GetDeskCell(desk, manager->mouseDeskPos.cell, false);
+    DeskEntity entity = GetAnyAt(desk, manager->mouseDeskPos);
     bool handled = false;
-    if (mouseCell) {
-        switch (mouseCell->value) {
-        case CellValue::Part: {
-            Part* part = mouseCell->part;
-            assert(part);
-            DestroyPart(desk, part);
-            handled = true;
-        } break;
-        default: {} break;
-        }
+
+    switch (entity.type) {
+    case DeskEntityType::Part: {
+        Part* part = entity.part;
+        assert(part);
+        DestroyPart(desk, part);
+        handled = true;
+    } break;
+    default: {} break;
     }
+
     if (!handled) {
         // Delete all wires under cursor
         while (true) {

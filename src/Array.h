@@ -1,25 +1,23 @@
 #pragma once
 
-#define ForEach(array, it) do { for (u32 concat(concat(_index_, it), _) = 0; concat(concat(_index_, it), _) < (array)->count; concat(concat(_index_, it), _)++) { auto it = (array)->_DataPtr() + concat(concat(_index_, it), _);
+#define ForEach(array, it) do { for (u32 concat(concat(_index_, it), _) = 0; concat(concat(_index_, it), _) < (array)->_Count(); concat(concat(_index_, it), _)++) { auto it = (array)->_DataPtr() + concat(concat(_index_, it), _);
 #define EndEach } } while(false)
 
-template <typename T, u32 Size> struct StaticArray;
-template <typename T> struct Array;
+template <typename T>
+struct Array;
 
-template <typename T, u32 Size>
-using SArray = StaticArray<T, Size>;
+template <typename T>
+struct ArrayRef;
 
 template <typename T>
 using DArray = Array<T>;
 
 template <typename T, typename Derived>
 struct ArrayBase {
-    u32 count = 0;
-
-    u32 Count() { return count; }
-
     T& operator[](u32 i);
     T* At(u32 index);
+
+    ArrayRef<T> AsRef();
 
     T* Last();
     T* First() { return data; }
@@ -40,17 +38,31 @@ struct ArrayBase {
     T* FindFirst(Fn callback);
 
     forceinline T* _DataPtr();
+    forceinline u32 _Count();
+};
+
+template <typename T>
+struct ArrayRef : ArrayBase<T, ArrayRef<T>> {
+    T* data;
+    u32 count;
+    forceinline T* Data() { return data; }
+    forceinline u32 Count() { return count; }
+    forceinline ArrayRef(T* Data, u32 Count) : data(Data), count(Count) {}
+
+    static ArrayRef Empty() { return ArrayRef(nullptr, 0); }
 };
 
 template <typename T, u32 Size>
-struct StaticArray : ArrayBase<T, StaticArray<T, Size>> {
+struct SArray : ArrayBase<T, SArray<T, Size>> {
     T data[Size];
     forceinline T* Data() { return data; }
+    forceinline u32 Count() { return Size; }
 };
 
 template <typename T>
 struct Array : ArrayBase<T, Array<T>> {
     T* data = nullptr;
+    u32 count = 0;
     u32 capacity = 0;
     Allocator* allocator = nullptr;
 
@@ -59,6 +71,7 @@ struct Array : ArrayBase<T, Array<T>> {
     Array(Allocator* alloc, u32 size) : allocator(alloc) { Resize(size); }
 
     forceinline T* Data() { return data; }
+    forceinline u32 Count() { return count; }
 
     u32 Capacity() { return capacity; }
 

@@ -45,12 +45,12 @@ void GameInit() {
 
     ToolManagerInit(&context->toolManager, desk);
 
-    CreatePart(desk, partInfo, IV2(2, 2), PartType::And);
-    CreatePart(desk, partInfo, IV2(6, 10), PartType::Or);
-    CreatePart(desk, partInfo, IV2(-6, -10), PartType::Not);
+    TryCreatePart(desk, partInfo, IV2(2, 2), PartType::And);
+    TryCreatePart(desk, partInfo, IV2(6, 10), PartType::Or);
+    TryCreatePart(desk, partInfo, IV2(-6, -10), PartType::Not);
 
-    Part* source = CreatePart(desk, partInfo, IV2(10, 10), PartType::Source);
-    Part* led = CreatePart(desk, partInfo, IV2(20, 10), PartType::Led);
+    Part* source = TryCreatePart(desk, partInfo, IV2(10, 10), PartType::Source);
+    Part* led = TryCreatePart(desk, partInfo, IV2(20, 10), PartType::Led);
 
     Wire* wire = TryWirePins(desk, GetInput(led, 0), GetOutput(source, 0));
     assert(wire);
@@ -63,6 +63,7 @@ void GameUpdate() {
 
 }
 
+#if false
 void DebugDrawDesk(Desk* desk, Canvas* canvas) {
     DeskPosition begin = desk->origin;
     DeskPosition end = desk->origin.Offset(canvas->sizeCm);
@@ -104,7 +105,6 @@ void DebugDrawDeskCell(Desk* desk, Canvas* canvas, DeskPosition p, v4 color) {
     DrawListPushRect(&canvas->drawList, min, max, 0.0f, color);
 }
 
-
 void PartProcessClick(Part* part, DeskPosition mouseP, MouseButton button) {
     switch (part->type) {
     case PartType::Source: {
@@ -113,6 +113,7 @@ void PartProcessClick(Part* part, DeskPosition mouseP, MouseButton button) {
     default: {} break;
     }
 }
+#endif
 
 bool CheckWireSegmentHit(v2 mouseP, v2 begin, v2 end, f32 thickness) {
     bool result = false;
@@ -246,7 +247,7 @@ void GameRender() {
 
     switch (context->drawMode) {
     case DrawMode::Normal: { DrawDesk(desk, deskCanvas); } break;
-    case DrawMode::DeskDebug: { DebugDrawDesk(desk, deskCanvas); } break;
+        //case DrawMode::DeskDebug: { DebugDrawDesk(desk, deskCanvas); } break;
     invalid_default();
     }
 

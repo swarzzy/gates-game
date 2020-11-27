@@ -87,7 +87,7 @@ void DeinitPart(Desk* desk, Part* part);
 void UnwirePart(Desk* desk, Part* part);
 
 // Allocate part memory, initialize it and place the part to the desk
-Part* CreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type);
+Part* TryCreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type);
 void DestroyPart(Desk* desk, Part* part);
 
 void DestroyWire(Desk* desk, Wire* wire);

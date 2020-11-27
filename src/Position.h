@@ -9,6 +9,8 @@ const u32 DeskTileBitShift = 4;
 const u32 DeskTileBitMask = (1 << DeskTileBitShift) - 1;
 const u32 DeskTileSize = 1 << DeskTileBitShift;
 
+const i32 DeskCoordInvalid = I32::Max;
+
 struct TilePosition;
 
 struct DeskPosition {
@@ -30,6 +32,8 @@ struct DeskPosition {
     v2 ToOffset() const;
 
     TilePosition ToTilePos() const;
+
+    bool IsValid() const;
 };
 
 struct TilePosition {
@@ -42,6 +46,8 @@ struct TilePosition {
 
     DeskPosition ToDeskPos() const;
 };
+
+DeskPosition InvalidDeskPosition();
 
 iv2 TileFromCell(iv2 cell);
 uv2 CellInTile(iv2 cell);

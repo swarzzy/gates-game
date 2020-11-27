@@ -822,8 +822,13 @@ struct Box2D {
     Box2D() = default;
     Box2D(v2 Min, v2 Max) : min(Min), max(Max) {}
 
-    StaticArray<v2, 4> GetPoints() const {
-        StaticArray<v2, 4> points;
+    Box2D Offset(v2 offset) const {
+        Box2D result = Box2D(min + offset, max + offset);
+        return result;
+    }
+
+    SArray<v2, 4> GetPoints() const {
+        SArray<v2, 4> points;
         points[0] = min;
         points[1] = V2(max.x, min.y);
         points[2] = max;

@@ -1,28 +1,39 @@
 #include "Array.h"
 
 template <typename T, typename Derived>
+ArrayRef<T> ArrayBase<T, Derived>::AsRef() {
+    return ArrayRef<T>(_DataPtr(), _Count());
+}
+
+template <typename T, typename Derived>
 T* ArrayBase<T, Derived>::_DataPtr() {
     T* result = ((Derived*)this)->Data();
     return result;
 }
 
 template <typename T, typename Derived>
+u32 ArrayBase<T, Derived>::_Count() {
+    u32 result = ((Derived*)this)->Count();
+    return result;
+}
+
+template <typename T, typename Derived>
 T& ArrayBase<T, Derived>::operator[](u32 i) {
-    assert(i < count);
+    assert(i < _Count());
     return _DataPtr()[i];
 }
 
 template <typename T, typename Derived>
 T* ArrayBase<T, Derived>::At(u32 i) {
-    assert(i < count);
+    assert(i < _Count());
     return _DataPtr() + i;
 }
 
 template <typename T, typename Derived>
 T* ArrayBase<T, Derived>::Last() {
     T* result = nullptr;
-    if (count) {
-        result = _DataPtr() + (count - 1);
+    if (_Count()) {
+        result = _DataPtr() + (_Count() - 1);
     }
     return result;
 }
@@ -30,14 +41,14 @@ T* ArrayBase<T, Derived>::Last() {
 template <typename T, typename Derived>
 u32 ArrayBase<T, Derived>::IndexFromPtr(const T* it) {
     auto data = _DataPtr();
-    assert(it >= data && it < data + count);
+    assert(it >= data && it < data + _Count());
     uptr off = it - data;
     return (u32)off;
 }
 
 template <typename T, typename Derived>
 void ArrayBase<T, Derived>::Fill(T& value) {
-    for (u32 i = 0; i < count; i++) {
+    for (u32 i = 0; i < _Count(); i++) {
         memcpy(_DataPtr() + i, &value, sizeof(T));
     }
 }
@@ -45,7 +56,7 @@ void ArrayBase<T, Derived>::Fill(T& value) {
 template <typename T, typename Derived>
 void ArrayBase<T, Derived>::Reverse() {
     auto data = _DataPtr();
-    for (u32 i = 0, j = count - 1; i < j; i++, j--) {
+    for (u32 i = 0, j = _Count() - 1; i < j; i++, j--) {
         T tmp = data[i];
         data[i] = data[j];
         data[j] = tmp;

@@ -67,25 +67,28 @@ struct DeskEntity {
 void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* deskHeap);
 
 Part* GetPartMemory(Desk* desk);
-bool AddPartToDesk(Desk* desk, Part* part);
 
 // Desk spatial representation API
-DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create = false);
-DeskCell* GetDeskCell(DeskTile* tile, uv2 cell);
-bool TryChangePartLocation(Desk* desk, Part* part, iv2 newP);
-bool CanPlacePart(Desk* desk, IRect box, Part* self = nullptr);
+//DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create = false);
+//DeskCell* GetDeskCell(DeskTile* tile, uv2 cell);
+//bool TryChangePartLocation(Desk* desk, Part* part, iv2 newP);
+//bool CanPlacePart(Desk* desk, IRect box, Part* self = nullptr);
 
 // New API
 DeskEntity GetAnyAt(Desk* desk, DeskPosition p);
 Part* GetPartAt(Desk* desk, DeskPosition p);
 Pin* GetPinAt(Desk* desk, DeskPosition p);
 
-bool CheckCollisions(Desk* desk, Part* part);
+bool CheckCollisions(Desk* desk, DeskPosition min, DeskPosition max, ArrayRef<Part*> ignoreParts = ArrayRef<Part*>::Empty());
+bool CheckCollisions(Desk* desk, Part* part, ArrayRef<Part*> ignoreParts = ArrayRef<Part*>::Empty());
+
+//bool CheckCollisions(Desk* desk, Part* part, bool selfCollide = true);
 void RegisterPart(Desk* desk, Part* part);
 void UnregisterPart(Desk* desk, Part* part);
+void ChangePartLocation(Desk* desk, Part* part, DeskPosition pNew);
 
-
-DeskTile* GetDeskTile(Desk* desk, iv2 tileP, bool create = false);
+// Uses CELL position, not tile. Converts to tile internally
+DeskTile* GetDeskTile(Desk* desk, iv2 cell, bool create = false);
 
 DeskTile* CreateDeskTile(Desk* desk, iv2 p);
 
