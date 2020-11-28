@@ -6,13 +6,13 @@ Box2D ComputePinBoundingBox(Pin* pin) {
     Box2D result;
     DeskPosition pPin = ComputePinPosition(pin, DeskPosition {});
     v2 p = V2(pPin.cell.x * DeskCellSize, pPin.cell.y * DeskCellSize);
-    result.min = p;
-    result.max = p + DeskCellSize;
+    result.min = p - DeskCellHalfSize;
+    result.max = p + DeskCellHalfSize;
     return result;
 }
 
 void ComputePartBoundingBoxes(Part* part) {
-    part->partBoundingBox = Box2D(V2(0.0f), V2(part->dim) * DeskCellSize);
+    part->partBoundingBox = Box2D(V2(-DeskCellHalfSize), V2(part->dim) * DeskCellSize - DeskCellHalfSize);
 
     ForEach(&part->pins, pin) {
         part->pinBoundingBoxes.PushBack(ComputePinBoundingBox(pin));
@@ -66,7 +66,7 @@ v4 GetPartColor(Part* element) {
 }
 
 void DrawPartBoundingBoxes(Desk* desk, Canvas* canvas, Part* part) {
-    v2 p = part->p.RelativeTo(desk->origin) - DeskCellHalfSize;
+    v2 p = part->p.RelativeTo(desk->origin);
 
     Box2D partBox = Box2D(part->partBoundingBox.min + p, part->partBoundingBox.max + p);
     DrawBoxBatch(&canvas->drawList, partBox, 0.0f, 0.05f, V4(0.0f, 0.0f, 1.0f, 1.0f));

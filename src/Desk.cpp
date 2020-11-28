@@ -254,7 +254,23 @@ void RemoveWire(Desk* desk, Wire* wire) {
     desk->wires.Remove(wire);
 }
 
-// TODO: Optimize this. Narrow down traversal subset. We cound for instance
+bool CheckWireSegmentHit(v2 mouseP, v2 begin, v2 end, f32 thickness) {
+    bool result = false;
+    v2 vec = Normalize(end - begin);
+    v2 perp = Perp(vec);
+    v2 offset = perp * thickness * 0.5f;
+
+    auto rect = MinMax(begin, end);
+    rect.min -= offset;
+    rect.max += offset;
+
+    if (PointInRectangle2D(mouseP, rect.min, rect.max)) {
+        result = true;
+    }
+    return result;
+}
+
+// TODO: Optimize this. Narrow down the traversal subset. We cound for instance
 // compute line bounding box and check only inside it.
 
 // Position is desk-relative

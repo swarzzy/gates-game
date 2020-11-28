@@ -215,7 +215,7 @@ void ToolPickLeftMouseDown(ToolManager* manager, Desk* desk) {
                 }
             }
         }
-    } else {
+    } else if (!selectionMode) {
         manager->currentTool = Tool::None;
         manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
         ToolManagerLeftMouseDown(manager);
