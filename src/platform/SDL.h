@@ -37,8 +37,10 @@ MouseButton SDLMouseButtonConvert(u8 button);
 
 OpenGLLoadResult SDLLoadOpenGL(SDLContext* sdlContext);
 
-void SDLInit(SDLContext* context, const PlatformState* platform, i32 glMajorVersion, i32 glMinorVersion);
+void SDLInit(SDLContext* context, PlatformState* platform, i32 glMajorVersion, i32 glMinorVersion);
 
 void SDLPollEvents(SDLContext* context, PlatformState* platform);
 
 void SDLSwapBuffers(SDLContext* context);
+
+void SDLSetVsync(VSyncMode mode);

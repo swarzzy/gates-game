@@ -40,6 +40,7 @@ bool ImGuiAvailable() { return _GlobalImGuiAvailable; }
 static GameContext* _GlobalGameContext;
 
 const PlatformState* GetPlatform() { return _GlobalPlatformState; }
+PlatformState* GetPlatformMutable() { return _GlobalPlatformState; }
 GameContext* GetContext() {return _GlobalGameContext; }
 const InputState* GetInput() { return &_GlobalPlatformState->input; }
 
@@ -94,6 +95,9 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
     case GameInvoke::Update: {
         GameUpdate();
     } break;
+    case GameInvoke::Sim: {
+        GameSim();
+    } break;
     case GameInvoke::Render: {
         if (KeyPressed(Key::F1)) {
             Global_ShowDebugOverlay = !Global_ShowDebugOverlay;
@@ -139,6 +143,8 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
 #include "Array.cpp"
 #include "String.cpp"
 #include "Position.cpp"
+
+#include "Intrinsics.cpp"
 
 #include "../ext/imgui-1.78/imconfig.h"
 #include "../ext/imgui-1.78/imgui.cpp"

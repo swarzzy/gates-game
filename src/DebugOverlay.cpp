@@ -3,7 +3,6 @@
 
 #define CHECK_IMGUI() if (!ImGuiAvailable()) return
 
-#if false
 void DrawDebugPerformanceCounters() {
     CHECK_IMGUI();
     const float DISTANCE = 10.0f;
@@ -17,12 +16,11 @@ void DrawDebugPerformanceCounters() {
     if (ImGui::Begin("Overlay", &open, (corner != -1 ? ImGuiWindowFlags_NoMove : 0) | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
         char fpsBuffer[128];
         auto platform = GetPlatform();
-        sprintf_s(fpsBuffer, 128, "FPS: %11d\nUPS: %11d\ndT(abs):  %.4f\ndT(game): %.4f", platform->fps, platform->ups, platform->absDeltaTime, platform->gameDeltaTime);
+        sprintf_s(fpsBuffer, 128, "fps: %11d\nups: %11d\nsim/s: %11d", platform->framesPerSecond, platform->updatesPerSecond, platform->simStepsPerSecond);
         ImGui::Text("%s", fpsBuffer);
     }
     ImGui::End();
 }
-#endif
 
 static const auto DebugOverlayFlags = 0;//ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
 //ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration
@@ -142,6 +140,19 @@ void DebugOverlayPushSlider(const char* title, i32* var, i32 min, i32 max) {
         if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
             ImGui::Separator();
             ImGui::SliderInt(title, var, min, max);
+        }
+        ImGui::End();
+    }
+}
+
+void DebugOverlayPushSlider(const char* title, u32* var, u32 min, u32 max) {
+    CHECK_IMGUI();
+    if (Global_ShowDebugOverlay) {
+        if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
+            ImGui::Separator();
+            i32 v = (i32)*var;
+                ImGui::SliderInt(title, &v, (i32)min, (i32)max);
+            *var = v;
         }
         ImGui::End();
     }

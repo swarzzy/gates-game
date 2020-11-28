@@ -21,7 +21,7 @@
 
 enum struct GameInvoke : u32
 {
-    Init, Reload, Update, Render
+    Init, Reload, Update, Render, Sim
 };
 
 #if defined(PLATFORM_WINDOWS)
@@ -326,8 +326,18 @@ typedef void(ImGuiFreeFn)(void* ptr, void* data);
 typedef void* STBAllocFn(usize size, void* data);
 typedef void* STBFreeFn(void* ptr, void* data);
 
+// TODO: Half
+enum struct VSyncMode {
+    Disabled = 0, Full, Adaptive
+};
+
 struct PlatformState
 {
+    // Mutable variabled
+    u32 targetSimStepsPerSecond;
+    VSyncMode vsync;
+    u32 targetFramerate;
+    // Immutable
     PlatformCalls functions;
     RendererAPI rendererAPI;
     ResourceLoaderAPI resourceLoaderAPI;
@@ -340,12 +350,14 @@ struct PlatformState
     PlatformHeap* stbHeap;
     InputState input;
     u64 tickCount;
-    i32 fps;
-    i32 ups;
+    i32 framesPerSecond;
+    i32 updatesPerSecond;
+    i32 simStepsPerSecond;
     f32 deltaTime;
     u32 windowWidth;
     u32 windowHeight;
     f32 pixelsPerCentimeter;
+    VSyncMode vsyncCapabilitiesLevel;
 };
 
 inline const char* ToString(Key keycode) {

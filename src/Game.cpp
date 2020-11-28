@@ -54,16 +54,21 @@ void GameInit() {
 
     Wire* wire = TryWirePins(desk, GetInput(led, 0), GetOutput(source, 0));
     assert(wire);
+
+    auto platform = GetPlatformMutable();
+    //platform->targetFramerate = 60;
+    platform->vsync = VSyncMode::Full;
 }
 
 void GameReload() {
 }
 
+i32 updateSleepMs = 0;
+i32 simSleepMs = 0;
+i32 renderSleepMs = 0;
+
 void GameUpdate() {
-
-}
-
-void GameRender() {
+    ThreadSleep(updateSleepMs);
     auto context = GetContext();
     auto input = GetInput();
 
@@ -79,7 +84,7 @@ void GameRender() {
     v2 mousePBeforeScale = Hadamard(V2(input->mouseX, input->mouseY), deskCanvas->sizeCm);
     deskCanvas->scale = Max(0.1f, deskCanvas->scale + input->scrollFrameOffset *  (scaleSpeed * deskCanvas->scale));
 
-    BeginCanvas(deskCanvas);
+    UpdateCanvas(deskCanvas);
 
     v2 mousePosition = Hadamard(V2(input->mouseX, input->mouseY), deskCanvas->sizeCm);
 
@@ -116,26 +121,51 @@ void GameRender() {
         ToolManagerLeftMouseUp(toolManager);
     }
 
-    DEBUG_OVERLAY_TRACE(toolManager->dragStarted);
-    DEBUG_OVERLAY_TRACE(toolManager->dragAttempt);
-
     ToolManagerUpdate(toolManager);
-
-    DEBUG_OVERLAY_TRACE(deskCanvas->sizeCm.x);
-    DEBUG_OVERLAY_TRACE(deskCanvas->sizeCm.y);
-    DEBUG_OVERLAY_TRACE(deskCanvas->sizePx.x);
-    DEBUG_OVERLAY_TRACE(deskCanvas->sizePx.y);
-    DEBUG_OVERLAY_TRACE(input->mouseFrameOffsetX);
-    DEBUG_OVERLAY_TRACE(input->mouseFrameOffsetY);
-    DEBUG_OVERLAY_TRACE(input->scrollFrameOffset);
 
     if (MouseButtonDown(MouseButton::Middle)) {
         v2 offset = Hadamard(V2(input->mouseFrameOffsetX, input->mouseFrameOffsetY), deskCanvas->sizeCm);
         desk->origin = desk->origin.Offset(-offset);
-        //context->deskPosition += Hadamard(V2(input->mouseFrameOffsetX, input->mouseFrameOffsetY), deskCanvas->sizeCm);
     }
 
-    //DebugDrawDeskCell(desk, deskCanvas, toolManager->mouseDeskPos, V4(1.0f, 0.0f, 0.0f, 1.0f));
+    if(KeyPressed(Key::Tilde)) {
+        context->consoleEnabled = !context->consoleEnabled;
+    }
+}
+
+void GameSim() {
+    ThreadSleep(simSleepMs);
+    auto context = GetContext();
+    auto partInfo = &context->partInfo;
+    auto desk = &context->desk;
+
+    PropagateSignals(desk);
+
+    ListForEach(&desk->parts, part) {
+        PartProcessSignals(partInfo, part);
+    } ListEndEach(part);
+}
+
+void GameRender() {
+    ThreadSleep(renderSleepMs);
+    DrawDebugPerformanceCounters();
+
+    auto platform = GetPlatformMutable();
+
+    DEBUG_OVERLAY_SLIDER(updateSleepMs, 0, 100);
+    DEBUG_OVERLAY_SLIDER(simSleepMs, 0, 100);
+    DEBUG_OVERLAY_SLIDER(renderSleepMs, 0, 100);
+    DEBUG_OVERLAY_SLIDER(platform->targetSimStepsPerSecond, 1, 10000);
+
+    auto context = GetContext();
+    auto input = GetInput();
+
+    auto deskCanvas = &context->deskCanvas;
+    auto desk = &context->desk;
+    auto partInfo = &context->partInfo;
+    auto toolManager = &context->toolManager;
+
+    BeginCanvas(deskCanvas);
 
     DeskPosition begin = desk->origin;
     DeskPosition end = desk->origin.Offset(deskCanvas->sizeCm);
@@ -163,19 +193,7 @@ void GameRender() {
         horzLines++;
     }
 
-    DEBUG_OVERLAY_TRACE(vertLines);
-    DEBUG_OVERLAY_TRACE(horzLines);
-
     DrawListEndBatch(&deskCanvas->drawList);
-
-    DEBUG_OVERLAY_TRACE(desk->origin.cell.x);
-    DEBUG_OVERLAY_TRACE(desk->origin.cell.y);
-
-    PropagateSignals(desk);
-
-    ListForEach(&desk->parts, part) {
-        PartProcessSignals(partInfo, part);
-    } ListEndEach(part);
 
     switch (context->drawMode) {
     case DrawMode::Normal: { DrawDesk(desk, deskCanvas); } break;
@@ -183,70 +201,9 @@ void GameRender() {
     invalid_default();
     }
 
-    // Wire thickness
-    // TODO: Factor this out
-    f32 thickness = 0.1f;
-#if false
-    if (MouseButtonPressed(MouseButton::Left)) {
-        // TODO: Optimize this. Narrow down traversal subset. We cound for instance
-        // compute line bounding box and check only inside it.
-        Wire* hitWire = nullptr;
-        WireNode* hitNode = nullptr;
-        ListForEach(&desk->wires, wire) {
-            if (wire->nodes.Count() == 0) {
-            } else {
-                assert(wire->nodes.Count() >= 2);
-                for (u32 i = 1; i < wire->nodes.Count(); i++) {
-                    WireNode* prev = wire->nodes.Data() + (i - 1);
-                    WireNode* curr = wire->nodes.Data() + i;
-
-                    v2 begin = prev->p.RelativeTo(desk->origin);
-                    v2 end = curr->p.RelativeTo(desk->origin);
-
-                    if (CheckWireSegmentHit(toolManager->mouseCanvasPos, begin, end, thickness)) {
-                        log_print("Intersecting wire at tick %d!\n", (int)GetPlatform()->tickCount);
-                        hitWire = wire;
-                        hitNode = prev;
-                        break;
-                    }
-                }
-            }
-        } ListEndEach;
-
-        if (hitWire) {
-            assert(hitNode);
-            u32 index = hitWire->nodes.IndexFromPtr(hitNode);
-            // TODO: toolManager->mouseDeskPos
-            DeskPosition p = DeskPosition(DeskPosition(desk->origin.cell, toolManager->mouseCanvasPos).cell);
-
-            if (TryRegisterWireNodePlacement(desk, hitWire, p.cell)) {
-                WireNode* newNode = hitWire->nodes.Insert(index + 1);
-                newNode->p = p;
-            }
-        }
-    }
-
-    if (MouseButtonPressed(MouseButton::Right)) {
-        DeskCell* cell = GetDeskCell(desk, toolManager->mouseDeskPos.cell);
-        if (cell && cell->value == CellValue::WireNode) {
-            Wire* wire = cell->wire;
-            iv2 p = toolManager->mouseDeskPos.cell;
-            WireNode* node = nullptr;
-            ForEach(&wire->nodes, it) {
-                if (it->p.cell == p) {
-                    node = it;
-                    break;
-                }
-            } EndEach;
-
-            if (node) {
-                UnregisterWireNodePlacement(desk, wire, p);
-                wire->nodes.Erase(node);
-            }
-        }
-    }
-#endif
     ToolManagerRender(toolManager);
+
+    f32 thickness = 0.1f;
 
     // TODO: Culling
     DrawListBeginBatch(&deskCanvas->drawList, TextureMode::Color);
@@ -273,11 +230,14 @@ void GameRender() {
     } ListEndEach(wire);
 
     DrawListEndBatch(&deskCanvas->drawList);
-    //const char16* string = u"&";
-    //v3 textP = V3(DeskPositionRelative(desk->origin, MakeDeskPosition(IV2(5, 5))), 0.0f);
-    //DrawText(&deskCanvas->drawList, &context->sdfFont, string, textP, V4(0.0f, 0.0f, 0.0f, 1.0f), V2(deskCanvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Center, deskCanvas->scale);
 
     EndCanvas(deskCanvas);
+
+    if (context->consoleEnabled) {
+        DrawConsole(&context->console);
+    }
+}
+
 #if 0
     const char16* string = u"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.";
 
@@ -326,11 +286,3 @@ void GameRender() {
     //Renderer.RenderDrawList(list);
     //DrawListClear(list);
 #endif
-    if(KeyPressed(Key::Tilde)) {
-        context->consoleEnabled = !context->consoleEnabled;
-    }
-
-    if (context->consoleEnabled) {
-        DrawConsole(&context->console);
-    }
-}

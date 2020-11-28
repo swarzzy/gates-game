@@ -14,6 +14,7 @@ struct Canvas {
 };
 
 Canvas CreateCanvas(Allocator* drawListAllocator);
+void UpdateCanvas(Canvas* canvas);
 void BeginCanvas(Canvas* canvas);
 void EndCanvas(Canvas* canvas);
 v2 CanvasProjectScreenPos(Canvas* canvas, v2 normalizedScreenPos);

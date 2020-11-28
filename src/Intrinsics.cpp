@@ -1,6 +1,7 @@
 #include "Intrinsics.h"
 
 #if defined(PLATFORM_WINDOWS)
+#include <windows.h>
 
 u32 AtomicCompareExchange(u32 volatile* dest, u32 comp, u32 newValue) {
     return (u32)_InterlockedCompareExchange((LONG volatile*)dest, (LONG)newValue, (LONG)comp);
@@ -30,6 +31,10 @@ u64 GetTimeStamp() {
     LARGE_INTEGER count;
     auto result = QueryPerformanceCounter(&count);
     return count.QuadPart;
+}
+
+void ThreadSleep(u32 ms) {
+    Sleep((DWORD)ms);
 }
 
 static u64 _TicksPerSecond = 0;

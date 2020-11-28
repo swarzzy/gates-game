@@ -271,12 +271,70 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         panic("[Platform] Failed to load game library");
     }
 
+    context->state.targetSimStepsPerSecond = 100;
+
+    context->state.vsync = VSyncMode::Disabled;
+    VSyncMode vsyncMode = VSyncMode::Disabled;
+    SDLSetVsync(VSyncMode::Disabled);
+
     // Init the game
     context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Init, &GlobalGameData);
 
+    f64 currentTime = Win32GetTimeStamp();
+    f64 accumulator = 0.0;
+    f64 secondTimer = 0.0;
+    u32 simStepsCount = 0;
+
     while (context->sdl.running) {
-        auto frameStartTime = Win32GetTimeStamp();
+        f64 newTime = Win32GetTimeStamp();
+        f64 beginFrameTime = Win32GetTimeStamp();
+        f64 timePerSimStep = 1.0 / (context->state.targetSimStepsPerSecond == 0 ? 1 : context->state.targetSimStepsPerSecond);
+        f64 frameTime = newTime - currentTime;
+        accumulator += frameTime;
+        currentTime = newTime;
+
+        secondTimer += frameTime;
+        if (secondTimer > 1.0) {
+            context->state.simStepsPerSecond = simStepsCount;
+            simStepsCount = 0;
+            secondTimer = 0.0;
+        }
+
         context->state.tickCount++;
+
+        if (context->state.vsync != vsyncMode) {
+            vsyncMode = context->state.vsync;
+            SDLSetVsync(vsyncMode);
+        }
+
+        SDLPollEvents(&context->sdl, &context->state);
+        ImGuiNewFrameForGL3(context->sdl.window, context->state.windowWidth, context->state.windowHeight);
+
+        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Update, &GlobalGameData);
+
+
+        f64 stepTime = accumulator / timePerSimStep;
+        u32 simSteps = (u32)(stepTime);
+        accumulator -= simSteps * timePerSimStep;
+
+        f64 simBeginTime = Win32GetTimeStamp();
+
+        for (u32 i = 0; i < simSteps; i++) {
+            context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Sim, &GlobalGameData);
+            simStepsCount++;
+
+            // Abort sim if it takes longer than 100ms
+            // TODO: Maybe it is a bad idea to do zilliard of syscalls per frame to get performance counter
+            // maybe _rdtsc() can do the trick?
+            f64 simCurrTime = Win32GetTimeStamp();
+            if ((simCurrTime - simBeginTime) > 0.1f) {
+                break;
+            }
+        }
+
+        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Render, &GlobalGameData);
+
+        ImGuiEndFrameForGL3();
 
         // Reload game lib if it was updated
         bool codeReloaded = UpdateGameCode(&context->gameLib);
@@ -285,21 +343,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
             context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Reload, &GlobalGameData);
         }
 
-        // TODO(swarzzy): For now we do ONE update per frame with variable delta time.
-        // This is not a good solution. We probably need to do updates with fixed timestep
-        // with higher frequency (for example 120Hz)
-
-        // nockeckin process imgui events
-        SDLPollEvents(&context->sdl, &context->state);
-
-        ImGuiNewFrameForGL3(context->sdl.window, context->state.windowWidth, context->state.windowHeight);
-
         //bool show_demo_window = true;
         //ImGui::ShowDemoWindow(&show_demo_window);
-
-        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Update, &GlobalGameData);
-
-        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Render, &GlobalGameData);
 
         for (u32 keyIndex = 0; keyIndex < array_count(context->state.input.keys); keyIndex ++) {
             context->state.input.keys[keyIndex].wasPressed = context->state.input.keys[keyIndex].pressedNow;
@@ -313,17 +358,25 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         context->state.input.mouseFrameOffsetX = 0;
         context->state.input.mouseFrameOffsetY = 0;
 
-        ImGuiEndFrameForGL3();
-
         SDLSwapBuffers(&context->sdl);
 
-        auto frameEndTime = Win32GetTimeStamp();
-        auto frameTime = frameEndTime - frameStartTime;
+
+        if (granularityWasSet && vsyncMode == VSyncMode::Disabled && (context->state.targetFramerate > 0)) {
+            f64 deltaTime = Win32GetTimeStamp() - beginFrameTime;
+            f64 tragetDeltaTime = 1.0 / context->state.targetFramerate;
+            while (deltaTime < tragetDeltaTime) {
+                DWORD timeToWait = (DWORD)((tragetDeltaTime - deltaTime) * 1000);
+                if (timeToWait > 0) {
+                    Sleep(timeToWait);
+                }
+                deltaTime = Win32GetTimeStamp() - beginFrameTime;
+            }
+        }
 
         // If framerate lower than 15 fps just clamping delta time
-        context->state.deltaTime = (f32)Clamp(1.0 / frameTime, 0.0, 0.066);
-        context->state.fps = (i32)(1.0f / context->state.deltaTime);
-        context->state.ups = context->state.fps;
+        context->state.deltaTime = (f32)Clamp(frameTime, 0.0, 0.066);
+        context->state.framesPerSecond = (i32)(1.0f / frameTime);
+        context->state.updatesPerSecond = context->state.framesPerSecond;
     }
 
     // TODO(swarzzy): Is that necessary?
@@ -338,6 +391,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 #include "Allocation.cpp"
 #include "ResourceLoader.cpp"
 #include "ImGui.cpp"
+
+#include "../Array.cpp"
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STBTT_STATIC

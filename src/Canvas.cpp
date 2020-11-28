@@ -8,7 +8,7 @@ Canvas CreateCanvas(Allocator* drawListAllocator) {
     return canvas;
 }
 
-void BeginCanvas(Canvas* canvas) {
+void UpdateCanvas(Canvas* canvas) {
     auto platform = GetPlatform();
 
     f32 wWindow = (f32)platform->windowWidth;
@@ -19,7 +19,9 @@ void BeginCanvas(Canvas* canvas) {
 
     canvas->sizePx = V2(wWindow, hWindow);
     canvas->sizeCm = canvas->sizePx * canvas->cmPerPixel;
+}
 
+void BeginCanvas(Canvas* canvas) {
     auto proj = OrthoGLRH(0.0f, canvas->sizeCm.x, 0.0f, canvas->sizeCm.y, -1.0f, 1.0f);
     Renderer.SetCamera(&proj);
 }

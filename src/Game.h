@@ -35,6 +35,7 @@ struct GameContext {
 void GameInit();
 void GameReload();
 void GameUpdate();
+void GameSim();
 void GameRender();
 
 // Getters for global variables

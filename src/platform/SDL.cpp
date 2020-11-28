@@ -193,7 +193,18 @@ void SDLPollEvents(SDLContext* context, PlatformState* platform) {
     }
 }
 
-void SDLInit(SDLContext* context, const PlatformState* platform, i32 glMajorVersion, i32 glMinorVersion) {
+void SDLSetVsync(VSyncMode mode) {
+    int value = 0;
+    switch (mode) {
+    case VSyncMode::Full: { value = 1;} break;
+    case VSyncMode::Adaptive: { value = -1;} break;
+    default: {} break;
+    }
+
+    SDL_GL_SetSwapInterval(value);
+}
+
+void SDLInit(SDLContext* context, PlatformState* platform, i32 glMajorVersion, i32 glMinorVersion) {
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS) != 0) {
         panic("[SDL] Initialization failed: %s", SDL_GetError());
@@ -232,9 +243,16 @@ void SDLInit(SDLContext* context, const PlatformState* platform, i32 glMajorVers
         panic("[SDL] Failed to initialize OpenGL context-> %s", SDL_GetError());
     }
 
-    if (SDL_GL_SetSwapInterval(1) != 0) {
-        log_print("[SDL] Warning! V-sync is not supported\n");
+    bool vsyncSupported = SDL_GL_SetSwapInterval(1) == 0;
+    bool adaptiveVsyncSupported = vsyncSupported && SDL_GL_SetSwapInterval(-1) == 0;
+
+    if (adaptiveVsyncSupported) {
+        platform->vsyncCapabilitiesLevel = VSyncMode::Adaptive;
+    } else {
+        platform->vsyncCapabilitiesLevel = VSyncMode::Full;
     }
+
+    SDL_GL_SetSwapInterval(0);
 }
 
 void SDLSwapBuffers(SDLContext* context) {

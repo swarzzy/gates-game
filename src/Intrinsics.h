@@ -11,7 +11,7 @@ u32 AtomicDecrement(u32 volatile* dest);
 // Just a dummy placeholder on x86-64 windows
 u32 AtomicLoad(u32 volatile* value);
 
-u32 ThreadSleep(u32 ms);
+void ThreadSleep(u32 ms);
 
 u64 GetTimeStamp();
 u64 GetTicksPerSecond();
