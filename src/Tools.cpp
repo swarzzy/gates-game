@@ -17,11 +17,11 @@ void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initial
     initializer(desk, &manager->prefabPart);
 }
 
-void ToolPartPrimaryAction(ToolManager* manager, Desk* desk) {
+void ToolPartLeftMouseDown(ToolManager* manager, Desk* desk) {
     TryCreatePart(desk, desk->partInfo, manager->prefabPartPos.cell, manager->prefabPart.type);
 }
 
-void ToolPartSecondaryAction(ToolManager* manager, Desk* desk) {
+void ToolPartRightMouseDown(ToolManager* manager, Desk* desk) {
     ToolManagerDisableAll(manager);
 }
 
@@ -88,11 +88,11 @@ void ToolWirePinClicked(ToolManager* manager, Desk* desk, Pin* pin) {
     }
 }
 
-void ToolWireSecondaryAction(ToolManager* manager, Desk* desk) {
+void ToolWireRightMouseDown(ToolManager* manager, Desk* desk) {
     ToolManagerDisableAll(manager);
 }
 
-void ToolWirePrimaryAction(ToolManager* manager, Desk* desk) {
+void ToolWireLeftMouseDown(ToolManager* manager, Desk* desk) {
     DeskEntity entity = GetAnyAt(desk, manager->mouseDeskPos);
     if (entity.type == DeskEntityType::Pin) {
         assert(entity.pin);
@@ -153,6 +153,25 @@ void ToolWireUpdate(ToolManager* manager, Desk* desk) {
     }
 }
 
+void ToolWireRender(ToolManager* manager, Desk* desk) {
+    DrawListBeginBatch(&desk->canvas->drawList, TextureMode::Color);
+    for (u32 i = 1; i < manager->pendingWireNodes.Count(); i++) {
+        DeskPosition* prev = manager->pendingWireNodes.Data() + (i - 1);
+        DeskPosition* curr = manager->pendingWireNodes.Data() + i;
+
+        v2 begin = prev->RelativeTo(desk->origin);
+        v2 end = curr->RelativeTo(desk->origin);
+
+        DrawSimpleLineBatch(&desk->canvas->drawList, begin, end, 0.0f, 0.1f, V4(0.3f, 0.3f, 0.3f, 1.0f));
+    }
+
+    v2 begin = manager->pendingWireNodes.Last()->RelativeTo(desk->origin);
+    v2 end = DeskPosition(manager->lastWireNodePos.cell).RelativeTo(desk->origin);
+
+    DrawSimpleLineBatch(&desk->canvas->drawList, begin, end, 0.0f, 0.1f, V4(0.3f, 0.3f, 0.3f, 1.0f));
+    DrawListEndBatch(&desk->canvas->drawList);
+}
+
 void ToolPickUnselectSelected(ToolManager* manager) {
     manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
     manager->selectedParts.Clear();
@@ -166,7 +185,7 @@ void ToolPickResetState(ToolManager* manager) {
     manager->rectSelectAttempt = false;
 }
 
-void ToolPickSelectPart(ToolManager* manager, Part* part, bool toggle = false) {
+void ToolPickSelectPart(ToolManager* manager, Part* part, bool toggle) {
     Part** selected = manager->selectedParts.FindFirst([&part](Part** it) { return (*it) == part; });
     if (!selected) {
         manager->selectedParts.PushBack(part);
@@ -180,30 +199,7 @@ void ToolPickSelectPart(ToolManager* manager, Part* part, bool toggle = false) {
     }
 }
 
-void ToolPickLeftMouseDown(ToolManager* manager, Desk* desk) {
-    bool selectionMode = KeyDown(Key::LeftShift);
-
-    if (manager->currentTool != Tool::Pick) {
-        manager->dragOffset = {};
-        manager->dragAttempt = false;
-        manager->dragStarted = false;
-        manager->rectSelectAttempt = false;
-    }
-
-    DeskEntity entity = GetAnyAt(desk, manager->mouseDeskPos);
-    Part* part = entity.type == DeskEntityType::Part ? entity.part : nullptr;
-
-    manager->currentTool = Tool::Pick;
-    manager->pickPressedMousePos = manager->mouseCanvasPos;
-
-    if (part) {
-        manager->dragAttempt = true;
-    } else {
-        manager->rectSelectAttempt = true;
-    }
-}
-
-void OffsetWire(Wire* wire, iv2 offset) { // TODO: v2?
+void ToolPickOffsetWire(Wire* wire, iv2 offset) { // TODO: v2?
     ForEach(&wire->nodes, node) {
         *node = node->Offset(offset);
     } EndEach;
@@ -244,7 +240,7 @@ void ToolPickRebuildWires(ToolManager* manager, Desk* desk) {
     } EndEach;
 
     ForEach(&manager->fullRebuildWiresBuffer, wirePtr) {
-        OffsetWire(*wirePtr, manager->dragOffset);
+        ToolPickOffsetWire(*wirePtr, manager->dragOffset);
     } EndEach;
 
     ForEach(&manager->partialRebuildWiresBuffer, wirePtr) {
@@ -275,6 +271,29 @@ void ToolPickRebuildWires(ToolManager* manager, Desk* desk) {
 
         WireCleanupNodes(wire, &desk->wireNodeCleanerBuffer);
     } EndEach;
+}
+
+void ToolPickLeftMouseDown(ToolManager* manager, Desk* desk) {
+    bool selectionMode = KeyDown(Key::LeftShift);
+
+    if (manager->currentTool != Tool::Pick) {
+        manager->dragOffset = {};
+        manager->dragAttempt = false;
+        manager->dragStarted = false;
+        manager->rectSelectAttempt = false;
+    }
+
+    DeskEntity entity = GetAnyAt(desk, manager->mouseDeskPos);
+    Part* part = entity.type == DeskEntityType::Part ? entity.part : nullptr;
+
+    manager->currentTool = Tool::Pick;
+    manager->pickPressedMousePos = manager->mouseCanvasPos;
+
+    if (part) {
+        manager->dragAttempt = true;
+    } else {
+        manager->rectSelectAttempt = true;
+    }
 }
 
 void ToolPickLeftMouseUp(ToolManager* manager, Desk* desk) {
@@ -359,6 +378,10 @@ void ToolPickLeftMouseUp(ToolManager* manager, Desk* desk) {
     }
 }
 
+void ToolPickRightMouseDown(ToolManager* manager, Desk* desk) {
+    manager->currentTool = Tool::None;
+}
+
 void ToolPickUpdate(ToolManager* manager, Desk* desk) {
     if (!manager->dragStarted && !manager->rectSelectStarted) {
         auto input = GetInput();
@@ -428,10 +451,6 @@ void ToolPickRender(ToolManager* manager, Desk* desk) {
     }
 }
 
-void ToolPickSecondaryAction(ToolManager* manager, Desk* desk) {
-    manager->currentTool = Tool::None;
-}
-
 void ToolNoneLeftMouseDown(ToolManager* manager, Desk* desk) {
     DeskEntity entity = GetAnyAt(desk, manager->mouseDeskPos);
 
@@ -459,7 +478,7 @@ void ToolNoneLeftMouseDown(ToolManager* manager, Desk* desk) {
 void ToolNoneLeftMouseUp(ToolManager* manager, Desk* desk) {
 }
 
-void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk) {
+void ToolNoneRightMouseDown(ToolManager* manager, Desk* desk) {
     DeskEntity entity = GetAnyAt(desk, manager->mouseDeskPos);
     bool handled = false;
 
@@ -486,25 +505,6 @@ void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk) {
     }
 }
 
-void ToolWireRender(ToolManager* manager, Desk* desk) {
-    DrawListBeginBatch(&desk->canvas->drawList, TextureMode::Color);
-    for (u32 i = 1; i < manager->pendingWireNodes.Count(); i++) {
-        DeskPosition* prev = manager->pendingWireNodes.Data() + (i - 1);
-        DeskPosition* curr = manager->pendingWireNodes.Data() + i;
-
-        v2 begin = prev->RelativeTo(desk->origin);
-        v2 end = curr->RelativeTo(desk->origin);
-
-        DrawSimpleLineBatch(&desk->canvas->drawList, begin, end, 0.0f, 0.1f, V4(0.3f, 0.3f, 0.3f, 1.0f));
-    }
-
-    v2 begin = manager->pendingWireNodes.Last()->RelativeTo(desk->origin);
-    v2 end = DeskPosition(manager->lastWireNodePos.cell).RelativeTo(desk->origin);
-
-    DrawSimpleLineBatch(&desk->canvas->drawList, begin, end, 0.0f, 0.1f, V4(0.3f, 0.3f, 0.3f, 1.0f));
-    DrawListEndBatch(&desk->canvas->drawList);
-}
-
 void ToolManagerDisableAll(ToolManager* manager) {
     manager->currentTool = Tool::None;
 }
@@ -512,9 +512,9 @@ void ToolManagerDisableAll(ToolManager* manager) {
 void ToolManagerLeftMouseDown(ToolManager* manager) {
     auto desk = GetDesk();
     switch (manager->currentTool) {
-    case Tool::Part: { ToolPartPrimaryAction(manager, desk); } break;
+    case Tool::Part: { ToolPartLeftMouseDown(manager, desk); } break;
     case Tool::Pick: { ToolPickLeftMouseDown(manager, desk); } break;
-    case Tool::Wire: { ToolWirePrimaryAction(manager, desk); } break;
+    case Tool::Wire: { ToolWireLeftMouseDown(manager, desk); } break;
     case Tool::None: { ToolNoneLeftMouseDown(manager, desk); } break;
     default: {} break;
     }
@@ -529,13 +529,13 @@ void ToolManagerLeftMouseUp(ToolManager* manager) {
     }
 }
 
-void ToolManagerSecondaryAction(ToolManager* manager) {
+void ToolManagerRightMouseDown(ToolManager* manager) {
     auto desk = GetDesk();
     switch (manager->currentTool) {
-    case Tool::Part: { ToolPartSecondaryAction(manager, desk); } break;
-    case Tool::Pick: { ToolPickSecondaryAction(manager, desk); } break;
-    case Tool::Wire: { ToolWireSecondaryAction(manager, desk); } break;
-    case Tool::None: { ToolNoneSecondaryAction(manager, desk); } break;
+    case Tool::Part: { ToolPartRightMouseDown(manager, desk); } break;
+    case Tool::Pick: { ToolPickRightMouseDown(manager, desk); } break;
+    case Tool::Wire: { ToolWireRightMouseDown(manager, desk); } break;
+    case Tool::None: { ToolNoneRightMouseDown(manager, desk); } break;
     default: {} break;
     }
 }
@@ -553,7 +553,6 @@ void ToolManagerUpdate(ToolManager* manager) {
     case Tool::Part: { ToolPartUpdate(manager, desk); } break;
     case Tool::Wire: { ToolWireUpdate(manager, desk); } break;
     case Tool::Pick: { ToolPickUpdate(manager, desk); } break;
-  //case Tool::None: { ToolNoneUpdate(manager, desk); } break;
     default: {} break;
     }
 }

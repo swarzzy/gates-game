@@ -105,7 +105,7 @@ void GameRender() {
     }
 
     if (MouseButtonPressed(MouseButton::Right)) {
-        ToolManagerSecondaryAction(toolManager);
+        ToolManagerRightMouseDown(toolManager);
     }
 
     if (MouseButtonPressed(MouseButton::Left)) {

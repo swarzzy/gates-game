@@ -51,29 +51,35 @@ struct ToolManager {
 void ToolManagerInit(ToolManager* manager, Desk* desk);
 
 void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initializer);
-void ToolPartPrimaryAction(ToolManager* manager, Desk* desk);
+void ToolPartLeftMouseDown(ToolManager* manager, Desk* desk);
+void ToolPartRightMouseDown(ToolManager* manager, Desk* desk);
 void ToolPartUpdate(ToolManager* manager, Desk* desk);
 void ToolPartRender(ToolManager* manager, Desk* desk);
 
-void ToolNoneLeftMouseDown(ToolManager* manager, Desk* desk);
-void ToolNoneLeftMouseUp(ToolManager* manager, Desk* desk);
-void ToolNoneSecondaryAction(ToolManager* manager, Desk* desk);
-
+void ToolWirePinClicked(ToolManager* manager, Desk* desk, Pin* pin);
+void ToolWireRightMouseDown(ToolManager* manager, Desk* desk);
+void ToolWireLeftMouseDown(ToolManager* manager, Desk* desk);
 void ToolWireRender(ToolManager* manager, Desk* desk);
 void ToolWireUpdate(ToolManager* manager, Desk* desk);
-void ToolWirePrimaryAction(ToolManager* manager, Desk* desk);
 
-void ToolPickEnable(ToolManager* manager, Desk* desk);
-void ToolPickUpdate(ToolManager* manager, Desk* desk);
+void ToolPickUnselectSelected(ToolManager* manager);
+void ToolPickResetState(ToolManager* manager);
+void ToolPickSelectPart(ToolManager* manager, Part* part, bool toggle = false);
+void ToolPickOffsetWire(Wire* wire, iv2 offset);
+void ToolPickRebuildWires(ToolManager* manager, Desk* desk);
 void ToolPickLeftMouseDown(ToolManager* manager, Desk* desk);
 void ToolPickLeftMouseUp(ToolManager* manager, Desk* desk);
-void ToolPickSecondaryAction(ToolManager* manager, Desk* desk);
+void ToolPickRightMouseDown(ToolManager* manager, Desk* desk);
+void ToolPickUpdate(ToolManager* manager, Desk* desk);
 void ToolPickRender(ToolManager* manager, Desk* desk);
+
+void ToolNoneLeftMouseDown(ToolManager* manager, Desk* desk);
+void ToolNoneLeftMouseUp(ToolManager* manager, Desk* desk);
+void ToolNoneRightMouseDown(ToolManager* manager, Desk* desk);
 
 void ToolManagerDisableAll(ToolManager* manager);
 void ToolManagerLeftMouseDown(ToolManager* manager);
 void ToolManagerLeftMouseUp(ToolManager* manager);
-
-void ToolManagerSecondaryAction(ToolManager* manager);
+void ToolManagerRightMouseDown(ToolManager* manager);
 void ToolManagerUpdate(ToolManager* manager);
 void ToolManagerRender(ToolManager* manager);
