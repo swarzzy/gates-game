@@ -14,9 +14,8 @@ bool DeskCompare(void* a, void* b) {
     return result;
 }
 
-DeskTile* GetDeskTile(Desk* desk, iv2 tileP, bool create) {
+DeskTile* GetDeskTile(Desk* desk, iv2 p, bool create) {
     DeskTile* result = nullptr;
-    iv2 p = TileFromCell(tileP);
     DeskTile** bucket = HashMapGet(&desk->tileHashMap, &p);
     if (bucket) {
         assert(*bucket);
@@ -37,51 +36,30 @@ DeskTile* GetDeskTile(Desk* desk, iv2 tileP, bool create) {
     return result;
 }
 
-u32 CollapseSamePoints(ArrayRef<iv2> array) {
-    u32 newCount = 0;
-    ForEach(&array, it) {
-        iv2 point = *it;
-        bool alreadyAdded = false;
-        for (u32 i = 0; i < newCount; i++) {
-            if (TileFromCell(array[i]) == TileFromCell(point)) {
-                alreadyAdded = true;
-                break;
-            }
-        }
+IRect ComputeAffectedTileRegion(Part* part) {
+    auto boxRel = part->boundingBox;
+    iv2 deskMin = part->p.Offset(boxRel.min).cell;
+    iv2 deskMax = part->p.Offset(boxRel.max).cell;
 
-        if (!alreadyAdded) {
-            array[newCount] = point;
-            newCount++;
-        }
-    } EndEach;
+    iv2 min = TileFromCell(deskMin);
+    iv2 max = TileFromCell(deskMax);
 
-    return newCount;
-}
-
-Tuple<SArray<iv2, 4>, u32> ComputePartUniqueTilePoints(Part* part) {
-    auto pointsRel = part->boundingBox.GetPoints();
-
-    SArray<iv2, 4> points;
-    ForEach(&pointsRel, point) {
-        points[_index_point_] = part->p.Offset(*point).cell;
-    } EndEach;
-
-    u32 uniqueCount = CollapseSamePoints(points.AsRef());
-
-    return MakeTuple(points, uniqueCount);
+    return IRect(min, max);
 }
 
 void UnregisterPart(Desk* desk, Part* part) {
     assert(!part->placed);
 
-    auto[points, count] = ComputePartUniqueTilePoints(part);
+    auto region = ComputeAffectedTileRegion(part);
 
-    for (u32 i = 0; i < count; i++) {
-        DeskTile* tile = GetDeskTile(desk, points[i], true);
-        assert(tile);
-        Part** entry = tile->parts.FindFirst([&part](Part** it) { return (*it) == part; });
-        assert(entry);
-        tile->parts.EraseUnsorted(entry);
+    for (i32 y = region.min.y; y <= region.max.y; y++) {
+        for (i32 x = region.min.x; x <= region.max.x; x++) {
+            DeskTile* tile = GetDeskTile(desk, IV2(x, y), true);
+            assert(tile);
+            Part** entry = tile->parts.FindFirst([&part](Part** it) { return (*it) == part; });
+            assert(entry);
+            tile->parts.EraseUnsorted(entry);
+        }
     }
 
     part->placed = false;
@@ -90,13 +68,15 @@ void UnregisterPart(Desk* desk, Part* part) {
 void RegisterPart(Desk* desk, Part* part) {
     assert(!part->placed);
 
-    auto[points, count] = ComputePartUniqueTilePoints(part);
+    auto region = ComputeAffectedTileRegion(part);
 
-    for (u32 i = 0; i < count; i++) {
-        DeskTile* tile = GetDeskTile(desk, points[i], true);
-        assert(tile);
-        assert(!tile->parts.FindFirst([&part](Part** it) { return (*it) == part; }));
-        tile->parts.PushBack(part);
+    for (i32 y = region.min.y; y <= region.max.y; y++) {
+        for (i32 x = region.min.x; x <= region.max.x; x++) {
+            DeskTile* tile = GetDeskTile(desk, IV2(x, y), true);
+            assert(tile);
+            assert(!tile->parts.FindFirst([&part](Part** it) { return (*it) == part; }));
+            tile->parts.PushBack(part);
+        }
     }
 
     part->placed = false;
@@ -119,37 +99,57 @@ bool CheckCollisions(Desk* desk, Part* part, ArrayRef<Part*> ignoreParts) {
 bool CheckCollisions(Desk* desk, DeskPosition min, DeskPosition max, ArrayRef<Part*> ignoreParts) {
     bool collided = false;
 
-    SArray<iv2, 4> points;
-    points[0] = min.cell;
-    points[1] = IV2(max.cell.x, min.cell.y);
-    points[2] = IV2(max.cell.x, max.cell.y);
-    points[3] = max.cell;
-
-    u32 count = CollapseSamePoints(points.AsRef());
+    iv2 tileMin = TileFromCell(min.cell);
+    iv2 tileMax = TileFromCell(max.cell);
 
     Box2D testBox = Box2D(V2(0.0f), max.RelativeTo(min));
 
-    for (u32 i = 0; i < count; i++) {
-        DeskTile* tile = GetDeskTile(desk, points[i], true);
-        assert(tile);
-        ForEach(&tile->parts, it) {
-            Part* testPart = *it;
-            v2 offset = testPart->p.RelativeTo(min);
-            if (BoxesIntersect2D(testBox, testPart->boundingBox.Offset(offset))) {
-                if (!ignoreParts.FindFirst([&testPart](Part** it) { return  ((*it) == testPart); })) {
-                    collided = true;
-                    break;
+    for (i32 y = tileMin.y; y <= tileMax.y; y++) {
+        for (i32 x = tileMin.x; x <= tileMax.x; x++) {
+            DeskTile* tile = GetDeskTile(desk, IV2(x, y), true);
+            assert(tile);
+            ForEach(&tile->parts, it) {
+                Part* testPart = *it;
+                v2 offset = testPart->p.RelativeTo(min);
+                if (BoxesIntersect2D(testBox, testPart->boundingBox.Offset(offset))) {
+                    if (!ignoreParts.FindFirst([&testPart](Part** it) { return  ((*it) == testPart); })) {
+                        collided = true;
+                        break;
+                    }
                 }
-            }
-        } EndEach;
+            } EndEach;
+        }
     }
 
     return collided;
 }
 
+void GetCollisions(Desk* desk, DeskPosition min, DeskPosition max, DArray<Part*>* result, ArrayRef<Part*> ignoreParts) {
+    iv2 tileMin = TileFromCell(min.cell);
+    iv2 tileMax = TileFromCell(max.cell);
+
+    Box2D testBox = Box2D(V2(0.0f), max.RelativeTo(min));
+
+    for (i32 y = tileMin.y; y <= tileMax.y; y++) {
+        for (i32 x = tileMin.x; x <= tileMax.x; x++) {
+            DeskTile* tile = GetDeskTile(desk, IV2(x, y), true);
+            assert(tile);
+            ForEach(&tile->parts, it) {
+                Part* testPart = *it;
+                v2 offset = testPart->p.RelativeTo(min);
+                if (BoxesIntersect2D(testBox, testPart->boundingBox.Offset(offset))) {
+                    if (!ignoreParts.FindFirst([&testPart](Part** it) { return  ((*it) == testPart); })) {
+                        result->PushBack(testPart);
+                    }
+                }
+            } EndEach;
+        }
+    }
+}
+
 DeskEntity GetAnyAt(Desk* desk, DeskPosition p) {
     DeskEntity result = {};
-    DeskTile* tile = GetDeskTile(desk, p.cell, false);
+    DeskTile* tile = GetDeskTile(desk, TileFromCell(p.cell), false);
     if (tile) {
         ForEach(&tile->parts, it) {
             Part* part = *it;

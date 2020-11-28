@@ -7,6 +7,8 @@ void ToolManagerInit(ToolManager* manager, Desk* desk) {
     manager->fullRebuildWiresBuffer = Array<Wire*>(&desk->deskAllocator);
     manager->partialRebuildWiresBuffer = Array<Wire*>(&desk->deskAllocator);
     manager->partialRebuildWiresSelectedEndsBuffer = Array<u8>(&desk->deskAllocator);
+    manager->pickPartOverrideColorBlocked = V3(0.7f, 0.2f, 0.2f);
+    manager->pickPartOverrideColor = V3(0.2f, 0.2f, 0.2f);
 }
 
 void ToolPartEnable(ToolManager* manager, Desk* desk, PartInitializerFn* initializer) {
@@ -151,74 +153,53 @@ void ToolWireUpdate(ToolManager* manager, Desk* desk) {
     }
 }
 
-void ToolPickClearSelection(ToolManager* manager) {
+void ToolPickUnselectSelected(ToolManager* manager) {
+    manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
     manager->selectedParts.Clear();
     manager->selectedPartsBlockedStates.Clear();
+}
+
+void ToolPickResetState(ToolManager* manager) {
     manager->dragOffset = {};
-    manager->pickPartOverrideColorBlocked = V3(0.7f, 0.2f, 0.2f);
-    manager->pickPartOverrideColor = V3(0.2f, 0.2f, 0.2f);
     manager->dragAttempt = false;
-    manager->pickStarted = false;
-    manager->selectionMode = false;
+    manager->dragStarted = false;
+    manager->rectSelectAttempt = false;
+}
+
+void ToolPickSelectPart(ToolManager* manager, Part* part, bool toggle = false) {
+    Part** selected = manager->selectedParts.FindFirst([&part](Part** it) { return (*it) == part; });
+    if (!selected) {
+        manager->selectedParts.PushBack(part);
+        manager->selectedPartsBlockedStates.PushBack(false);
+        part->selected = true;
+    } else if (toggle) {
+        u32 index = manager->selectedParts.IndexFromPtr(selected);
+        manager->selectedParts[index]->selected = false;
+        manager->selectedParts.EraseUnsorted(index);
+        manager->selectedPartsBlockedStates.EraseUnsorted(index);
+    }
 }
 
 void ToolPickLeftMouseDown(ToolManager* manager, Desk* desk) {
-    Part* part = nullptr;
     bool selectionMode = KeyDown(Key::LeftShift);
 
-    DeskEntity entity = GetAnyAt(desk, manager->mouseDeskPos);
-
-    if (entity.type == DeskEntityType::Part) {
-        part = entity.part;
+    if (manager->currentTool != Tool::Pick) {
+        manager->dragOffset = {};
+        manager->dragAttempt = false;
+        manager->dragStarted = false;
+        manager->rectSelectAttempt = false;
     }
 
+    DeskEntity entity = GetAnyAt(desk, manager->mouseDeskPos);
+    Part* part = entity.type == DeskEntityType::Part ? entity.part : nullptr;
+
+    manager->currentTool = Tool::Pick;
+    manager->pickPressedMousePos = manager->mouseCanvasPos;
+
     if (part) {
-        if (manager->currentTool != Tool::Pick) {
-            ToolPickClearSelection(manager);
-        }
-
-        Part** selected = manager->selectedParts.FindFirst([&part](Part** it) { return (*it) == part; });
-
-        // Single-select so unselect all previous parts
-        if (!selected) {
-            if (!selectionMode) {
-                manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
-                ToolPickClearSelection(manager);
-            }
-        }
-
-        manager->currentTool = Tool::Pick;
-        // Start drag attempt
-        manager->pickPressedMousePos = manager->mouseCanvasPos;
         manager->dragAttempt = true;
-        manager->selectionMode = selectionMode;
-
-        if (!selected) {
-            // Select if not already
-            assert(!manager->pickStarted);
-            manager->selectedParts.PushBack(part);
-            manager->selectedPartsBlockedStates.PushBack(false);
-            part->selected = true;
-        } else {
-            // Deselect if already selected
-            if (selectionMode) {
-                assert(manager->selectedParts.Count() == manager->selectedPartsBlockedStates.Count());
-                Part* partToDeselect = *selected;
-                u32 index = manager->selectedParts.IndexFromPtr(selected);
-                partToDeselect->selected = false;
-                manager->selectedParts.EraseUnsorted(selected);
-                manager->selectedPartsBlockedStates.EraseUnsorted(manager->selectedPartsBlockedStates.At(index));
-
-
-                if (manager->selectedParts.Count() == 0) {
-                    manager->currentTool = Tool::None;
-                }
-            }
-        }
-    } else if (!selectionMode) {
-        manager->currentTool = Tool::None;
-        manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
-        ToolManagerLeftMouseDown(manager);
+    } else {
+        manager->rectSelectAttempt = true;
     }
 }
 
@@ -298,24 +279,43 @@ void ToolPickRebuildWires(ToolManager* manager, Desk* desk) {
 
 void ToolPickLeftMouseUp(ToolManager* manager, Desk* desk) {
     manager->dragAttempt = false;
+    manager->rectSelectAttempt = false;
 
-    if (!manager->pickStarted && manager->selectedParts.Count() == 1 && !manager->selectionMode) {
-        manager->currentTool = Tool::None;
+    bool selectionMode = KeyDown(Key::LeftShift);
 
-        assert(manager->selectedParts.Count() == 1);
-        // TODO: Here will be more complicated stuff
-        Part* part = *manager->selectedParts.Last();
-        switch (part->type) {
-        case PartType::Source: {
-            part->active = !part->active;
-        } break;
-        default: {} break;
+    // Apply rectangle selection
+    if (manager->rectSelectStarted) {
+        manager->rectSelectStarted = false;
+
+        v2 cnvBegin = manager->pickPressedMousePos;
+        v2 cnvEnd = manager->mouseCanvasPos;
+
+        auto rect = MinMax(cnvBegin, cnvEnd);
+
+        DeskPosition min = desk->origin.Offset(rect.min);
+        DeskPosition max = desk->origin.Offset(rect.max);
+
+        if (!selectionMode) {
+            ToolPickUnselectSelected(manager);
         }
 
-        manager->selectedParts.Each([](Part** it) { (*it)->selected = false; });
+        u32 prevIndex = manager->selectedParts.Count();
+        GetCollisions(desk, min, max, &manager->selectedParts);
+        manager->selectedParts.KillDuplicatesUnsorted();
+
+        for (u32 i = prevIndex; i < manager->selectedParts.Count(); i++) {
+            manager->selectedPartsBlockedStates.PushBack(false);
+            manager->selectedParts[i]->selected = true;
+        }
+
+        assert_paranoid(manager->selectedParts.Count() == manager->selectedPartsBlockedStates.Count());
+
+        return;
     }
 
-    if (manager->pickStarted) {
+    if (manager->dragStarted) {
+        manager->dragStarted = false;
+
         u32 blockedCount = manager->selectedPartsBlockedStates.CountIf([](b32* it) { return *it; });
         if (blockedCount == 0) {
             ForEach(&manager->selectedParts, partPtr) {
@@ -323,29 +323,72 @@ void ToolPickLeftMouseUp(ToolManager* manager, Desk* desk) {
                 iv2 p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset).cell;
                 ChangePartLocation(desk, part, DeskPosition(p));
             } EndEach;
-
             // TODO: Do this asyncronously
             ToolPickRebuildWires(manager, desk);
         }
 
-        manager->pickStarted = false;
+        manager->dragOffset = {};
+        return;
+    }
+
+    DeskEntity entity = GetAnyAt(desk, desk->origin.Offset(manager->pickPressedMousePos));
+    Part* part = entity.type == DeskEntityType::Part ? entity.part : nullptr;
+
+    if (!part && !selectionMode) {
+        ToolPickUnselectSelected(manager);
+        manager->currentTool = Tool::None;
+        return;
+    }
+
+    if (!selectionMode) {
+        ToolPickUnselectSelected(manager);
+    }
+
+    if (part) {
+        ToolPickSelectPart(manager, part, true);
+    }
+
+    if (!selectionMode) {
+        // TODO: Here will be more complicated stuff
+        switch (part->type) {
+        case PartType::Source: {
+            part->active = !part->active;
+        } break;
+        default: {} break;
+        }
     }
 }
 
 void ToolPickUpdate(ToolManager* manager, Desk* desk) {
-    if (!manager->pickStarted) {
-        assert_paranoid(manager->selectedParts.Count() > 0);
+    if (!manager->dragStarted && !manager->rectSelectStarted) {
+        auto input = GetInput();
+        v2 offset = manager->mouseCanvasPos - manager->pickPressedMousePos;
+        f32 delta = Length(offset);
 
         if (manager->dragAttempt) {
-            auto input = GetInput();
-            v2 offset = manager->mouseCanvasPos - manager->pickPressedMousePos;
-            f32 delta = Length(offset);
+            assert(!manager->rectSelectAttempt);
             if (delta > ToolManager::PickMinThreshold) {
-                manager->pickStarted = true;
+                manager->dragStarted = true;
                 manager->dragOffset = DeskPosition(offset).cell;
+
+                DeskEntity entity = GetAnyAt(desk, desk->origin.Offset(manager->pickPressedMousePos));
+                Part* part = entity.type == DeskEntityType::Part ? entity.part : nullptr;
+                if (part) {
+                    bool selectionMode = KeyDown(Key::LeftShift);
+                    if (!part->selected) {
+                        if (!selectionMode) {
+                            ToolPickUnselectSelected(manager);
+                        }
+                        ToolPickSelectPart(manager, part);
+                    }
+                }
+            }
+        } else if (manager->rectSelectAttempt) {
+            if (delta > ToolManager::RectSelectMinThreshold) {
+                manager->rectSelectStarted = true;
             }
         }
-    } else {
+    } else if (manager->dragStarted) {
         v2 offset = manager->mouseCanvasPos - manager->pickPressedMousePos;
 
         DeskPosition prevDesk = DeskPosition(manager->dragOffset);
@@ -366,7 +409,7 @@ void ToolPickUpdate(ToolManager* manager, Desk* desk) {
 }
 
 void ToolPickRender(ToolManager* manager, Desk* desk) {
-    if (manager->pickStarted) {
+    if (manager->dragStarted) {
         ForEach(&manager->selectedParts, partPtr) {
             Part* part = *partPtr;
             b32 blocked = manager->selectedPartsBlockedStates[_index_partPtr_];
@@ -374,6 +417,14 @@ void ToolPickRender(ToolManager* manager, Desk* desk) {
             DeskPosition p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset);
             DrawPart(desk, desk->canvas, part, p, overrideColor, 0.7f, 0.5f);
         } EndEach;
+    } else if (manager->rectSelectStarted) {
+        DrawListBeginBatch(&desk->canvas->drawList, TextureMode::Color, 0);
+        v2 cnvBegin = manager->pickPressedMousePos;
+        v2 cnvEnd = manager->mouseCanvasPos;
+        auto rect = MinMax(cnvBegin, cnvEnd);
+        Box2D box = Box2D(rect.min, rect.max);
+        DrawBoxBatch(&desk->canvas->drawList, box, 0.0f, 0.1f, V4(0.2f, 0.2f, 0.2f, 1.0f));
+        DrawListEndBatch(&desk->canvas->drawList);
     }
 }
 
@@ -382,34 +433,27 @@ void ToolPickSecondaryAction(ToolManager* manager, Desk* desk) {
 }
 
 void ToolNoneLeftMouseDown(ToolManager* manager, Desk* desk) {
-    bool processed = false;
     DeskEntity entity = GetAnyAt(desk, manager->mouseDeskPos);
-    switch (entity.type) {
-    case DeskEntityType::Part: {
-        ToolPickLeftMouseDown(manager, desk);
-        processed = true;
-    } break;
-    case DeskEntityType::Pin: {
+
+    if (entity.type == DeskEntityType::Pin) {
         assert(entity.pin);
         ToolWirePinClicked(manager, desk, entity.pin);
-        processed = true;
-    } break;
-    default: {} break;
+        return;
     }
 
-    if (!processed) {
-        // Searching for wires under cursor
-        auto wireAt = GetWireAt(desk, manager->mouseCanvasPos);
-        if (wireAt.wire) {
-            // Beginning a new wire and copy all nodes from the beginning of hit wire to the hit index
-            manager->pendingWireNodes.Clear();
-            wireAt.wire->nodes.CopyTo(&manager->pendingWireNodes, wireAt.nodeIndex + 1);
-            manager->pendingWireNodes.PushBack(DeskPosition(manager->mouseDeskPos.cell));
-            manager->lastWireNodePos = *wireAt.wire->nodes.Last();
-            manager->pendingWireBeginPin = wireAt.wire->output;
-            manager->currentTool = Tool::Wire;
-        }
+    auto wireAt = GetWireAt(desk, manager->mouseCanvasPos);
+    if (wireAt.wire) {
+        // Beginning a new wire and copy all nodes from the beginning of hit wire to the hit index
+        manager->pendingWireNodes.Clear();
+        wireAt.wire->nodes.CopyTo(&manager->pendingWireNodes, wireAt.nodeIndex + 1);
+        manager->pendingWireNodes.PushBack(DeskPosition(manager->mouseDeskPos.cell));
+        manager->lastWireNodePos = *wireAt.wire->nodes.Last();
+        manager->pendingWireBeginPin = wireAt.wire->output;
+        manager->currentTool = Tool::Wire;
+        return;
     }
+
+    ToolPickLeftMouseDown(manager, desk);
 }
 
 void ToolNoneLeftMouseUp(ToolManager* manager, Desk* desk) {

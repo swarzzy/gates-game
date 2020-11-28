@@ -5,7 +5,8 @@ enum struct Tool {
 };
 
 struct ToolManager {
-    inline static const f32 PickMinThreshold = 0.1f; // 1mm
+    inline static const f32 PickMinThreshold = 0.2f; // 1mm
+    inline static const f32 RectSelectMinThreshold = 0.2f; // 1mm
 
     Tool currentTool;
     // TODO: Subject to change
@@ -19,9 +20,11 @@ struct ToolManager {
     DeskPosition lastWireNodePos;
 
     v2 pickPressedMousePos;
-    b32 selectionMode;
-    b32 pickStarted;
+    //b32 selectionMode;
+    b32 dragStarted;
+    b32 rectSelectStarted;
     b32 dragAttempt;
+    b32 rectSelectAttempt;
     Array<Part*> selectedParts;
     Array<b32> selectedPartsBlockedStates;
     iv2 dragOffset;

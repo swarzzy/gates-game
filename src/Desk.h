@@ -75,6 +75,7 @@ Part* GetPartMemory(Desk* desk);
 //bool CanPlacePart(Desk* desk, IRect box, Part* self = nullptr);
 
 // New API
+// TODO: Maybe put search for wires hwre too
 DeskEntity GetAnyAt(Desk* desk, DeskPosition p);
 Part* GetPartAt(Desk* desk, DeskPosition p);
 Pin* GetPinAt(Desk* desk, DeskPosition p);
@@ -82,13 +83,15 @@ Pin* GetPinAt(Desk* desk, DeskPosition p);
 bool CheckCollisions(Desk* desk, DeskPosition min, DeskPosition max, ArrayRef<Part*> ignoreParts = ArrayRef<Part*>::Empty());
 bool CheckCollisions(Desk* desk, Part* part, ArrayRef<Part*> ignoreParts = ArrayRef<Part*>::Empty());
 
+// TODO: Add a way to specify whether test rect should fully enclose colliders or just touch
+void GetCollisions(Desk* desk, DeskPosition min, DeskPosition max, DArray<Part*>* result, ArrayRef<Part*> ignoreParts = ArrayRef<Part*>::Empty());
+
 //bool CheckCollisions(Desk* desk, Part* part, bool selfCollide = true);
 void RegisterPart(Desk* desk, Part* part);
 void UnregisterPart(Desk* desk, Part* part);
 void ChangePartLocation(Desk* desk, Part* part, DeskPosition pNew);
 
-// Uses CELL position, not tile. Converts to tile internally
-DeskTile* GetDeskTile(Desk* desk, iv2 cell, bool create = false);
+DeskTile* GetDeskTile(Desk* desk, iv2 tile, bool create = false);
 
 DeskTile* CreateDeskTile(Desk* desk, iv2 p);
 

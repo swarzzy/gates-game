@@ -116,7 +116,7 @@ void GameRender() {
         ToolManagerLeftMouseUp(toolManager);
     }
 
-    DEBUG_OVERLAY_TRACE(toolManager->pickStarted);
+    DEBUG_OVERLAY_TRACE(toolManager->dragStarted);
     DEBUG_OVERLAY_TRACE(toolManager->dragAttempt);
 
     ToolManagerUpdate(toolManager);

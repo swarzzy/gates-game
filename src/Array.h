@@ -104,10 +104,15 @@ struct Array : ArrayBase<T, Array<T>> {
     void Pop();
     void Erase(const T* it);
     void EraseUnsorted(const T* it);
+    void Erase(u32 index);
+    void EraseUnsorted(u32 index);
+
 
     T* Insert(u32 index);
     T* InsertN(u32 index, u32 n);
     void Insert(u32 index, const T& v);
+
+    void KillDuplicatesUnsorted();
 
     u32 _GrowCapacity(u32 sz);
 };

@@ -269,6 +269,18 @@ void Array<T>::EraseUnsorted(const T* it) {
 }
 
 template <typename T>
+void Array<T>::Erase(u32 index) {
+    assert(index < count);
+    Erase(data + index);
+}
+
+template <typename T>
+void Array<T>::EraseUnsorted(u32 index) {
+    assert(index < count);
+    EraseUnsorted(data + index);
+}
+
+template <typename T>
 T* Array<T>::InsertN(u32 index, u32 n) {
     assert(index < count);
     if ((count + n) >= capacity) {
@@ -300,6 +312,20 @@ void Array<T>::Insert(u32 index, const T& v) {
     auto entry = Insert(index);
     memcpy(entry, &v, sizeof(v));
 }
+
+template <typename T>
+void Array<T>::KillDuplicatesUnsorted() {
+    for (u32 i = 0; i < count; i++) {
+        for (u32 j = i + 1; j < count;) {
+            if (data[i] == data[j]) {
+                EraseUnsorted(data + j);
+            } else {
+                j++;
+            }
+        }
+    }
+}
+
 
 template <typename T>
 u32 Array<T>::_GrowCapacity(u32 sz) {
