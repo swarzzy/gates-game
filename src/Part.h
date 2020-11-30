@@ -6,7 +6,7 @@ struct Desk;
 struct PartInfo;
 
 enum struct PartType : u32 {
-    Unknown = 0, And, Or, Not, Led, Source, _Count
+    Unknown = 0, And, Or, Not, Led, Source, Clock, _Count
 };
 
 enum struct PinType {
@@ -61,6 +61,8 @@ struct Part {
 
     v4 activeColor;
     v4 inactiveColor;
+
+    u32 clockDiv;
 
     const char16* label;
 

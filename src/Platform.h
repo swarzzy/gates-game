@@ -350,6 +350,7 @@ struct PlatformState
     PlatformHeap* stbHeap;
     InputState input;
     u64 tickCount;
+    u64 simStepCount;
     i32 framesPerSecond;
     i32 updatesPerSecond;
     i32 simStepsPerSecond;

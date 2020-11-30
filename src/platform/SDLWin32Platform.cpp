@@ -283,7 +283,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     f64 currentTime = Win32GetTimeStamp();
     f64 accumulator = 0.0;
     f64 secondTimer = 0.0;
-    u32 simStepsCount = 0;
+    u32 simStepsForSec = 0;
 
     while (context->sdl.running) {
         f64 newTime = Win32GetTimeStamp();
@@ -295,8 +295,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
         secondTimer += frameTime;
         if (secondTimer > 1.0) {
-            context->state.simStepsPerSecond = simStepsCount;
-            simStepsCount = 0;
+            context->state.simStepsPerSecond = simStepsForSec;
+            simStepsForSec = 0;
             secondTimer = 0.0;
         }
 
@@ -321,7 +321,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
         for (u32 i = 0; i < simSteps; i++) {
             context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Sim, &GlobalGameData);
-            simStepsCount++;
+            simStepsForSec++;
+            context->state.simStepCount++;
 
             // Abort sim if it takes longer than 100ms
             // TODO: Maybe it is a bad idea to do zilliard of syscalls per frame to get performance counter

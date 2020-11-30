@@ -368,13 +368,7 @@ void ToolPickLeftMouseUp(ToolManager* manager, Desk* desk) {
     }
 
     if (!selectionMode) {
-        // TODO: Here will be more complicated stuff
-        switch (part->type) {
-        case PartType::Source: {
-            part->active = !part->active;
-        } break;
-        default: {} break;
-        }
+        HandlePartClick(desk->partInfo, desk, part);
     }
 }
 

@@ -24,14 +24,24 @@ void FuncPartNot(Part* part) {
 void FuncPartSource(Part* part) {
     GetOutput(part, 0)->value = (u8)part->active;
     if (part->active) {
-        part->label = u"0";
-    } else {
         part->label = u"I";
+    } else {
+        part->label = u"0";
     }
 }
 
 void FuncPartLed(Part* part) {
     part->active = GetInput(part, 0)->value;
+}
+
+void FuncPartClock(Part* part) {
+    auto platform = GetPlatform();
+    if (part->clockDiv == 1) {
+        part->active = !part->active;
+    } else {
+        part->active = (platform->simStepCount % part->clockDiv) == 1 ? !part->active : part->active;
+    }
+    GetOutput(part, 0)->value = part->active;
 }
 
 void AllocatePins(Desk* desk, Part* part, u32 inputCount, u32 outputCount) {
@@ -115,6 +125,31 @@ void InitPartSource(Desk* desk, Part* part) {
     *GetOutput(part, 0) = CreatePin(part, 3, 1, PinType::Output);
 }
 
+void InitPartClock(Desk* desk, Part* part) {
+    memset(part, 0, sizeof(Part));
+    part->type = PartType::Clock;
+    part->dim = IV2(3, 3);
+
+    part->label = u"CL";
+
+    part->clockDiv = 1;
+
+    part->activeColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
+    part->inactiveColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
+
+    AllocatePins(desk, part, 0, 1);
+    *GetOutput(part, 0) = CreatePin(part, 3, 1, PinType::Output);
+}
+
+void ClickPartSource(Desk* desk, Part* part) {
+    part->active = !part->active;
+}
+
+void ClickPartClock(Desk* desk, Part* part) {
+    part->clockDiv = (part->clockDiv << 1) > 1024 ? 1 : (part->clockDiv << 1);
+    log_print("Clock divider: %lu\n", (unsigned long)part->clockDiv);
+}
+
 void PartInfoInit(PartInfo* info) {
     // TODO: Ensure memory are zero
     memset(info, 0, sizeof(PartInfo));
@@ -124,10 +159,24 @@ void PartInfoInit(PartInfo* info) {
     info->partInitializers[(u32)PartType::Not] = InitPartNot;
     info->partInitializers[(u32)PartType::Source] = InitPartSource;
     info->partInitializers[(u32)PartType::Led] = InitPartLed;
+    info->partInitializers[(u32)PartType::Clock] = InitPartClock;
+
 
     info->partFunctions[(u32)PartType::And] = FuncPartAnd;
     info->partFunctions[(u32)PartType::Or] = FuncPartOr;
     info->partFunctions[(u32)PartType::Not] = FuncPartNot;
     info->partFunctions[(u32)PartType::Source] = FuncPartSource;
     info->partFunctions[(u32)PartType::Led] = FuncPartLed;
+    info->partFunctions[(u32)PartType::Clock] = FuncPartClock;
+
+    info->partClickHandlers[(u32)PartType::Source] = ClickPartSource;
+    info->partClickHandlers[(u32)PartType::Clock] = ClickPartClock;
+}
+
+void HandlePartClick(PartInfo* info, Desk* desk, Part* part) {
+    assert((u32)part->type < (u32)PartType::_Count);
+    auto fn = info->partClickHandlers[(u32)part->type];
+    if (fn) {
+        fn(desk, part);
+    }
 }

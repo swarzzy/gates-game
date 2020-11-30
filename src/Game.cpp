@@ -58,6 +58,7 @@ void GameInit() {
     auto platform = GetPlatformMutable();
     //platform->targetFramerate = 60;
     platform->vsync = VSyncMode::Full;
+    platform->targetSimStepsPerSecond = 128;
 }
 
 void GameReload() {
@@ -103,6 +104,8 @@ void GameUpdate() {
         partInitializer = partInfo->partInitializers[(u32)PartType::Led];
     } else if (KeyPressed(Key::_5)) {
         partInitializer = partInfo->partInitializers[(u32)PartType::Source];
+    } else if (KeyPressed(Key::_6)) {
+        partInitializer = partInfo->partInitializers[(u32)PartType::Clock];
     }
 
     if (partInitializer) {
