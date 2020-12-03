@@ -143,7 +143,7 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
 #include "Array.cpp"
 #include "String.cpp"
 #include "Position.cpp"
-#include "GameManager.cpp"
+#include "Language.cpp"
 
 #include "Intrinsics.cpp"
 

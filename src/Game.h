@@ -7,6 +7,7 @@
 #include "Canvas.h"
 #include "Desk.h"
 #include "Tools.h"
+#include "Language.h"
 
 enum struct DrawMode {
     Normal = 0, DeskDebug
@@ -23,6 +24,8 @@ struct GameContext {
     b32 hitNewGame;
     b32 hitExit;
     b32 hitExitDesk;
+    b32 hitLanguage;
+    Language language;
 
     PlatformHeap* mainHeap;
     Allocator mainAllocator;
@@ -42,6 +45,8 @@ struct GameContext {
     PartInfo partInfo;
 
     iv2 prevMouseDeskPos;
+
+    char16* strings[(u32)Strings::_Count];
 };
 
 void GameInit();

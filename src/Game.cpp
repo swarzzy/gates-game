@@ -45,29 +45,17 @@ void GameInit() {
 
     PartInfoInit(&context->partInfo);
 
+    for (u32 i = 0; i < (u32)Strings::_Count; i++) {
+        context->strings[i] = u"<null>";
+    }
+
+    context->language = Language::Russian;
+    InitLanguageRussian();
+
     for (int i = 0; i < 10000; i++) {
         CreateDesk();
         DestroyDesk();
     }
-
-    #if false
-    auto desk = &context->desk;
-    auto partInfo = &context->partInfo;
-
-    InitDesk(desk, &context->deskCanvas, partInfo, context->mainHeap);
-
-    ToolManagerInit(&context->toolManager, desk);
-
-    TryCreatePart(desk, partInfo, IV2(2, 2), PartType::And);
-    TryCreatePart(desk, partInfo, IV2(6, 10), PartType::Or);
-    TryCreatePart(desk, partInfo, IV2(-6, -10), PartType::Not);
-
-    Part* source = TryCreatePart(desk, partInfo, IV2(10, 10), PartType::Source);
-    Part* led = TryCreatePart(desk, partInfo, IV2(20, 10), PartType::Led);
-
-    Wire* wire = TryWirePins(desk, GetInput(led, 0), GetOutput(source, 0));
-    assert(wire);
-#endif
 }
 
 void GameReload() {
@@ -155,6 +143,18 @@ void GameRenderMenu() {
         if (context->hitExit) {
             KillProcess();
         }
+
+        if (context->hitLanguage) {
+            if (context->language == Language::English) {
+                InitLanguageRussian();
+                context->language = Language::Russian;
+            } else if (context->language == Language::Russian) {
+                InitLanguageEnglish();
+                context->language =Language::English;
+            } else {
+                unreachable();
+            }
+        }
     }
 
     v2 mousePosition = Hadamard(V2(input->mouseX, input->mouseY), canvas->sizeCm);
@@ -164,19 +164,25 @@ void GameRenderMenu() {
     v3 pTitle = V3(CanvasPositionFromNormalized(canvas, V2(0.5f, 0.75f)), 0.0f);
     v3 pNewGame = V3(CanvasPositionFromNormalized(canvas, V2(0.5f, 0.5f)), 0.0f);
     v3 pExit = V3(CanvasPositionFromNormalized(canvas, V2(0.5f, 0.4f)), 0.0f);
+    v3 pLang = V3(CanvasPositionFromNormalized(canvas, V2(0.5f, 0.3f)), 0.0f);
 
     // TODO: sRGB to Linear
     v4 color = V4(0.0f, 0.0f, 0.0f, 1.0f);
     // TODO: Better text drawing API. Also maybe think about geometry caching?
-    DrawText(&canvas->drawList, &context->sdfFont, u"GATES GAME", pTitle, color, V2(canvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Center, 2.0f);
+    DrawText(&canvas->drawList, &context->sdfFont, GetString(Strings::GatesGame), pTitle, color, V2(canvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Center, 2.0f);
 
     v4 newGameColor = context->hitNewGame ? V4(1.0f, 0.0f, 0.0f, 1.0f) : V4(0.0f, 0.0f, 0.0f, 1.0f);
     v4 exitColor = context->hitExit ? V4(1.0f, 0.0f, 0.0f, 1.0f) : V4(0.0f, 0.0f, 0.0f, 1.0f);
-    Box2D newGameBox = DrawText(&canvas->drawList, &context->sdfFont, u"New Game", pNewGame, newGameColor, V2(canvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Center, 1.0f);
-    Box2D exitBox = DrawText(&canvas->drawList, &context->sdfFont, u"Exit", pExit, exitColor, V2(canvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Center, 1.0f);
+    v4 langColor = context->hitLanguage ? V4(1.0f, 0.0f, 0.0f, 1.0f) : V4(0.0f, 0.0f, 0.0f, 1.0f);
+
+    Box2D newGameBox = DrawText(&canvas->drawList, &context->sdfFont, GetString(Strings::NewGame), pNewGame, newGameColor, V2(canvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Center, 1.0f);
+    Box2D exitBox = DrawText(&canvas->drawList, &context->sdfFont, GetString(Strings::Exit), pExit, exitColor, V2(canvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Center, 1.0f);
+    Box2D langBox = DrawText(&canvas->drawList, &context->sdfFont, GetString(Strings::Language), pLang - V3(0.5f, 0.0f, 0.0f), langColor, V2(canvas->cmPerPixel), V2(1.0f, 0.5f), F32::Infinity, TextAlign::Center, 1.0f);
+    DrawText(&canvas->drawList, &context->sdfFont, GetString(Strings::CurrentLanguage), pLang, langColor, V2(canvas->cmPerPixel), V2(0.0f, 0.5f), F32::Infinity, TextAlign::Center, 1.0f);
 
     v2 newGameRelMouse = mousePosition - pNewGame.xy;
     v2 exitRelMouse = mousePosition - pExit.xy;
+    v2 langRelMouse = mousePosition - pLang.xy;
 
     DEBUG_OVERLAY_TRACE(newGameRelMouse);
     DEBUG_OVERLAY_TRACE(newGameBox.min);
@@ -185,6 +191,7 @@ void GameRenderMenu() {
     // TODO: Delay for one frame for hit text highlight ib not a good idea
     context->hitNewGame = PointInBox2D(newGameBox, newGameRelMouse);
     context->hitExit = PointInBox2D(exitBox, exitRelMouse);
+    context->hitLanguage = PointInBox2D(langBox, langRelMouse);
 
     EndCanvas(canvas);
 }
@@ -355,7 +362,7 @@ void GameRenderDesk() {
     // TODO: Relative to upper left
     v3 pExit = V3(CanvasPositionFromNormalized(deskCanvas, V2(0.95f, 0.01f)), 0.0f);
     v4 exitColor = context->hitExitDesk ? V4(1.0f, 0.0f, 0.0f, 1.0f) : V4(0.0f, 0.0f, 0.0f, 1.0f);
-    Box2D exitBox = DrawText(&deskCanvas->drawList, &context->sdfFont, u"Exit", pExit, exitColor, V2(deskCanvas->cmPerPixel), V2(0.5f, 0.0f), F32::Infinity, TextAlign::Center, 1.0f);
+    Box2D exitBox = DrawText(&deskCanvas->drawList, &context->sdfFont, GetString(Strings::Exit), pExit, exitColor, V2(deskCanvas->cmPerPixel), V2(0.5f, 0.0f), F32::Infinity, TextAlign::Center, 1.0f);
 
     v2 mousePosition = Hadamard(V2(input->mouseX, input->mouseY), deskCanvas->sizeCm);
     v2 exitRelMouse = mousePosition - pExit.xy;
@@ -422,4 +429,22 @@ void GameRenderDesk() {
     //DrawListPushQuad(list, V2(100.0f, 200.0f), V2(105.0f, 200.0f), V2(104.0f, 205.0f), V2(100.0f, 205.0f), 0.0f, V4(0.0f, 0.0f, 1.0f, 1.0f));
     //Renderer.RenderDrawList(list);
     //DrawListClear(list);
+#endif
+    #if false
+    auto desk = &context->desk;
+    auto partInfo = &context->partInfo;
+
+    InitDesk(desk, &context->deskCanvas, partInfo, context->mainHeap);
+
+    ToolManagerInit(&context->toolManager, desk);
+
+    TryCreatePart(desk, partInfo, IV2(2, 2), PartType::And);
+    TryCreatePart(desk, partInfo, IV2(6, 10), PartType::Or);
+    TryCreatePart(desk, partInfo, IV2(-6, -10), PartType::Not);
+
+    Part* source = TryCreatePart(desk, partInfo, IV2(10, 10), PartType::Source);
+    Part* led = TryCreatePart(desk, partInfo, IV2(20, 10), PartType::Led);
+
+    Wire* wire = TryWirePins(desk, GetInput(led, 0), GetOutput(source, 0));
+    assert(wire);
 #endif
