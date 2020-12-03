@@ -203,15 +203,35 @@ void ReleasePartMemory(Desk* desk, Part* part) {
     desk->parts.Remove(part);
 }
 
-void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* deskHeap) {
-    desk->deskHeap = deskHeap;
-    desk->deskAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, deskHeap);
+Desk* CreateDesk() {
+    auto context = GetContext();
+    assert(!context->desk);
+
+    PlatformHeap* heap = Platform.CreateHeap();
+    Allocator allocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, heap);
+
+    Desk* desk = allocator.Alloc<Desk>(true);
+    desk->deskAllocator = allocator;
+    desk->deskHeap = heap;
+
+    desk->canvas = CreateCanvas(&desk->deskAllocator);
+    ToolManagerInit(&desk->toolManager, desk);
+
     desk->tileHashMap = HashMap<iv2, DeskTile*, DeskHash, DeskCompare>::Make(desk->deskAllocator);
     desk->wires = List<Wire>(&desk->deskAllocator);
     desk->parts = List<Part>(&desk->deskAllocator);
-    desk->canvas = canvas;
-    desk->partInfo = partInfo;
+    desk->partInfo = &context->partInfo;
     desk->wireNodeCleanerBuffer = Array<DeskPosition>(&desk->deskAllocator);
+
+    context->desk = desk;
+
+    return desk;
+}
+
+void DestroyDesk() {
+    auto context = GetContext();
+    Platform.DestroyHeap(context->desk->deskHeap);
+    context->desk = nullptr;
 }
 
 DeskTile* CreateDeskTile(Desk* desk, iv2 p) {

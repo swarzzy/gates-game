@@ -12,22 +12,34 @@ enum struct DrawMode {
     Normal = 0, DeskDebug
 };
 
+enum struct GameState {
+    Menu, Desk
+};
+
 struct GameContext {
+    GameState gameState;
+
+    Canvas menuCanvas;
+    b32 hitNewGame;
+    b32 hitExit;
+    b32 hitExitDesk;
+
     PlatformHeap* mainHeap;
     Allocator mainAllocator;
+
     Logger logger;
     Console console;
     bool consoleEnabled;
     //DrawList drawList;
     DrawMode drawMode;
-    Canvas deskCanvas;
+
+    Desk* desk;
+
     TextureID testTexture;
     TextureID fontAtlas;
     Font font;
     Font sdfFont;
-    Desk desk;
     PartInfo partInfo;
-    ToolManager toolManager;
 
     iv2 prevMouseDeskPos;
 };
@@ -38,6 +50,14 @@ void GameUpdate();
 void GameSim();
 void GameRender();
 
+void GameUpdateDesk();
+void GameSimDesk();
+void GameRenderDesk();
+
+void GameUpdateMenu();
+void GameRenderMenu();
+
+
 // Getters for global variables
 // Implemented in GameEntry.cpp
 const PlatformState* GetPlatform();
@@ -45,7 +65,7 @@ GameContext* GetContext();
 const InputState* GetInput();
 bool ImGuiAvailable();
 
-Desk* GetDesk() { return &GetContext()->desk; }
+Desk* GetDesk() { return GetContext()->desk; }
 
 LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 forceBPP, Allocator allocator);
 

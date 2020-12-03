@@ -81,7 +81,8 @@ void DrawListEndBatch(DrawList* list);
 Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char16* string, f32 maxWidth);
 void DrawTextLine(DrawList* list, Font* font, const char16* string, u32 count, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, f32 fontScale);
 v2 CalcTextSizeUnscaled(Font* font, const char16* string, f32 maxWidth);
-void DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align, f32 fontScale = 1.0f);
+// Optionally returns text bounding box relative to p
+Box2D DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align, f32 fontScale = 1.0f);
 
 // TODO: Calling convention
 // TODO: Single call

@@ -10,8 +10,7 @@ f32 DefaultFontHeight = 24.0f;
 void GameInit() {
     auto context = GetContext();
     context->mainAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
-    context->deskCanvas = CreateCanvas(&context->mainAllocator);
-    //DrawListInit(&context->drawList, 256, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
+    context->menuCanvas = CreateCanvas(&context->mainAllocator);
 
     auto image = ResourceLoaderLoadImage("../res/alpha_test.png", true, 4, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
     TextureID texture = Renderer.UploadTexture(0, image->width, image->height, TextureFormat::RGBA8, TextureFilter::Bilinear, TextureWrapMode::Repeat, image->bits);
@@ -37,11 +36,25 @@ void GameInit() {
     TextureID sdfFontAtlas = Renderer.UploadTexture(0, context->sdfFont.bitmapSize, context->sdfFont.bitmapSize, TextureFormat::R8, TextureFilter::Bilinear, TextureWrapMode::Repeat, context->sdfFont.bitmap);
     context->sdfFont.atlas = sdfFontAtlas;
 
+    auto platform = GetPlatformMutable();
+    //platform->targetFramerate = 60;
+    platform->vsync = VSyncMode::Full;
+    platform->targetSimStepsPerSecond = 128;
+
+    context->gameState = GameState::Menu;
+
+    PartInfoInit(&context->partInfo);
+
+    for (int i = 0; i < 10000; i++) {
+        CreateDesk();
+        DestroyDesk();
+    }
+
+    #if false
     auto desk = &context->desk;
     auto partInfo = &context->partInfo;
 
     InitDesk(desk, &context->deskCanvas, partInfo, context->mainHeap);
-    PartInfoInit(&context->partInfo);
 
     ToolManagerInit(&context->toolManager, desk);
 
@@ -54,29 +67,137 @@ void GameInit() {
 
     Wire* wire = TryWirePins(desk, GetInput(led, 0), GetOutput(source, 0));
     assert(wire);
-
-    auto platform = GetPlatformMutable();
-    //platform->targetFramerate = 60;
-    platform->vsync = VSyncMode::Full;
-    platform->targetSimStepsPerSecond = 128;
+#endif
 }
 
 void GameReload() {
+}
+
+void GameUpdate() {
+    auto context = GetContext();
+
+    switch (context->gameState) {
+    case GameState::Menu: { GameUpdateMenu(); } break;
+    case GameState::Desk: { GameUpdateDesk(); } break;
+        invalid_default();
+    }
+}
+
+void GameSim() {
+    auto context = GetContext();
+
+    switch (context->gameState) {
+    case GameState::Menu: { } break;
+    case GameState::Desk: { GameSimDesk(); } break;
+        invalid_default();
+    }
+
+
+    if(KeyPressed(Key::Tilde)) {
+        context->consoleEnabled = !context->consoleEnabled;
+    }
+}
+
+void GameRender() {
+    auto context = GetContext();
+
+    switch (context->gameState) {
+    case GameState::Menu: { GameRenderMenu(); } break;
+    case GameState::Desk: { GameRenderDesk(); } break;
+        invalid_default();
+    }
+
+    DrawDebugPerformanceCounters();
+
+    if (context->consoleEnabled) {
+        DrawConsole(&context->console);
+    }
 }
 
 i32 updateSleepMs = 0;
 i32 simSleepMs = 0;
 i32 renderSleepMs = 0;
 
-void GameUpdate() {
+void GameUpdateMenu() {
+    auto context = GetContext();
+    auto input = GetInput();
+    auto canvas = &context->menuCanvas;
+
+    UpdateCanvas(canvas);
+
+
+}
+
+void GameRenderMenu() {
+    auto context = GetContext();
+    auto input = GetInput();
+
+    auto canvas = &context->menuCanvas;
+
+    // TODO: Now we checking for mouse input in render stage. It's actually totally ok.
+    // But if we will cache text geometry then we will be able to move mouse handling code
+    // to update which is more appropriate place for that code
+    //
+    // OR!!!!!
+    //
+    // Just make update and render be the same thing. It is mitght be a good idea since a probably don't care too much
+    // about input polling rate in this game
+    // And again, now update and render are exequted at same frequency
+    //
+
+    if (MouseButtonPressed(MouseButton::Left)) {
+        if (context->hitNewGame) {
+            CreateDesk();
+            context->gameState = GameState::Desk;
+            return;
+        }
+
+        if (context->hitExit) {
+            KillProcess();
+        }
+    }
+
+    v2 mousePosition = Hadamard(V2(input->mouseX, input->mouseY), canvas->sizeCm);
+
+    BeginCanvas(canvas);
+
+    v3 pTitle = V3(CanvasPositionFromNormalized(canvas, V2(0.5f, 0.75f)), 0.0f);
+    v3 pNewGame = V3(CanvasPositionFromNormalized(canvas, V2(0.5f, 0.5f)), 0.0f);
+    v3 pExit = V3(CanvasPositionFromNormalized(canvas, V2(0.5f, 0.4f)), 0.0f);
+
+    // TODO: sRGB to Linear
+    v4 color = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    // TODO: Better text drawing API. Also maybe think about geometry caching?
+    DrawText(&canvas->drawList, &context->sdfFont, u"GATES GAME", pTitle, color, V2(canvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Center, 2.0f);
+
+    v4 newGameColor = context->hitNewGame ? V4(1.0f, 0.0f, 0.0f, 1.0f) : V4(0.0f, 0.0f, 0.0f, 1.0f);
+    v4 exitColor = context->hitExit ? V4(1.0f, 0.0f, 0.0f, 1.0f) : V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Box2D newGameBox = DrawText(&canvas->drawList, &context->sdfFont, u"New Game", pNewGame, newGameColor, V2(canvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Center, 1.0f);
+    Box2D exitBox = DrawText(&canvas->drawList, &context->sdfFont, u"Exit", pExit, exitColor, V2(canvas->cmPerPixel), V2(0.5f), F32::Infinity, TextAlign::Center, 1.0f);
+
+    v2 newGameRelMouse = mousePosition - pNewGame.xy;
+    v2 exitRelMouse = mousePosition - pExit.xy;
+
+    DEBUG_OVERLAY_TRACE(newGameRelMouse);
+    DEBUG_OVERLAY_TRACE(newGameBox.min);
+    DEBUG_OVERLAY_TRACE(newGameBox.max);
+
+    // TODO: Delay for one frame for hit text highlight ib not a good idea
+    context->hitNewGame = PointInBox2D(newGameBox, newGameRelMouse);
+    context->hitExit = PointInBox2D(exitBox, exitRelMouse);
+
+    EndCanvas(canvas);
+}
+
+void GameUpdateDesk() {
     ThreadSleep(updateSleepMs);
     auto context = GetContext();
     auto input = GetInput();
 
-    auto deskCanvas = &context->deskCanvas;
-    auto desk = &context->desk;
+    auto desk = GetDesk();
+    auto deskCanvas = &desk->canvas;
     auto partInfo = &context->partInfo;
-    auto toolManager = &context->toolManager;
+    auto toolManager = &desk->toolManager;
 
     f32 scaleSpeed = 0.1f;
 
@@ -130,28 +251,25 @@ void GameUpdate() {
         v2 offset = Hadamard(V2(input->mouseFrameOffsetX, input->mouseFrameOffsetY), deskCanvas->sizeCm);
         desk->origin = desk->origin.Offset(-offset);
     }
+}
 
-    if(KeyPressed(Key::Tilde)) {
-        context->consoleEnabled = !context->consoleEnabled;
+void GameSimDesk() {
+    auto context = GetContext();
+    if (context->gameState == GameState::Desk) {
+        ThreadSleep(simSleepMs);
+        auto partInfo = &context->partInfo;
+        auto desk = GetDesk();
+
+        PropagateSignals(desk);
+
+        ListForEach(&desk->parts, part) {
+            PartProcessSignals(partInfo, part);
+        } ListEndEach(part);
     }
 }
 
-void GameSim() {
-    ThreadSleep(simSleepMs);
-    auto context = GetContext();
-    auto partInfo = &context->partInfo;
-    auto desk = &context->desk;
-
-    PropagateSignals(desk);
-
-    ListForEach(&desk->parts, part) {
-        PartProcessSignals(partInfo, part);
-    } ListEndEach(part);
-}
-
-void GameRender() {
+void GameRenderDesk() {
     ThreadSleep(renderSleepMs);
-    DrawDebugPerformanceCounters();
 
     auto platform = GetPlatformMutable();
 
@@ -163,10 +281,10 @@ void GameRender() {
     auto context = GetContext();
     auto input = GetInput();
 
-    auto deskCanvas = &context->deskCanvas;
-    auto desk = &context->desk;
+    auto desk = GetDesk();
+    auto deskCanvas = &desk->canvas;
     auto partInfo = &context->partInfo;
-    auto toolManager = &context->toolManager;
+    auto toolManager = &desk->toolManager;
 
     BeginCanvas(deskCanvas);
 
@@ -234,7 +352,23 @@ void GameRender() {
 
     DrawListEndBatch(&deskCanvas->drawList);
 
+    // TODO: Relative to upper left
+    v3 pExit = V3(CanvasPositionFromNormalized(deskCanvas, V2(0.95f, 0.01f)), 0.0f);
+    v4 exitColor = context->hitExitDesk ? V4(1.0f, 0.0f, 0.0f, 1.0f) : V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Box2D exitBox = DrawText(&deskCanvas->drawList, &context->sdfFont, u"Exit", pExit, exitColor, V2(deskCanvas->cmPerPixel), V2(0.5f, 0.0f), F32::Infinity, TextAlign::Center, 1.0f);
+
+    v2 mousePosition = Hadamard(V2(input->mouseX, input->mouseY), deskCanvas->sizeCm);
+    v2 exitRelMouse = mousePosition - pExit.xy;
+
+    context->hitExitDesk = PointInBox2D(exitBox, exitRelMouse);
+
     EndCanvas(deskCanvas);
+
+    if (MouseButtonPressed(MouseButton::Left) && context->hitExitDesk) {
+        context->hitExitDesk = false;
+        DestroyDesk();
+        context->gameState = GameState::Menu;
+    }
 
     if (context->consoleEnabled) {
         DrawConsole(&context->console);

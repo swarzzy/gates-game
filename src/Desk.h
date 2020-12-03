@@ -6,27 +6,15 @@
 #include "PartInfo.h"
 #include "List.h"
 #include "Part.h"
+#include "Tools.h"
 
 struct Desk;
 struct Wire;
 struct Part;
 struct Pin;
 
-enum struct CellValue : u32 {
-    Empty = 0, Part, Pin
-};
-
-struct DeskCell {
-    CellValue value;
-    union {
-        Part* part;
-        Pin* pin;
-    };
-};
-
 struct DeskTile {
     iv2 p;
-    DeskCell cells[DeskTileSize * DeskTileSize];
     Array<Part*> parts;
 };
 
@@ -39,12 +27,13 @@ struct Desk {
     u32 pinGeneration;
     PlatformHeap* deskHeap;
     Allocator deskAllocator;
-    Canvas* canvas;
+    Canvas canvas;
     PartInfo* partInfo;
     HashMap<iv2, DeskTile*, DeskHash, DeskCompare> tileHashMap;
     List<Part> parts;
     List<Wire> wires;
     Array<DeskPosition> wireNodeCleanerBuffer;
+    ToolManager toolManager;
 };
 
 struct GetWireAtResult {
@@ -64,7 +53,8 @@ struct DeskEntity {
     };
 };
 
-void InitDesk(Desk* desk, Canvas* canvas, PartInfo* partInfo, PlatformHeap* deskHeap);
+Desk* CreateDesk();
+void DestroyDesk();
 
 Part* GetPartMemory(Desk* desk);
 

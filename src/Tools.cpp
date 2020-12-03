@@ -30,7 +30,7 @@ void ToolPartUpdate(ToolManager* manager, Desk* desk) {
 }
 
 void ToolPartRender(ToolManager* manager, Desk* desk) {
-    DrawPart(desk, desk->canvas, &manager->prefabPart, manager->prefabPartPos, {}, 0.0f, 0.5f);
+    DrawPart(desk, &desk->canvas, &manager->prefabPart, manager->prefabPartPos, {}, 0.0f, 0.5f);
 }
 
 void ToolWirePinClicked(ToolManager* manager, Desk* desk, Pin* pin) {
@@ -154,7 +154,7 @@ void ToolWireUpdate(ToolManager* manager, Desk* desk) {
 }
 
 void ToolWireRender(ToolManager* manager, Desk* desk) {
-    DrawListBeginBatch(&desk->canvas->drawList, TextureMode::Color);
+    DrawListBeginBatch(&desk->canvas.drawList, TextureMode::Color);
     for (u32 i = 1; i < manager->pendingWireNodes.Count(); i++) {
         DeskPosition* prev = manager->pendingWireNodes.Data() + (i - 1);
         DeskPosition* curr = manager->pendingWireNodes.Data() + i;
@@ -162,14 +162,14 @@ void ToolWireRender(ToolManager* manager, Desk* desk) {
         v2 begin = prev->RelativeTo(desk->origin);
         v2 end = curr->RelativeTo(desk->origin);
 
-        DrawSimpleLineBatch(&desk->canvas->drawList, begin, end, 0.0f, 0.1f, V4(0.3f, 0.3f, 0.3f, 1.0f));
+        DrawSimpleLineBatch(&desk->canvas.drawList, begin, end, 0.0f, 0.1f, V4(0.3f, 0.3f, 0.3f, 1.0f));
     }
 
     v2 begin = manager->pendingWireNodes.Last()->RelativeTo(desk->origin);
     v2 end = DeskPosition(manager->lastWireNodePos.cell).RelativeTo(desk->origin);
 
-    DrawSimpleLineBatch(&desk->canvas->drawList, begin, end, 0.0f, 0.1f, V4(0.3f, 0.3f, 0.3f, 1.0f));
-    DrawListEndBatch(&desk->canvas->drawList);
+    DrawSimpleLineBatch(&desk->canvas.drawList, begin, end, 0.0f, 0.1f, V4(0.3f, 0.3f, 0.3f, 1.0f));
+    DrawListEndBatch(&desk->canvas.drawList);
 }
 
 void ToolPickUnselectSelected(ToolManager* manager) {
@@ -432,16 +432,16 @@ void ToolPickRender(ToolManager* manager, Desk* desk) {
             b32 blocked = manager->selectedPartsBlockedStates[_index_partPtr_];
             v3 overrideColor = blocked ? manager->pickPartOverrideColorBlocked : manager->pickPartOverrideColor;
             DeskPosition p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset);
-            DrawPart(desk, desk->canvas, part, p, overrideColor, 0.7f, 0.5f);
+            DrawPart(desk, &desk->canvas, part, p, overrideColor, 0.7f, 0.5f);
         } EndEach;
     } else if (manager->rectSelectStarted) {
-        DrawListBeginBatch(&desk->canvas->drawList, TextureMode::Color, 0);
+        DrawListBeginBatch(&desk->canvas.drawList, TextureMode::Color, 0);
         v2 cnvBegin = manager->pickPressedMousePos;
         v2 cnvEnd = manager->mouseCanvasPos;
         auto rect = MinMax(cnvBegin, cnvEnd);
         Box2D box = Box2D(rect.min, rect.max);
-        DrawBoxBatch(&desk->canvas->drawList, box, 0.0f, 0.1f, V4(0.2f, 0.2f, 0.2f, 1.0f));
-        DrawListEndBatch(&desk->canvas->drawList);
+        DrawBoxBatch(&desk->canvas.drawList, box, 0.0f, 0.1f, V4(0.2f, 0.2f, 0.2f, 1.0f));
+        DrawListEndBatch(&desk->canvas.drawList);
     }
 }
 
@@ -538,7 +538,7 @@ void ToolManagerUpdate(ToolManager* manager) {
     auto input = GetInput();
     auto desk = GetDesk();
     v2 mouseScreenPos = V2(input->mouseX, input->mouseY);
-    v2 mouseCanvasPos = CanvasProjectScreenPos(desk->canvas, mouseScreenPos);
+    v2 mouseCanvasPos = CanvasProjectScreenPos(&desk->canvas, mouseScreenPos);
     DeskPosition mouseDeskPos = desk->origin.Offset(mouseCanvasPos);
     manager->mouseDeskPos = mouseDeskPos;
     manager->mouseCanvasPos = mouseCanvasPos;

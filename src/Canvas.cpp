@@ -21,6 +21,11 @@ void UpdateCanvas(Canvas* canvas) {
     canvas->sizeCm = canvas->sizePx * canvas->cmPerPixel;
 }
 
+v2 CanvasPositionFromNormalized(Canvas* canvas, v2 normalized) {
+    v2 result = Hadamard(canvas->sizeCm, normalized);
+    return result;
+}
+
 void BeginCanvas(Canvas* canvas) {
     auto proj = OrthoGLRH(0.0f, canvas->sizeCm.x, 0.0f, canvas->sizeCm.y, -1.0f, 1.0f);
     Renderer.SetCamera(&proj);

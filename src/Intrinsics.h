@@ -19,6 +19,8 @@ u64 GetTicksPerSecond();
 void* StackAlloc(usize size);
 void StackFree(void* ptr);
 
+void KillProcess();
+
 // NOTE: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 constexpr u32 NextPowerOfTwo(u32 v) {
     v--;

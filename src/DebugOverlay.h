@@ -8,6 +8,7 @@ void DebugOverlayEndCustom();
 void DebugOverlayPushString(const char* string);
 void DebugOverlayPushVar(const char* title, uv3 var);
 void DebugOverlayPushVar(const char* title, iv3 var);
+void DebugOverlayPushVar(const char* title, v2 var);
 void DebugOverlayPushVar(const char* title, v3 var);
 void DebugOverlayPushVar(const char* title, v4 var);
 void DebugOverlayPushVar(const char* title, u32 var);

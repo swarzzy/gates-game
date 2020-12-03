@@ -61,4 +61,8 @@ void StackFree(void* ptr) {
     _freea(ptr);
 }
 
+void KillProcess() {
+    TerminateProcess(GetCurrentProcess(), 0);
+}
+
 #endif

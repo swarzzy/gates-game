@@ -176,7 +176,8 @@ forceinline GlyphInfo* GetGlyph(Font* font, u16 codepoint) {
 }
 
 // TODO: Maybe it is worth to cache text positioning data when we calculate it first time
-void DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align, f32 fontScale) {
+Box2D DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align, f32 fontScale) {
+    Box2D bbox = {};
     v3 posPx = V3(p.x / pixelSize.x, p.y / pixelSize.y, p.z);
     // Currently width assumed to be in pixels
     f32 maxWidthPx = maxWidth;// / pixelSize.x;
@@ -190,6 +191,10 @@ void DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, 
     v2 begin = cursor;
     cursor.y += textDim.y;
     cursor.y -= (font->ascent + font->lineGap) * fontScale;
+
+    v2 boxMin = - Hadamard(textDim, anchor);
+    v2 boxMax = boxMin + textDim;
+    bbox = Box2D(Hadamard(boxMin, pixelSize), Hadamard(boxMax, pixelSize));
 
     auto command = DrawListBeginBatch(list, font->sdf ? TextureMode::DistanceField : TextureMode::AlphaMask, font->atlas);
     if (font->sdf) {
@@ -209,6 +214,8 @@ void DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, 
         at += strOffset;
     }
     DrawListEndBatch(list);
+
+    return bbox;
 }
 
 void DrawTextLine(DrawList* list, Font* font, const char16* string, u32 count, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, f32 fontScale) {

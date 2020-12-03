@@ -22,6 +22,10 @@ PlatformHeap* CreateHeap() {
     return heap;
 }
 
+void DestroyHeap(PlatformHeap* heap) {
+    mi_heap_destroy((mi_heap_t*)heap);
+}
+
 #if defined(COMPILER_MSVC)
 __declspec(restrict)
 #endif

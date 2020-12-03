@@ -54,6 +54,7 @@ typedef u32(DebugWriteToOpenedFileFn)(FileHandle handle, void* data, u32 size);
 struct PlatformHeap;
 
 typedef PlatformHeap*(CreateHeapFn)();
+typedef void(DestroyHeapFn)(PlatformHeap* heap);
 typedef void*(HeapAllocFn)(PlatformHeap* heap, usize size, bool zero);
 typedef void(FreeFn)(void* ptr);
 
@@ -154,6 +155,7 @@ struct PlatformCalls
     DebugWriteToOpenedFileFn* DebugWriteToOpenedFile;
 
     CreateHeapFn* CreateHeap;
+    DestroyHeapFn* DestroyHeap;
     HeapAllocFn* HeapAlloc;
     FreeFn* Free;
 };

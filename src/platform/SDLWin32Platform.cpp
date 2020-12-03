@@ -250,6 +250,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     context->state.functions.DebugWriteToOpenedFile = DebugWriteToOpenedFile;
 
     context->state.functions.CreateHeap = CreateHeap;
+    context->state.functions.DestroyHeap = DestroyHeap;
     context->state.functions.HeapAlloc = HeapAlloc;
     context->state.functions.Free = Free;
 
