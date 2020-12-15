@@ -20,6 +20,8 @@ enum struct GameState {
 struct GameContext {
     GameState gameState;
 
+    ParticleSource testParticleSource;
+
     Canvas menuCanvas;
     b32 hitNewGame;
     b32 hitExit;

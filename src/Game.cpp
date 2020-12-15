@@ -56,6 +56,8 @@ void GameInit() {
         CreateDesk();
         DestroyDesk();
     }
+
+    InitParticleSource(&context->testParticleSource, &context->mainAllocator, V2(10.0f, 10.0f), 1000);
 }
 
 void GameReload() {
@@ -69,6 +71,8 @@ void GameUpdate() {
     case GameState::Desk: { GameUpdateDesk(); } break;
         invalid_default();
     }
+
+    UpdateParticleSource(&context->testParticleSource);
 }
 
 void GameSim() {
@@ -90,8 +94,13 @@ void GameRender() {
     auto context = GetContext();
 
     switch (context->gameState) {
-    case GameState::Menu: { GameRenderMenu(); } break;
-    case GameState::Desk: { GameRenderDesk(); } break;
+    case GameState::Menu: {
+        GameRenderMenu();
+        auto desk = GetDesk();
+        RenderParticleSource(&context->testParticleSource, &context->menuCanvas.drawList);
+    } break;
+    case GameState::Desk: { GameRenderDesk();
+    } break;
         invalid_default();
     }
 
@@ -100,6 +109,7 @@ void GameRender() {
     if (context->consoleEnabled) {
         DrawConsole(&context->console);
     }
+
 }
 
 i32 updateSleepMs = 0;

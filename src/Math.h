@@ -12,6 +12,11 @@ f32 RandomUnilateral(RandomSeries* series) {
     return result;
 }
 
+f32 RandomBilateral(RandomSeries* series) {
+    f32 result = (RandomUnilateral(series) - 0.5f) * 2.0f;
+    return result;
+}
+
 template <typename T, u32 _Size>
 union Vector {};
 
@@ -419,7 +424,7 @@ template <u32 Size>
 Vector<f32, Size> Lerp(Vector<f32, Size> a, Vector<f32, Size> b, f32 t) {
     Vector<f32, Size> result;
     for (usize i = 0; i < Size; i++) {
-        result.data[i] = Lerp(a.data[i], b.data[i], t);
+        result.data[i] = Lerp(a.data[i], t, b.data[i]);
     }
     return result;
 }

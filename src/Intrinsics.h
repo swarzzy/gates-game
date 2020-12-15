@@ -80,6 +80,11 @@ constexpr T Clamp(T x, T min, T max) {
     return Min(Max(x, min), max);
 }
 
+f32 Clamp01(f32 x) {
+    f32 result = Clamp(x, 0.0f, 1.0f);
+    return result;
+}
+
 template<typename T>
 constexpr T Saturate(T x) {
     return Min(Max(x, static_cast<T>(0)), static_cast<T>(1));
@@ -91,8 +96,17 @@ constexpr T Abs(T val) {
 }
 
 template<typename T>
-constexpr f32 Lerp(T a, T b, f32 t) {
+constexpr f32 Lerp(T a, f32 t, T b) {
     return (1.0f - t) * a + t * b;
+}
+// TODO: Make all functions to be with following signatures: F(min, t, max)
+f32 MapToRange(f32 min, f32 t, f32 max) {
+    f32 result = 0.0f;
+    f32 range = max - min;
+    if (range != 0.0f) {
+        result = Clamp01((t - min) / range);
+    }
+    return result;
 }
 
 f32 SmoothStep(f32 e0, f32 e1, f32 x) {

@@ -1,5 +1,81 @@
 #include "Draw.h"
 
+void InitParticleSource(ParticleSource* source, Allocator* allocator, v2 p, u32 poolSize) {
+    source->p = p;
+    source->maxCount = poolSize;
+    source->count = 0;
+    source->positions = Array<v2>(allocator);
+    source->velocities = Array<v2>(allocator);
+    source->lifetimes = Array<f32>(allocator);
+    source->sizes = Array<f32>(allocator);
+    source->colors = Array<v4>(allocator);
+}
+
+void KillParticle(ParticleSource* source, u32 index) {
+    assert(source->count > index);
+    assert_paranoid(source->positions.Count() > index);
+    assert_paranoid(source->velocities.Count() > index);
+    assert_paranoid(source->lifetimes.Count() > index);
+
+    source->positions.EraseUnsorted(index);
+    source->velocities.EraseUnsorted(index);
+    source->lifetimes.EraseUnsorted(index);
+    source->sizes.EraseUnsorted(index);
+    source->colors.EraseUnsorted(index);
+
+    source->count--;
+}
+
+void UpdateParticleSource(ParticleSource* source) {
+    u32 frameSpawnBudget = 16;
+    u32 spawnedAtThisFrame = 0;
+    while ((source->count < source->maxCount) && (spawnedAtThisFrame < frameSpawnBudget)) {
+        spawnedAtThisFrame++;
+        source->count++;
+        source->positions.PushBack(source->p);
+
+        v2 velocity = V2(RandomBilateral(&source->randomSeries), RandomBilateral(&source->randomSeries)) * 0.2f;
+        source->velocities.PushBack(velocity);
+
+        source->lifetimes.PushBack(1.0f);
+
+        source->sizes.PushBack(0.5f * RandomUnilateral(&source->randomSeries));
+        source->colors.PushBack(V4(1.0f, 0.0f, 0.0f, 1.0f));
+    }
+
+    auto platform = GetPlatform();
+
+    for (u32 i = 0; i < source->count; i++) {
+        source->lifetimes[i] -= platform->deltaTime;
+        if (source->lifetimes[i] <= 0.0f) {
+            KillParticle(source, i);
+        }
+
+        f32 t = MapToRange(0.0f, source->lifetimes[i], 0.5f);
+        f32 alpha = t;
+        source->colors[i].a = alpha;
+    }
+
+    for (u32 i = 0; i < source->count; i++) {
+        source->positions[i] += source->velocities[i];
+    }
+}
+
+void RenderParticleSource(ParticleSource* source, DrawList* list) {
+    auto batchCommand = DrawListBeginBatch(list, TextureMode::Color);
+    for (u32 i = 0; i < source->count; i++) {
+        v2 p = source->positions[i];
+        f32 size = source->sizes[i];
+        v4 color = source->colors[i];
+
+        v2 min = p - 0.5f * size;
+        v2 max = p + 0.5f * size;
+
+        DrawListPushRectBatch(list, min, max, 0.0f, V2(0.0f), V2(0.0f), color, 0.0f);
+    }
+    DrawListEndBatch(list);
+}
+
 void DrawListInit(DrawList* list, u32 capacity, Allocator* allocator) {
     assert(!list->commandBuffer.Capacity());
     assert(!list->vertexBuffer.Capacity());

@@ -5,6 +5,23 @@
 #include "Array.h"
 
 struct Font;
+struct DrawList;
+
+struct ParticleSource {
+    v2 p;
+    u32 maxCount;
+    u32 count;
+    RandomSeries randomSeries;
+    Array<v2> positions;
+    Array<v2> velocities;
+    Array<f32> lifetimes;
+    Array<f32> sizes;
+    Array<v4> colors;
+};
+
+void InitParticleSource(ParticleSource* source, Allocator* allocator, v2 p, u32 poolSize);
+void UpdateParticleSource(ParticleSource* source);
+void RenderParticleSource(ParticleSource* source, DrawList* list);
 
 enum struct TextureFilter : u32 {
     None = 0, Bilinear, Trilinear, Anisotropic, Default = Bilinear

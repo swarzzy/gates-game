@@ -38,7 +38,7 @@ uniform sampler2D uTexture;
 
 void main() {
     vec4 sample = texture(uTexture, UV);
-    vec4 color = vec4(VertexColor.xyz, 1.0f);
+    vec4 color = VertexColor;
     float factor = step(0.5f, TexBlendFactor);
     FragmentColor = vec4(mix(color, sample, factor));
 })";
@@ -127,6 +127,7 @@ void RendererInit(Renderer* renderer) {
     GL.glFrontFace(GL_CCW);
 
     GL.glEnable(GL_BLEND);
+    GL.glBlendEquation(GL_FUNC_ADD);
     GL.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     //GL.glLineWidth(3.0f);
