@@ -1,30 +1,30 @@
-#include "ResourceLoader.h"
+#include "Assets.h"
 
-#include "../String.h"
-#include "../StringBuilder.h"
+#include "String.h"
+#include "StringBuilder.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#define STBI_ASSERT(x) assert(x)
-#define STBI_MALLOC(sz)           HeapAlloc(ResourceLoaderScratchHeap, (usize)(sz), false)
-#define STBI_REALLOC(p,newsz)     HeapRealloc(ResourceLoaderScratchHeap, (p), (usize)(newsz), false)
-#define STBI_FREE(p)              Free(p)
+#include "../ext/stb_image-2.26/stb_image.h"
+#include "../ext/stb_truetype-1.24/stb_truetype.h"
 
-#include "../../ext/stb_image-2.26/stb_image.h"
-
-#include "../../ext/stb_truetype-1.24/stb_truetype.h"
-
-void __cdecl ResourceLoaderInvoke(ResourceLoaderCommand command, void* _args, void* _result) {
-    switch (command) {
-    case ResourceLoaderCommand::Image: {
-        auto args = (LoadImageArgs*)_args;
-        auto result = (LoadImageResult**)_result;
-        *result = ResourceLoaderLoadImage(args->filename, args->flipY, args->forceBitsPerPixel, args->allocator);
-    } break;
-    invalid_default();
+void FontFreeResources(Font* font, Allocator* allocator) {
+    if (font->glyphs) {
+        allocator->Dealloc(font->glyphs);
+    }
+    if (font->bitmap) {
+        allocator->Dealloc(font->bitmap);
     }
 }
 
-LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 forceBPP, Allocator* allocator) {
+u32 CalcGlyphTableLength(CodepointRange* ranges, u32 rangeCount) {
+    u32 totalCodepointCount = 0;
+    for (u32 i = 0; i < rangeCount; i++) {
+        assert(ranges[i].end > ranges[i].begin);
+        totalCodepointCount += ranges[i].end - ranges[i].begin + 1;
+    }
+    return totalCodepointCount + 1; // One for dummy char
+}
+
+LoadImageResult* LoadImage(const char* filename, b32 flipY, u32 forceBPP, Allocator* allocator) {
     void* data = nullptr;
     int width;
     int height;
@@ -63,14 +63,16 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
     return header;
 }
 
-bool ResourceLoaderBakeFont(Font* result, const char* filename, Allocator* allocator, u32 bitmapDim, f32 height, CodepointRange* ranges, u32 rangeCount) {
+// TODO: remove stb heap
+
+bool LoadFontTrueType(Font* result, const char* filename, Allocator* allocator, u32 bitmapDim, f32 height, CodepointRange* ranges, u32 rangeCount) {
     bool success = false;
-    auto fileSize = DebugGetFileSize(filename);
+    auto fileSize = Platform.DebugGetFileSize(filename);
     if (fileSize) {
-        auto data = (unsigned char*)HeapAlloc(ResourceLoaderScratchHeap, fileSize, false);
-        defer { Free(data); };
+        auto data = (unsigned char*)Platform.HeapAlloc(GetContext()->mainHeap, fileSize, false);
+        defer { Platform.Free(data); };
         if (data) {
-            u32 bytesRead = DebugReadFileToBuffer(data, fileSize, filename);
+            u32 bytesRead = Platform.DebugReadFile(data, fileSize, filename);
             if (bytesRead) {
                 stbtt_fontinfo font;
                 if (stbtt_InitFont(&font, data, 0)) {
@@ -107,10 +109,10 @@ bool ResourceLoaderBakeFont(Font* result, const char* filename, Allocator* alloc
                             assert(totalCodepointCount == (result->glyphCount - 1));
 
                             // TODO: Joint allocations
-                            stbtt_pack_range* stbttRanges = (stbtt_pack_range*)HeapAlloc(ResourceLoaderScratchHeap, sizeof(stbtt_pack_range) * rangeCount, true);
-                            stbtt_packedchar* chars = (stbtt_packedchar*)HeapAlloc(ResourceLoaderScratchHeap, sizeof(stbtt_packedchar) * totalCodepointCount, true);
-                            defer { if (stbttRanges) Free(stbttRanges); };
-                            defer { if (chars) Free(chars); };
+                            stbtt_pack_range* stbttRanges = (stbtt_pack_range*)Platform.HeapAlloc(GetContext()->mainHeap, sizeof(stbtt_pack_range) * rangeCount, true);
+                            stbtt_packedchar* chars = (stbtt_packedchar*)Platform.HeapAlloc(GetContext()->mainHeap, sizeof(stbtt_packedchar) * totalCodepointCount, true);
+                            defer { if (stbttRanges) Platform.Free(stbttRanges); };
+                            defer { if (chars) Platform.Free(chars); };
 
                             if (stbttRanges && chars) {
                                 u32 charDataOffset = 0;
@@ -314,14 +316,14 @@ bool ParseCharEntryBM(char** text, BMFontDesc* font, GlyphInfo* info) {
     return true;
 }
 
-bool ResourceLoaderLoadFontBM(Font* result, const char* filename, Allocator* allocator) {
+bool LoadFontBM(Font* result, const char* filename, Allocator* allocator) {
     bool success = false;
-    auto fileSize = DebugGetFileSize(filename);
+    auto fileSize = Platform.DebugGetFileSize(filename);
     if (fileSize) {
-        auto data = (unsigned char*)HeapAlloc(ResourceLoaderScratchHeap, fileSize + 1, false);
-        defer { Free(data); };
+        auto data = (unsigned char*)Platform.HeapAlloc(GetContext()->mainHeap, fileSize + 1, false);
+        defer { Platform.Free(data); };
         if (data) {
-            u32 bytesRead = DebugReadTextFileToBuffer(data, fileSize + 1, filename);
+            u32 bytesRead = Platform.DebugReadTextFile(data, fileSize + 1, filename);
             if (bytesRead) {
                 char* text = (char*)data;
                 BMFontDesc desc {};
@@ -349,7 +351,7 @@ bool ResourceLoaderLoadFontBM(Font* result, const char* filename, Allocator* all
                             const char* bitmapName;
                             if (dirEndIndex != -1) {
                                 auto bitmapNameLen = (u32)strlen(desc.file);
-                                auto builderAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, ResourceLoaderScratchHeap);
+                                auto builderAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, GetContext()->mainHeap);
                                 StringBuilder builder {};
                                 StringBuilderInit(&builder, builderAllocator, filename, dirEndIndex + 1, bitmapNameLen);
                                 StringBuilderAppend(&builder, desc.file, bitmapNameLen);
@@ -369,7 +371,7 @@ bool ResourceLoaderLoadFontBM(Font* result, const char* filename, Allocator* all
                             if (alloc) {
                                 // NOTE: Converting const ptr to nonconst might cause
                                 // some UB craziness. Is const_cast prevents this?
-                                Free(const_cast<char*>(bitmapName));
+                                Platform.Free(const_cast<char*>(bitmapName));
                             }
 
                             if (imageData && width == result->bitmapSize && height == result->bitmapSize) {

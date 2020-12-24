@@ -2,8 +2,6 @@
 
 #include "ImGui.h"
 
-#include "ResourceLoader.h"
-
 #include "shellscalingapi.h"
 
 // Enforcing unicode
@@ -218,11 +216,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         panic("Failed to create heap for Dear ImGui");
     }
 
-    context->stbHeap = CreateHeap();
-    if (!context->stbHeap) {
-        panic("Failed to create heap for STB libraries");
-    }
-
     context->platformHeap = CreateHeap();
     if (!context->platformHeap) {
         panic("Failed to create platform heap");
@@ -240,31 +233,24 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     }
 
     // Setting function pointers to platform routines a for game
-    context->state.functions.DebugGetFileSize = DebugGetFileSize;
-    context->state.functions.DebugReadFile = DebugReadFileToBuffer;
-    context->state.functions.DebugReadTextFile = DebugReadTextFileToBuffer;
-    context->state.functions.DebugWriteFile = DebugWriteFile;
-    context->state.functions.DebugOpenFile = DebugOpenFile;
-    context->state.functions.DebugCloseFile = DebugCloseFile;
-    context->state.functions.DebugCopyFile = DebugCopyFile;
-    context->state.functions.DebugWriteToOpenedFile = DebugWriteToOpenedFile;
+    context->state.platformAPI.DebugGetFileSize = DebugGetFileSize;
+    context->state.platformAPI.DebugReadFile = DebugReadFileToBuffer;
+    context->state.platformAPI.DebugReadTextFile = DebugReadTextFileToBuffer;
+    context->state.platformAPI.DebugWriteFile = DebugWriteFile;
+    context->state.platformAPI.DebugOpenFile = DebugOpenFile;
+    context->state.platformAPI.DebugCloseFile = DebugCloseFile;
+    context->state.platformAPI.DebugCopyFile = DebugCopyFile;
+    context->state.platformAPI.DebugWriteToOpenedFile = DebugWriteToOpenedFile;
 
-    context->state.functions.CreateHeap = CreateHeap;
-    context->state.functions.DestroyHeap = DestroyHeap;
-    context->state.functions.HeapAlloc = HeapAlloc;
-    context->state.functions.Free = Free;
-
-    context->state.stbHeap = (PlatformHeap*)context->stbHeap;
+    context->state.platformAPI.CreateHeap = CreateHeap;
+    context->state.platformAPI.DestroyHeap = DestroyHeap;
+    context->state.platformAPI.HeapAlloc = HeapAlloc;
+    context->state.platformAPI.HeapRealloc = HeapRealloc;
+    context->state.platformAPI.Free = Free;
 
     context->state.rendererAPI.RenderDrawList = RenderDrawList;
     context->state.rendererAPI.UploadTexture = RendererUploadTexture;
     context->state.rendererAPI.SetCamera = RenderSetCamera;
-
-
-    context->state.ResourceLoaderInvoke = ResourceLoaderInvoke;
-    context->state.resourceLoaderAPI.BakeFont = ResourceLoaderBakeFont;
-    context->state.resourceLoaderAPI.LoadFontBM = ResourceLoaderLoadFontBM;
-
 
     RendererInit(&context->renderer);
 
@@ -391,14 +377,13 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
 #include "SDL.cpp"
 #include "Allocation.cpp"
-#include "ResourceLoader.cpp"
 #include "ImGui.cpp"
 
 #include "../Array.cpp"
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STBTT_STATIC
-#define STBTT_malloc(x,u)   (HeapAlloc(GlobalContext.state.stbHeap, (usize)(x), false))
+#define STBTT_malloc(x,u)   (HeapAlloc(GlobalContext.platformHeap, (usize)(x), false))
 #define STBTT_free(x,u)     (Free(x))
 #define STBTT_assert(x)     assert(x)
 #include "../../ext/stb_truetype-1.24/stb_truetype.h"

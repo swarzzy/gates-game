@@ -30,8 +30,7 @@ static PlatformState* _GlobalPlatformState;
 bool _GlobalImGuiAvailable;
 bool ImGuiAvailable() { return _GlobalImGuiAvailable; }
 
-#define Platform (*((const PlatformCalls*)(&_GlobalPlatformState->functions)))
-#define ResourceLoader (*((const ResourceLoaderAPI*)(&_GlobalPlatformState->resourceLoaderAPI)))
+#define Platform (*((const PlatformAPI*)(&_GlobalPlatformState->platformAPI)))
 #define Renderer (*((const RendererAPI*)(&_GlobalPlatformState->rendererAPI)))
 
 #include "Game.h"
@@ -114,19 +113,6 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
     }
 }
 
-LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 forceBPP, Allocator allocator) {
-    LoadImageArgs args {};
-    args.filename = filename;
-    args.forceBitsPerPixel = forceBPP;
-    args.allocator = &allocator;
-    args.flipY = flipY;
-
-    LoadImageResult* result = nullptr;
-    GetPlatform()->ResourceLoaderInvoke(ResourceLoaderCommand::Image, &args, &result);
-
-    return result;
-}
-
 #include "Game.cpp"
 #include "Console.cpp"
 #include "Draw.cpp"
@@ -144,6 +130,7 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
 #include "String.cpp"
 #include "Position.cpp"
 #include "Language.cpp"
+#include "Assets.cpp"
 
 #include "Intrinsics.cpp"
 
@@ -155,7 +142,15 @@ LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 fo
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STBTT_STATIC
-#define STBTT_malloc(x,u)   (Platform.HeapAlloc(GetPlatform()->stbHeap, (usize)(x), false))
+#define STBTT_malloc(x,u)   (Platform.HeapAlloc(GetContext()->mainHeap, (usize)(x), false))
 #define STBTT_free(x,u)     (Platform.Free(x))
 #define STBTT_assert(x)     assert(x)
 #include "../ext/stb_truetype-1.24/stb_truetype.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_ASSERT(x)            assert(x)
+#define STBI_MALLOC(sz)           (Platform.HeapAlloc(GetContext()->mainHeap, (usize)(sz), false))
+#define STBI_REALLOC(p,newsz)     (Platform.HeapRealloc(GetContext()->mainHeap, (p), (usize)(newsz), false))
+#define STBI_FREE(p)              (Platform.Free(p))
+
+#include "../ext/stb_image-2.26/stb_image.h"

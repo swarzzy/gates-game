@@ -36,7 +36,6 @@ struct Win32Context {
     LibraryData gameLib;
 
     PlatformHeap* imguiHeap;
-    PlatformHeap* stbHeap;
     PlatformHeap* platformHeap;
 
     Renderer renderer;

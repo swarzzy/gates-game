@@ -12,7 +12,7 @@ void GameInit() {
     context->mainAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
     context->menuCanvas = CreateCanvas(&context->mainAllocator);
 
-    auto image = ResourceLoaderLoadImage("../res/alpha_test.png", true, 4, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
+    auto image = LoadImage("../res/alpha_test.png", true, 4, &context->mainAllocator);
     TextureID texture = Renderer.UploadTexture(0, image->width, image->height, TextureFormat::RGBA8, TextureFilter::Bilinear, TextureWrapMode::Repeat, image->bits);
     assert(texture);
     context->testTexture = texture;
@@ -22,8 +22,8 @@ void GameInit() {
     ranges[1].begin = 0x0410;
     ranges[1].end = 0x044f;
 
-    auto f1 = ResourceLoader.BakeFont(&context->font, "../res/fonts/Merriweather-Regular.ttf", &context->mainAllocator, 512, DefaultFontHeight, ranges, array_count(ranges));
-    auto f2 = ResourceLoader.LoadFontBM(&context->sdfFont, "../res/fonts/merriweather_sdf.fnt", &context->mainAllocator);
+    auto f1 = LoadFontTrueType(&context->font, "../res/fonts/Merriweather-Regular.ttf", &context->mainAllocator, 512, DefaultFontHeight, ranges, array_count(ranges));
+    auto f2 = LoadFontBM(&context->sdfFont, "../res/fonts/merriweather_sdf.fnt", &context->mainAllocator);
     assert(f1);
     assert(f2);
 
