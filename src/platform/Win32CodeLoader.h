@@ -5,7 +5,7 @@
 struct PlatformState;
 struct Application;
 
-typedef void (__cdecl GameUpdateAndRenderFn)(PlatformState*, GameInvoke, void** data);
+typedef void (__cdecl GameUpdateAndRenderFn)(PlatformState*, GameInvoke);
 
 struct LibraryData
 {

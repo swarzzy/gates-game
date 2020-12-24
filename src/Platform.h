@@ -6,10 +6,7 @@
 // (including OpenGL calls) and other necessary stuff such as current input state.
 
 #include "Common.h"
-#include "Intrinsics.h"
-#include "Math.h"
-
-#include "Draw.h"
+#include "RenderAPI.h"
 
 #if defined(PLATFORM_WINDOWS)
 #define GAME_CODE_ENTRY __declspec(dllexport)
@@ -20,7 +17,7 @@
 #endif
 
 enum struct GameInvoke : u32 {
-    Init, Reload, Update, Render, Sim
+    Init, Update, Render, Sim
 };
 
 #if defined(PLATFORM_WINDOWS)
@@ -31,57 +28,39 @@ typedef int FileHandle;
 const FileHandle InvalidFileHandle = -1;
 #endif
 
-
-// For accessing in-game resources just char versoins will be enough
-typedef u32(DebugGetFileSizeFn)(const char* filename);
-
-// Read file contents to buffer of size bufferSize. If buffer is too small, it will
-// read only that number of bits which will fit in the buffer.
-// Returns number of bytes written to the buffer
-typedef u32(DebugReadFileFn)(void* buffer, u32 bufferSize, const char* filename);
-
-// Read whole file to buffer and null terminate it
-typedef u32(DebugReadTextFileFn)(void* buffer, u32 bufferSize, const char* filename);
-
-typedef b32(DebugWriteFileFn)(const char* filename, void* data, u32 dataSize);
-
-typedef b32(DebugCopyFileFn)(const char* source, const char* dest, b32 overwrite);
-
-typedef FileHandle(DebugOpenFileFn)(const char* filename);
-
-typedef b32(DebugCloseFileFn)(FileHandle handle);
-
-typedef u32(DebugWriteToOpenedFileFn)(FileHandle handle, void* data, u32 size);
-
-// Memory allocation
 struct PlatformHeap;
 
-typedef PlatformHeap*(CreateHeapFn)();
-
-typedef void(DestroyHeapFn)(PlatformHeap* heap);
-
-typedef void*(HeapAllocFn)(PlatformHeap* heap, usize size, bool zero);
-
-typedef void*(HeapReallocFn)(PlatformHeap* heap, void* p, usize size, bool zero);
-
-typedef void(FreeFn)(void* ptr);
-
-// NOTE: Functions that platform passes to the game
 struct PlatformAPI {
-    DebugGetFileSizeFn* DebugGetFileSize;
-    DebugReadFileFn* DebugReadFile;
-    DebugReadTextFileFn* DebugReadTextFile;
-    DebugWriteFileFn* DebugWriteFile;
-    DebugOpenFileFn* DebugOpenFile;
-    DebugCloseFileFn* DebugCloseFile;
-    DebugCopyFileFn* DebugCopyFile;
-    DebugWriteToOpenedFileFn* DebugWriteToOpenedFile;
+    u32(*DebugGetFileSize)(const char* filename);
 
-    CreateHeapFn* CreateHeap;
-    DestroyHeapFn* DestroyHeap;
-    HeapAllocFn* HeapAlloc;
-    HeapReallocFn* HeapRealloc;
-    FreeFn* Free;
+    // Read file contents to buffer of size bufferSize. If buffer is too small, it will
+    // read only that number of bits which will fit in the buffer.
+    // Returns number of bytes written to the buffer
+    u32(*DebugReadFile)(void* buffer, u32 bufferSize, const char* filename);
+
+    // Read whole file to buffer and null terminate it
+    u32(*DebugReadTextFile)(void* buffer, u32 bufferSize, const char* filename);
+
+    b32(*DebugWriteFile)(const char* filename, void* data, u32 dataSize);
+
+    b32(*DebugCopyFile)(const char* source, const char* dest, b32 overwrite);
+
+    FileHandle(*DebugOpenFile)(const char* filename);
+
+    b32(*DebugCloseFile)(FileHandle handle);
+
+    u32(*DebugWriteToOpenedFile)(FileHandle handle, void* data, u32 size);
+
+
+    PlatformHeap*(*CreateHeap)();
+
+    void(*DestroyHeap)(PlatformHeap* heap);
+
+    void*(*HeapAlloc)(PlatformHeap* heap, usize size, bool zero);
+
+    void*(*HeapRealloc)(PlatformHeap* heap, void* p, usize size, bool zero);
+
+    void(*Free)(void* ptr);
 };
 
 struct KeyState {
@@ -234,10 +213,6 @@ struct InputState {
     i32 scrollFrameOffset;
 };
 
-struct ImGuiContext;
-typedef void*(ImGuiAllocFn)(size_t size, void* data);
-typedef void(ImGuiFreeFn)(void* ptr, void* data);
-
 // TODO: Half
 enum struct VSyncMode {
     Disabled = 0, Full, Adaptive
@@ -254,9 +229,9 @@ struct PlatformState {
     RendererAPI rendererAPI;
 
     // nullptr if imgui is disabled
-    ImGuiContext* imguiContext;
-    ImGuiAllocFn* ImGuiAlloc;
-    ImGuiFreeFn* ImGuiFree;
+    struct ImGuiContext* imguiContext;
+    void*(*ImGuiAlloc)(size_t size, void* data);
+    void(*ImGuiFree)(void* ptr, void* data);
     void* imguiAllocatorData;
 
     InputState input;
