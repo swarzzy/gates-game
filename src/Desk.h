@@ -15,7 +15,7 @@ struct Pin;
 
 struct DeskTile {
     iv2 p;
-    Array<Part*> parts;
+    DArray<Part*> parts;
 };
 
 u32 DeskHash(void* arg);
@@ -32,7 +32,7 @@ struct Desk {
     HashMap<iv2, DeskTile*, DeskHash, DeskCompare> tileHashMap;
     List<Part> parts;
     List<Wire> wires;
-    Array<DeskPosition> wireNodeCleanerBuffer;
+    DArray<DeskPosition> wireNodeCleanerBuffer;
     ToolManager toolManager;
 };
 

@@ -1,12 +1,12 @@
 #include "Tools.h"
 
 void ToolManagerInit(ToolManager* manager, Desk* desk) {
-    manager->pendingWireNodes = Array<DeskPosition>(&desk->deskAllocator);
-    manager->selectedParts = Array<Part*>(&desk->deskAllocator);
-    manager->selectedPartsBlockedStates = Array<b32>(&desk->deskAllocator);
-    manager->fullRebuildWiresBuffer = Array<Wire*>(&desk->deskAllocator);
-    manager->partialRebuildWiresBuffer = Array<Wire*>(&desk->deskAllocator);
-    manager->partialRebuildWiresSelectedEndsBuffer = Array<u8>(&desk->deskAllocator);
+    manager->pendingWireNodes = DArray<DeskPosition>(&desk->deskAllocator);
+    manager->selectedParts = DArray<Part*>(&desk->deskAllocator);
+    manager->selectedPartsBlockedStates = DArray<b32>(&desk->deskAllocator);
+    manager->fullRebuildWiresBuffer = DArray<Wire*>(&desk->deskAllocator);
+    manager->partialRebuildWiresBuffer = DArray<Wire*>(&desk->deskAllocator);
+    manager->partialRebuildWiresSelectedEndsBuffer = DArray<u8>(&desk->deskAllocator);
     manager->pickPartOverrideColorBlocked = V3(0.7f, 0.2f, 0.2f);
     manager->pickPartOverrideColor = V3(0.2f, 0.2f, 0.2f);
 }

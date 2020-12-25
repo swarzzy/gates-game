@@ -46,7 +46,7 @@ void FuncPartClock(Part* part) {
 
 void AllocatePins(Desk* desk, Part* part, u32 inputCount, u32 outputCount) {
     u32 count = inputCount + outputCount;
-    part->pins = Array<Pin>(&desk->deskAllocator, count);
+    part->pins = DArray<Pin>(&desk->deskAllocator, count);
     part->inputCount = inputCount;
     part->outputCount = outputCount;
 }

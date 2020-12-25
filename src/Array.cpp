@@ -95,20 +95,20 @@ T* ArrayBase<T, Derived>::FindFirst(Fn callback) {
 }
 
 template <typename T>
-Array<T> Array<T>::Clone() {
-    Array<T> clone (allocator);
+DArray<T> DArray<T>::Clone() {
+    DArray<T> clone (allocator);
     clone.Resize(count);
     memcpy(clone.data, data, (size_t)count * sizeof(T));
     return clone;
 }
 
 template <typename T>
-void Array<T>::CopyTo(Array<T>* other) {
+void DArray<T>::CopyTo(DArray<T>* other) {
     CopyTo(other, count);
 }
 
 template <typename T>
-void Array<T>::CopyTo(Array<T>* other, u32 copyCount) {
+void DArray<T>::CopyTo(DArray<T>* other, u32 copyCount) {
     if (copyCount > other->capacity) {
         other->Reserve(other->_GrowCapacity(copyCount));
     }
@@ -117,12 +117,12 @@ void Array<T>::CopyTo(Array<T>* other, u32 copyCount) {
 }
 
 template <typename T>
-void Array<T>::Append(const Array<T>* other) {
+void DArray<T>::Append(const DArray<T>* other) {
     Append(other.data, other.count);
 }
 
 template <typename T>
-void Array<T>::Append(T* data, u32 n) {
+void DArray<T>::Append(T* data, u32 n) {
     if (n > 0) {
         T* mem = PushBackN(n);
         memcpy(mem, data, sizeof(T) * n);
@@ -130,12 +130,12 @@ void Array<T>::Append(T* data, u32 n) {
 }
 
 template <typename T>
-void Array<T>::Prepend(const Array<T>* other) {
+void DArray<T>::Prepend(const DArray<T>* other) {
     Prepend(other.data, other.count);
 }
 
 template <typename T>
-void Array<T>::Prepend(T* data, u32 n) {
+void DArray<T>::Prepend(T* data, u32 n) {
     if (n > 0) {
         T* mem = PushFrontN(n);
         memcpy(mem, data, sizeof(T) * n);
@@ -144,7 +144,7 @@ void Array<T>::Prepend(T* data, u32 n) {
 
 
 template <typename T>
-void Array<T>::FreeBuffers() {
+void DArray<T>::FreeBuffers() {
     if (data) {
         allocator->Dealloc(data);
     }
@@ -154,12 +154,12 @@ void Array<T>::FreeBuffers() {
 }
 
 template <typename T>
-void Array<T>::Clear() {
+void DArray<T>::Clear() {
     count = 0;
 }
 
 template <typename T>
-void Array<T>::Resize(u32 newSize) {
+void DArray<T>::Resize(u32 newSize) {
     if (newSize > capacity) {
         Reserve(_GrowCapacity(newSize));
     }
@@ -167,7 +167,7 @@ void Array<T>::Resize(u32 newSize) {
 }
 
 template <typename T>
-void Array<T>::Reserve(u32 newCapacity) {
+void DArray<T>::Reserve(u32 newCapacity) {
     if (newCapacity > capacity) {
         T* newData = allocator->Alloc<T>(newCapacity, false);
         if (data) {
@@ -180,18 +180,18 @@ void Array<T>::Reserve(u32 newCapacity) {
 }
 
 template <typename T>
-void Array<T>::Shrink(u32 newSize) {
+void DArray<T>::Shrink(u32 newSize) {
     assert(newSize <= size);
     count = newSize;
 }
 
 template <typename T>
-void Array<T>::ShrinkBuffers(u32 newSize) {
+void DArray<T>::ShrinkBuffers(u32 newSize) {
     unreachable();
 }
 
 template <typename T>
-T* Array<T>::PushBack() {
+T* DArray<T>::PushBack() {
     if (count == capacity) {
         Reserve(_GrowCapacity(count + 1));
     }
@@ -199,7 +199,7 @@ T* Array<T>::PushBack() {
 }
 
 template <typename T>
-T* Array<T>::PushBackN(u32 num) {
+T* DArray<T>::PushBackN(u32 num) {
     if ((count + num) >= capacity) {
         Reserve(_GrowCapacity(count + num));
     }
@@ -211,13 +211,13 @@ T* Array<T>::PushBackN(u32 num) {
 
 
 template <typename T>
-void Array<T>::PushBack(const T& v) {
+void DArray<T>::PushBack(const T& v) {
     auto entry = PushBack();
     memcpy(entry, &v, sizeof(v));
 }
 
 template <typename T>
-T* Array<T>::PushFront() {
+T* DArray<T>::PushFront() {
     T* result = nullptr;
     if (count == 0) {
         result = PushBack();
@@ -228,7 +228,7 @@ T* Array<T>::PushFront() {
 }
 
 template <typename T>
-T* Array<T>::PushFrontN(u32 n) {
+T* DArray<T>::PushFrontN(u32 n) {
     T* result = nullptr;
     if (count == 0) {
         result = PushBackN(n);
@@ -239,19 +239,19 @@ T* Array<T>::PushFrontN(u32 n) {
 }
 
 template <typename T>
-void Array<T>::PushFront(const T& v) {
+void DArray<T>::PushFront(const T& v) {
     auto entry = PushFront();
     memcpy(entry, &v, sizeof(v));
 }
 
 template <typename T>
-void Array<T>::Pop() {
+void DArray<T>::Pop() {
     assert(count > 0);
     count--;
 }
 
 template <typename T>
-void Array<T>::Erase(const T* it) {
+void DArray<T>::Erase(const T* it) {
     assert(it >= data && it < data + count);
     uptr off = it - data;
     memmove(data + off, data + off + 1, ((size_t)count - (size_t)off - 1) * sizeof(T));
@@ -259,7 +259,7 @@ void Array<T>::Erase(const T* it) {
 }
 
 template <typename T>
-void Array<T>::EraseUnsorted(const T* it) {
+void DArray<T>::EraseUnsorted(const T* it) {
     assert(it >= data && it < data + count);
     uptr off = it - data;
     if (it < data + count - 1) {
@@ -269,19 +269,19 @@ void Array<T>::EraseUnsorted(const T* it) {
 }
 
 template <typename T>
-void Array<T>::Erase(u32 index) {
+void DArray<T>::Erase(u32 index) {
     assert(index < count);
     Erase(data + index);
 }
 
 template <typename T>
-void Array<T>::EraseUnsorted(u32 index) {
+void DArray<T>::EraseUnsorted(u32 index) {
     assert(index < count);
     EraseUnsorted(data + index);
 }
 
 template <typename T>
-T* Array<T>::InsertN(u32 index, u32 n) {
+T* DArray<T>::InsertN(u32 index, u32 n) {
     assert(index < count);
     if ((count + n) >= capacity) {
         Reserve(_GrowCapacity(count + n));
@@ -295,7 +295,7 @@ T* Array<T>::InsertN(u32 index, u32 n) {
 }
 
 template <typename T>
-T* Array<T>::Insert(u32 index) {
+T* DArray<T>::Insert(u32 index) {
     assert(index < count);
     if (count == capacity) {
         Reserve(_GrowCapacity(count + 1));
@@ -308,13 +308,13 @@ T* Array<T>::Insert(u32 index) {
 }
 
 template <typename T>
-void Array<T>::Insert(u32 index, const T& v) {
+void DArray<T>::Insert(u32 index, const T& v) {
     auto entry = Insert(index);
     memcpy(entry, &v, sizeof(v));
 }
 
 template <typename T>
-void Array<T>::KillDuplicatesUnsorted() {
+void DArray<T>::KillDuplicatesUnsorted() {
     for (u32 i = 0; i < count; i++) {
         for (u32 j = i + 1; j < count;) {
             if (data[i] == data[j]) {
@@ -328,7 +328,7 @@ void Array<T>::KillDuplicatesUnsorted() {
 
 
 template <typename T>
-u32 Array<T>::_GrowCapacity(u32 sz) {
+u32 DArray<T>::_GrowCapacity(u32 sz) {
     u32 newCapacity = capacity ? (capacity + capacity / 2) : 8;
     return newCapacity > sz ? newCapacity : sz;
 }

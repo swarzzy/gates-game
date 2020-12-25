@@ -221,7 +221,7 @@ Desk* CreateDesk() {
     desk->wires = List<Wire>(&desk->deskAllocator);
     desk->parts = List<Part>(&desk->deskAllocator);
     desk->partInfo = &context->partInfo;
-    desk->wireNodeCleanerBuffer = Array<DeskPosition>(&desk->deskAllocator);
+    desk->wireNodeCleanerBuffer = DArray<DeskPosition>(&desk->deskAllocator);
 
     context->desk = desk;
 
@@ -238,7 +238,7 @@ DeskTile* CreateDeskTile(Desk* desk, iv2 p) {
     DeskTile* result = (DeskTile*)desk->deskAllocator.Alloc(sizeof(DeskTile), true);
     if (result) {
         result->p = p;
-        result->parts = Array<Part*>(&desk->deskAllocator);
+        result->parts = DArray<Part*>(&desk->deskAllocator);
     }
     return result;
 }
@@ -265,7 +265,7 @@ void PropagateSignals(Desk* desk) {
 
 Wire* AddWire(Desk* desk) {
     Wire* wire = desk->wires.Add();
-    wire->nodes = Array<DeskPosition>(&desk->deskAllocator);
+    wire->nodes = DArray<DeskPosition>(&desk->deskAllocator);
     return wire;
 }
 

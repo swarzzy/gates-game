@@ -31,7 +31,7 @@ struct Wire {
     // Nodes are stored in sorted order
     // 0 - output
     // 1 = input
-    Array<DeskPosition> nodes;
+    DArray<DeskPosition> nodes;
 };
 
 struct WireRecord {
@@ -52,12 +52,12 @@ struct Part {
     u32 inputCount;
     u32 outputCount;
 
-    Array<Pin> pins;
-    Array<WireRecord> wires;
+    DArray<Pin> pins;
+    DArray<WireRecord> wires;
 
     Box2D boundingBox;
     Box2D partBoundingBox;
-    Array<Box2D> pinBoundingBoxes;
+    DArray<Box2D> pinBoundingBoxes;
 
     v4 activeColor;
     v4 inactiveColor;

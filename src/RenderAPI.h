@@ -48,9 +48,9 @@ struct DrawCommand {
 };
 
 struct DrawList {
-    Array<DrawCommand> commandBuffer;
-    Array<Vertex> vertexBuffer;
-    Array<u32> indexBuffer;
+    DArray<DrawCommand> commandBuffer;
+    DArray<Vertex> vertexBuffer;
+    DArray<u32> indexBuffer;
     b32 pendingCommand;
     DrawCommand scratchCommand;
 };
