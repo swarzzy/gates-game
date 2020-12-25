@@ -3,6 +3,7 @@
 #undef _UNICODE
 
 #include "Desk.h"
+#include "StringBuilder.h"
 
 CodepointRange ranges[2];
 f32 DefaultFontHeight = 24.0f;
@@ -11,6 +12,22 @@ void GameInit() {
     auto context = GetContext();
     context->mainAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
     context->menuCanvas = CreateCanvas(&context->mainAllocator);
+
+#if false
+    // String builder test
+    StringBuilder builder = StringBuilder(&context->mainAllocator, "Hll");
+    builder.Reserve(10);
+    builder.Append("abcdef", sizeof("abcdef"));
+    builder.Append(" sailor");
+    builder.Append(-5);
+    builder.AppendLiteral(" ");
+    builder.Append((i32)38456348563845638);
+    builder.AppendLiteral(" ");
+    builder.Append(-123.345234234234f, 0xffffffff);
+
+    builder.Append("sailor", sizeof("sailor"));
+    builder.Append("_qwertyuiopasdfghjhlkhklhkh_", sizeof("_qwertyuiopasdfghjhlkhklhkh_"));
+#endif
 
     auto image = LoadImage("../res/alpha_test.png", true, 4, &context->mainAllocator);
     TextureID texture = Renderer.UploadTexture(0, image->width, image->height, TextureFormat::RGBA8, TextureFilter::Bilinear, TextureWrapMode::Repeat, image->bits);

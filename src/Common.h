@@ -66,6 +66,21 @@ struct ExitScopeHelp
 
 #define defer const auto& concat(defer__, __LINE__) = ExitScopeHelp() + [&]()
 
+// Compile time type comparsion
+template<typename T, typename U>
+struct EqualTypesImpl {
+    static constexpr bool value = false;
+};
+
+template<typename T>
+struct EqualTypesImpl<T, T> {
+    static constexpr bool value = true;
+};
+
+template<typename T, typename U>
+inline constexpr bool EqualTypes = EqualTypesImpl<T, U>::value;
+
+
 // Making tuples be a thing using suuuper crazy template nonsence
 template <typename T1, typename T2 = void, typename T3 = void, typename T4 = void, typename T5 = void>
 struct Tuple { T1 item1; T2 item2; T2 item3; T4 item4; T5 item5; };

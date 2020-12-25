@@ -352,10 +352,11 @@ bool LoadFontBM(Font* result, const char* filename, Allocator* allocator) {
                             if (dirEndIndex != -1) {
                                 auto bitmapNameLen = (u32)strlen(desc.file);
                                 auto builderAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, GetContext()->mainHeap);
-                                StringBuilder builder {};
-                                StringBuilderInit(&builder, builderAllocator, filename, dirEndIndex + 1, bitmapNameLen);
-                                StringBuilderAppend(&builder, desc.file, bitmapNameLen);
-                                bitmapName = StringBuilderToString(&builder);
+
+                                StringBuilder builder = StringBuilder(&builderAllocator, filename, dirEndIndex + 2, bitmapNameLen);
+                                builder.Append(desc.file, bitmapNameLen);
+                                bitmapName = builder.StealString();
+
                                 alloc = true;
                             } else {
                                 bitmapName = desc.file;

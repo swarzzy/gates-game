@@ -1,5 +1,41 @@
 #pragma once
 
+template <typename Char>
+usize StringLengthZ(const Char* str) {
+    usize result = 0;
+    while (*str) {
+        result++;
+        str++;
+    }
+    result++;
+    return result;
+}
+
+template <typename Char>
+usize StringLength(const Char* str) {
+    usize result = 0;
+    while (*str) {
+        result++;
+        str++;
+    }
+    return result;
+}
+
+#define CopyStringLiteral(str, allocator) CopyString(str, sizeof(str), allocator)
+
+template <typename Char>
+Char* CopyString(const Char* str, usize size, Allocator allocator) {
+    Char buffer = allocator->Alloc<Char>(size);
+    memcpy(buffer, str, sizeof(Char) * size);
+    return buffer;
+}
+
+template <typename Char>
+Char* CopyString(const Char* str, Allocator allocator) {
+    Char* result = CopyString(str, StringLengthZ(str), allocator);
+    return result;
+}
+
 template <typename Char, u32 Size> struct StaticString;
 template <typename Char> struct DynamicString;
 
