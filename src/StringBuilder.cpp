@@ -1,9 +1,22 @@
 #include "StringBuilder.h"
 
-// TODO: ensure inplace initializers are initialized
 template <typename Char>
 StringBuilderT<Char>::StringBuilderT(Allocator* alloc)
     : allocator(alloc) {
+}
+
+template <typename Char>
+Char* StringBuilderT<Char>::_AllocateBuffer(u32 count) {
+    u8* mem = (u8*)allocator->Alloc(sizeof(Char) * count + BufferPadding, false);
+    Char* buf = (Char*)(mem + BufferPadding);
+    assert(((uptr)buf % sizeof(Char)) == 0);
+    return buf;
+}
+
+template <typename Char>
+void StringBuilderT<Char>::_DeallocateBuffer() {
+    u8* mem = (u8*)buffer - BufferPadding;
+    allocator->Dealloc(mem);
 }
 
 template <typename Char>
@@ -13,7 +26,7 @@ StringBuilderT<Char>::StringBuilderT(Allocator* alloc, const Char* str, usize ex
     allocator = alloc;
 
     bufferCount = lenZ + extraSpace;
-    buffer = allocator->Alloc<Char>(bufferCount);
+    buffer = _AllocateBuffer(bufferCount);
     assert(buffer);
 
     memcpy(buffer, str, sizeof(Char) * lenZ);
@@ -27,7 +40,7 @@ StringBuilderT<Char>::StringBuilderT(Allocator* alloc, const Char* str, usize le
     allocator = alloc;
 
     bufferCount = lenZ + extraSpace;
-    buffer = allocator->Alloc<Char>(bufferCount);
+    buffer = _AllocateBuffer(bufferCount);
     assert(buffer);
 
     memcpy(buffer, str, sizeof(Char) * lenZ);
@@ -39,14 +52,14 @@ StringBuilderT<Char>::StringBuilderT(Allocator* alloc, const Char* str, usize le
 template <typename Char>
 void StringBuilderT<Char>::Reserve(usize size) {
     if (bufferCount < size) {
-        Char* newBuffer = allocator->Alloc<Char>(size);
+        Char* newBuffer = _AllocateBuffer(size);
         assert(newBuffer);
 
         if (at) {
             memcpy(newBuffer, buffer, sizeof(Char) * at + 1);
         }
 
-        allocator->Dealloc(buffer);
+        _DeallocateBuffer();
         buffer = newBuffer;
         bufferCount = size;
         free = bufferCount - at - 1;
@@ -56,7 +69,7 @@ void StringBuilderT<Char>::Reserve(usize size) {
 template <typename Char>
 void StringBuilderT<Char>::FreeBuffers() {
     if (buffer) {
-        allocator->Dealloc(buffer);
+        _DeallocateBuffer(buffer);
         Allocator* alloc = allocator;
         *this = {};
         allocator = alloc;
@@ -71,20 +84,29 @@ void StringBuilderT<Char>::Clear() {
 }
 
 template <typename Char>
-Char* StringBuilderT<Char>::StealString() {
-    Char* result = buffer;
+StringT<Char> StringBuilderT<Char>::StealString() {
+    StringT<Char> result = StringT<Char>();
 
-    Allocator* alloc = allocator;
-    *this = {};
-    allocator = alloc;
+    if (buffer) {
+        result = StringT<Char>::MakeFromRawBuffer((u8*)buffer - BufferPadding, at, bufferCount);
+        Allocator* alloc = allocator;
+        *this = {};
+        allocator = alloc;
+    }
 
     return result;
 }
 
 template <typename Char>
-Char* StringBuilderT<Char>::CopyString() {
-    Char* result = buffer ? CopyString(buffer, at + 1) : nullptr;
-    FreeBuffers();
+StringT<Char> StringBuilderT<Char>::CopyString() {
+    StringT<Char> result = StringT<Char>();
+
+    if (buffer) {
+        Char* copyBuffer = _AllocateBuffer(at + 1);
+        memcpy(copyBuffer, buffer, sizeof(Char) * (at + 1));
+        result = StringT<Char>::MakeFromRawBuffer((u8*)copyBuffer - BufferPadding, at, bufferCount);
+    }
+
     return result;
 }
 
@@ -128,7 +150,7 @@ void StringBuilderT<Char>::Append(u32 u) {
 }
 
 template <typename Char>
-void StringBuilderT<Char>::Append(f64 f, usize numDigits) {
+void StringBuilderT<Char>::Append(f64 f) {
     if constexpr (EqualTypes<Char, char>) {
         Char tmp[_CVTBUFSIZE];
         // TODO: _gcvt is not thread safe
@@ -142,6 +164,6 @@ void StringBuilderT<Char>::Append(f64 f, usize numDigits) {
 }
 
 template <typename Char>
-void StringBuilderT<Char>::Append(f32 f, usize numDigits) {
-    Append((f64)f, numDigits);
+void StringBuilderT<Char>::Append(f32 f) {
+    Append((f64)f);
 }

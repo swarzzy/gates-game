@@ -13,7 +13,7 @@ void GameInit() {
     context->mainAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
     context->menuCanvas = CreateCanvas(&context->mainAllocator);
 
-#if false
+#if 1
     // String builder test
     StringBuilder builder = StringBuilder(&context->mainAllocator, "Hll");
     builder.Reserve(10);
@@ -23,10 +23,13 @@ void GameInit() {
     builder.AppendLiteral(" ");
     builder.Append((i32)38456348563845638);
     builder.AppendLiteral(" ");
-    builder.Append(-123.345234234234f, 0xffffffff);
+    builder.Append(-123.345234234234f);
 
     builder.Append("sailor", sizeof("sailor"));
     builder.Append("_qwertyuiopasdfghjhlkhklhkh_", sizeof("_qwertyuiopasdfghjhlkhklhkh_"));
+
+    String str1 = builder.CopyString();
+    String str2 = builder.StealString();
 #endif
 
     auto image = LoadImage("../res/alpha_test.png", true, 4, &context->mainAllocator);

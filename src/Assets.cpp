@@ -349,14 +349,16 @@ bool LoadFontBM(Font* result, const char* filename, Allocator* allocator) {
                             auto dirEndIndex = FindLastDirSeparator(filename);
                             bool alloc = false;
                             const char* bitmapName;
+                            void* bitmapNameBase;
                             if (dirEndIndex != -1) {
                                 auto bitmapNameLen = (u32)strlen(desc.file);
                                 auto builderAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, GetContext()->mainHeap);
 
                                 StringBuilder builder = StringBuilder(&builderAllocator, filename, dirEndIndex + 2, bitmapNameLen);
                                 builder.Append(desc.file, bitmapNameLen);
-                                bitmapName = builder.StealString();
-
+                                auto [str, base] = builder.StealString().Unpack();
+                                bitmapName = str;
+                                bitmapNameBase = base;
                                 alloc = true;
                             } else {
                                 bitmapName = desc.file;
@@ -370,9 +372,7 @@ bool LoadFontBM(Font* result, const char* filename, Allocator* allocator) {
                             auto imageData = stbi_load(bitmapName, &width, &height, &n, 1);
 
                             if (alloc) {
-                                // NOTE: Converting const ptr to nonconst might cause
-                                // some UB craziness. Is const_cast prevents this?
-                                Platform.Free(const_cast<char*>(bitmapName));
+                                Platform.Free(bitmapNameBase);
                             }
 
                             if (imageData && width == result->bitmapSize && height == result->bitmapSize) {
