@@ -22,9 +22,8 @@ u32 DeskHash(void* arg);
 bool DeskCompare(void* a, void* b);
 
 struct Desk {
+    u32 partSerialCount;
     DeskPosition origin;
-    u32 nodeSerialCount;
-    u32 pinGeneration;
     PlatformHeap* deskHeap;
     Allocator deskAllocator;
     Canvas canvas;

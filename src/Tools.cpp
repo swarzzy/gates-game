@@ -30,7 +30,7 @@ void ToolPartUpdate(ToolManager* manager, Desk* desk) {
 }
 
 void ToolPartRender(ToolManager* manager, Desk* desk) {
-    DrawPart(desk, &desk->canvas, &manager->prefabPart, manager->prefabPartPos, {}, 0.0f, 0.5f);
+    DrawPart(desk, &desk->canvas, &manager->prefabPart, DeskPosition(manager->prefabPartPos.cell), {}, 0.0f, 0.5f);
 }
 
 void ToolWirePinClicked(ToolManager* manager, Desk* desk, Pin* pin) {
@@ -417,9 +417,10 @@ void ToolPickUpdate(ToolManager* manager, Desk* desk) {
             assert_paranoid(manager->selectedParts.Count() == manager->selectedPartsBlockedStates.Count());
             ForEach(&manager->selectedParts, partPtr) {
                 Part* part = *partPtr;
-                iv2 p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset).cell;
-                IRect bbox = CalcPartBoundingBox(part, p);
-                manager->selectedPartsBlockedStates[_index_partPtr_] = CheckCollisions(desk, DeskPosition(bbox.min), DeskPosition(bbox.max), manager->selectedParts.AsRef());
+                DeskPosition p = DeskPosition(part->p.cell + manager->dragOffset, part->p.offset);
+                DeskPosition min = p.Offset(part->boundingBox.min);
+                DeskPosition max = p.Offset(part->boundingBox.max);
+                manager->selectedPartsBlockedStates[_index_partPtr_] = CheckCollisions(desk, min, max, manager->selectedParts.AsRef());
             } EndEach;
         }
     }

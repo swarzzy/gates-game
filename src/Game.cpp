@@ -76,6 +76,10 @@ void GameInit() {
         CreateDesk();
         DestroyDesk();
     }
+
+    const char json[] = "{\"a\" : true, \"b\" : [false, null, \"foo\"]}";
+
+    json_value_s* root = json_parse(json, strlen(json));
 }
 
 void GameReload() {

@@ -12,6 +12,8 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "../ext/imgui-1.78/imgui_internal.h"
 
+#include "../ext/json/json.h"
+
 inline void AssertHandler(void* data, const char* file, const char* func, u32 line, const char* assertStr, const char* fmt, va_list* args) {
     log_print("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
     if (args) {

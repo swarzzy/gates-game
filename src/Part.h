@@ -17,7 +17,7 @@ struct Pin {
     PinType type;
     // TODO: Do we need pointer to the part here?
     Part* part;
-    iv2 pRelative;
+    v2 pRelative;
     u8 value;
 };
 
@@ -40,6 +40,7 @@ struct WireRecord {
 };
 
 struct Part {
+    u32 id;
     PartType type;
 
     DeskPosition p;
@@ -94,7 +95,7 @@ void DestroyPart(Desk* desk, Part* part);
 
 void DestroyWire(Desk* desk, Wire* wire);
 
-Pin CreatePin(Part* part, i32 xRel, i32 yRel, PinType type);
+Pin CreatePin(Part* part, v2 pRel, PinType type);
 
 void PartProcessSignals(PartInfo* info, Part* part);
 
@@ -105,9 +106,6 @@ u32 PinCount(Part* part);
 bool ArePinsWired(Pin* input, Pin* output);
 Wire* TryWirePins(Desk* desk, Pin* input, Pin* output);
 bool UnwirePin(Pin* pin, Wire* wire);
-
-IRect CalcPartBoundingBox(Part* part);
-IRect CalcPartBoundingBox(Part* part, iv2 overridePos);
 
 void UpdateCachedWirePositions(Part* part);
 void WireCleanupNodes(Wire* wire, Array<DeskPosition>* buffer);

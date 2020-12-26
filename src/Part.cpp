@@ -32,6 +32,7 @@ void InitPart(PartInfo* info, Desk* desk, Part* part, iv2 p, PartType type) {
     assert((u32)type < (u32)PartType::_Count);
     auto initializer = info->partInitializers[(u32)type];
     initializer(desk, part);
+    part->id = ++desk->partSerialCount;
     part->p = DeskPosition(p).Normalized();
     part->wires = DArray<WireRecord>(&desk->deskAllocator);
     part->pinBoundingBoxes = DArray<Box2D>(&desk->deskAllocator);
@@ -131,14 +132,7 @@ void DrawPart(Desk* desk, Canvas* canvas, Part* element, v3 overrideColor, f32 o
 }
 
 DeskPosition ComputePinPosition(Pin* pin,  DeskPosition partPosition) {
-    DeskPosition result {};
-    iv2 cell = partPosition.cell + pin->pRelative;
-    switch (pin->type) {
-    // Subtract a small number to prevent flooring in the wrong cell
-    case PinType::Input: { result = DeskPosition(cell, V2(DeskCellHalfSize - 0.0001f, 0.0f)); } break;
-    case PinType::Output: { result = DeskPosition(cell, V2(-DeskCellHalfSize, 0.0f)); } break;
-        invalid_default();
-    }
+    DeskPosition result = partPosition.Offset(pin->pRelative);
     return result;
 }
 
@@ -198,22 +192,6 @@ void WireCleanupNodes(Wire* wire, DArray<DeskPosition>* buffer) {
 
     buffer->PushBack(*wire->nodes.Last());
     buffer->CopyTo(&wire->nodes);
-}
-
-IRect CalcPartBoundingBox(Part* part, iv2 overridePos) {
-    IRect rect {};
-    rect.min = overridePos;
-    rect.max = overridePos + part->dim;
-    ForEach(&part->pins, pin) {
-        iv2 pinP = overridePos + pin->pRelative;
-        rect.min = IV2(Min(rect.min.x, pinP.x), Min(rect.min.y, pinP.y));
-        rect.max = IV2(Max(rect.max.x, pinP.x), Max(rect.max.y, pinP.y));
-    } EndEach;
-    return rect;
-}
-
-IRect CalcPartBoundingBox(Part* part) {
-    return CalcPartBoundingBox(part, part->p.cell);
 }
 
 Part* TryCreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type) {
@@ -341,11 +319,11 @@ bool UnwirePin(Pin* pin, Wire* wire) {
     return result;
 }
 
-Pin CreatePin(Part* part, i32 xRel, i32 yRel, PinType type) {
+Pin CreatePin(Part* part, v2 pRel, PinType type) {
     Pin pin {};
     pin.type = type;
     pin.part = part;
-    pin.pRelative = IV2(xRel, yRel);
+    pin.pRelative = pRel;
     return pin;
 }
 
