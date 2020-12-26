@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <math.h>
 #include <string.h>
+#include <intrin.h>
 
 #if defined(_MSC_VER)
 #define COMPILER_MSVC
@@ -14,7 +15,7 @@
 // unknown attribute
 #pragma warning(disable: 5030)
 
-#define debug_break() __debugbreak()
+#define BreakDebug() __debugbreak()
 #define WriteFence() (_WriteBarrier(), _mm_sfence())
 #define ReadFence() (_ReadBarrier(), _mm_lfence())
 
@@ -25,7 +26,7 @@
 
 #pragma clang diagnostic ignored "-Wparentheses-equality"
 
-#define debug_break() __builtin_debugtrap()
+#define BreakDebug() __builtin_debugtrap()
 // TODO: Fences
 #define WriteFence() do {} while(false) //((__asm__("" ::: "memory")), _mm_sfence())
 #define ReadFence() do {} while(false) //((__asm__("" ::: "memory")), _mm_lfence())
@@ -36,15 +37,11 @@
 #error Unsupported compiler
 #endif
 
-#include <intrin.h>
-
-
-//#define constant static inline const
 #define array_count(arr) ((uint)(sizeof(arr) / sizeof(arr[0])))
 #define typedecl(type, member) (((type*)0)->member)
 #define offset_of(type, member) ((uptr)(&(((type*)0)->member)))
-#define invalid_default() default: { debug_break(); } break
-#define unreachable() debug_break()
+#define invalid_default() default: { BreakDebug(); } break
+#define unreachable() BreakDebug()
 
 // NOTE: Jonathan Blow defer implementation. Reference: https://pastebin.com/SX3mSC9n
 #define concat_internal(x,y) x##y
@@ -69,6 +66,21 @@ struct ExitScopeHelp
 
 #define defer const auto& concat(defer__, __LINE__) = ExitScopeHelp() + [&]()
 
+// Compile time type comparsion
+template<typename T, typename U>
+struct EqualTypesImpl {
+    static constexpr bool value = false;
+};
+
+template<typename T>
+struct EqualTypesImpl<T, T> {
+    static constexpr bool value = true;
+};
+
+template<typename T, typename U>
+inline constexpr bool EqualTypes = EqualTypesImpl<T, U>::value;
+
+
 // Making tuples be a thing using suuuper crazy template nonsence
 template <typename T1, typename T2 = void, typename T3 = void, typename T4 = void, typename T5 = void>
 struct Tuple { T1 item1; T2 item2; T2 item3; T4 item4; T5 item5; };
@@ -89,9 +101,6 @@ template <typename T1, typename T2>
 struct Tuple<T1, T2, void, void, void> { T1 item1; T2 item2; };
 template <typename T1, typename T2>
 inline Tuple<T1, T2> MakeTuple(T1 item1, T2 item2) { return Tuple<T1, T2> { item1, item2 }; }
-
-template <typename T>
-using ForEachFn = void(T it);
 
 typedef uint8_t byte;
 typedef unsigned char uchar;

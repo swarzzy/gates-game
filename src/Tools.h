@@ -16,7 +16,7 @@ struct ToolManager {
     v2 mouseCanvasPos;
 
     Pin* pendingWireBeginPin;
-    Array<DeskPosition> pendingWireNodes;
+    DArray<DeskPosition> pendingWireNodes;
     DeskPosition lastWireNodePos;
 
     v2 pickPressedMousePos;
@@ -25,8 +25,8 @@ struct ToolManager {
     b32 rectSelectStarted;
     b32 dragAttempt;
     b32 rectSelectAttempt;
-    Array<Part*> selectedParts;
-    Array<b32> selectedPartsBlockedStates;
+    DArray<Part*> selectedParts;
+    DArray<b32> selectedPartsBlockedStates;
     iv2 dragOffset;
 
     v3 pickPartOverrideColor;
@@ -36,9 +36,9 @@ struct ToolManager {
     iv2 toolPickLastMouseP;
     v2 clickedPartOffset;
 
-    Array<Wire*> fullRebuildWiresBuffer;
-    Array<Wire*> partialRebuildWiresBuffer;
-    Array<u8> partialRebuildWiresSelectedEndsBuffer;
+    DArray<Wire*> fullRebuildWiresBuffer;
+    DArray<Wire*> partialRebuildWiresBuffer;
+    DArray<u8> partialRebuildWiresSelectedEndsBuffer;
 };
 
 // TODO: Update order

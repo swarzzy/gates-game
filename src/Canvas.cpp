@@ -37,6 +37,6 @@ v2 CanvasProjectScreenPos(Canvas* canvas, v2 normalizedScreenPos) {
 }
 
 void EndCanvas(Canvas* canvas) {
-    Renderer.RenderDrawList(&canvas->drawList);
+    Renderer.SubmitDrawList(&canvas->drawList);
     DrawListClear(&canvas->drawList);
 }

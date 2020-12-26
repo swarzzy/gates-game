@@ -25,11 +25,11 @@ rem set GameLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /DLL /OUT:%BinOutD
 
 set ConfigCompilerFlags=%DebugCompilerFlags%
 
-echo Building platform...
-rem cl /DPLATFORM_CODE /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/platform/SDLWin32Platform.cpp /link %PlatformLinkerFlags%
-
 echo Building game...
 cl /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/GameEntry.cpp /link %GameLinkerFlags%
+
+echo Building platform...
+cl /DPLATFORM_CODE /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/platform/SDLWin32Platform.cpp /link %PlatformLinkerFlags%
 
 rmdir /S /Q %ObjOutDir%
 del build\gates.exp

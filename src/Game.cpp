@@ -3,6 +3,7 @@
 #undef _UNICODE
 
 #include "Desk.h"
+#include "StringBuilder.h"
 
 CodepointRange ranges[2];
 f32 DefaultFontHeight = 24.0f;
@@ -12,7 +13,26 @@ void GameInit() {
     context->mainAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
     context->menuCanvas = CreateCanvas(&context->mainAllocator);
 
-    auto image = ResourceLoaderLoadImage("../res/alpha_test.png", true, 4, MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap));
+#if 1
+    // String builder test
+    StringBuilder builder = StringBuilder(&context->mainAllocator, "Hll");
+    builder.Reserve(10);
+    builder.Append("abcdef", sizeof("abcdef"));
+    builder.Append(" sailor");
+    builder.Append(-5);
+    builder.AppendLiteral(" ");
+    builder.Append((i32)38456348563845638);
+    builder.AppendLiteral(" ");
+    builder.Append(-123.345234234234f);
+
+    builder.Append("sailor", sizeof("sailor"));
+    builder.Append("_qwertyuiopasdfghjhlkhklhkh_", sizeof("_qwertyuiopasdfghjhlkhklhkh_"));
+
+    String str1 = builder.CopyString();
+    String str2 = builder.StealString();
+#endif
+
+    auto image = LoadImage("../res/alpha_test.png", true, 4, &context->mainAllocator);
     TextureID texture = Renderer.UploadTexture(0, image->width, image->height, TextureFormat::RGBA8, TextureFilter::Bilinear, TextureWrapMode::Repeat, image->bits);
     assert(texture);
     context->testTexture = texture;
@@ -22,8 +42,8 @@ void GameInit() {
     ranges[1].begin = 0x0410;
     ranges[1].end = 0x044f;
 
-    auto f1 = ResourceLoader.BakeFont(&context->font, "../res/fonts/Merriweather-Regular.ttf", &context->mainAllocator, 512, DefaultFontHeight, ranges, array_count(ranges));
-    auto f2 = ResourceLoader.LoadFontBM(&context->sdfFont, "../res/fonts/merriweather_sdf.fnt", &context->mainAllocator);
+    auto f1 = LoadFontTrueType(&context->font, "../res/fonts/Merriweather-Regular.ttf", &context->mainAllocator, 512, DefaultFontHeight, ranges, array_count(ranges));
+    auto f2 = LoadFontBM(&context->sdfFont, "../res/fonts/merriweather_sdf.fnt", &context->mainAllocator);
     assert(f1);
     assert(f2);
 

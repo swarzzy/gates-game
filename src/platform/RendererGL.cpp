@@ -182,7 +182,7 @@ void RendererInit(Renderer* renderer) {
     GL.glUseProgram(0);
 }
 
-void RenderSetCamera(m4x4* projection) {
+void RendererSetCamera(m4x4* projection) {
     auto renderer = GetRenderer();
     GL.glUseProgram(renderer->standardShader.handle);
     GL.glUniformMatrix4fv(renderer->standardShader.MVP, 1, false, projection->data);
@@ -194,9 +194,9 @@ void RenderSetCamera(m4x4* projection) {
     GL.glUniformMatrix4fv(renderer->distanceFieldShader.MVP, 1, false, projection->data);
 }
 
-void RenderEndPass() {}
+void RendererEndPass() {}
 
-void RenderDrawList(DrawList* list) {
+void RendererDrawList(DrawList* list) {
     auto renderer = GetRenderer();
 
     if (list->vertexBuffer.Count() && list->indexBuffer.Count()) {

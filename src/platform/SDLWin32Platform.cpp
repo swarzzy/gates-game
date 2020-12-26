@@ -2,8 +2,6 @@
 
 #include "ImGui.h"
 
-#include "ResourceLoader.h"
-
 #include "shellscalingapi.h"
 
 // Enforcing unicode
@@ -30,7 +28,7 @@ inline void AssertHandler(void* data, const char* file, const char* func, u32 li
     if (args) {
         GlobalLogger(GlobalLoggerData, fmt, args);
     }
-    debug_break();
+    BreakDebug();
 }
 
 LoggerFn* GlobalLogger = Logger;
@@ -39,9 +37,6 @@ AssertHandlerFn* GlobalAssertHandler = AssertHandler;
 void* GlobalAssertHandlerData = nullptr;
 
 static Win32Context GlobalContext;
-static void* GlobalGameData;
-
-PlatformHeap* ResourceLoaderScratchHeap;
 
 void* HeapAllocAPI(uptr size, b32 clear, uptr alignment, void* data) { return HeapAlloc((PlatformHeap*)data, (usize)size, clear); }
 void HeapFreeAPI(void* ptr, void* data) { Free(ptr); }
@@ -218,17 +213,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         panic("Failed to create heap for Dear ImGui");
     }
 
-    context->stbHeap = CreateHeap();
-    if (!context->stbHeap) {
-        panic("Failed to create heap for STB libraries");
-    }
-
     context->platformHeap = CreateHeap();
     if (!context->platformHeap) {
         panic("Failed to create platform heap");
     }
-
-    ResourceLoaderScratchHeap = context->platformHeap;
 
     context->state.imguiContext = InitImGuiForGL3(context->imguiHeap, context->sdl.window, &context->sdl.glContext);
     if (!context->state.imguiContext) {
@@ -240,31 +228,24 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     }
 
     // Setting function pointers to platform routines a for game
-    context->state.functions.DebugGetFileSize = DebugGetFileSize;
-    context->state.functions.DebugReadFile = DebugReadFileToBuffer;
-    context->state.functions.DebugReadTextFile = DebugReadTextFileToBuffer;
-    context->state.functions.DebugWriteFile = DebugWriteFile;
-    context->state.functions.DebugOpenFile = DebugOpenFile;
-    context->state.functions.DebugCloseFile = DebugCloseFile;
-    context->state.functions.DebugCopyFile = DebugCopyFile;
-    context->state.functions.DebugWriteToOpenedFile = DebugWriteToOpenedFile;
+    context->state.platformAPI.DebugGetFileSize = DebugGetFileSize;
+    context->state.platformAPI.DebugReadFile = DebugReadFileToBuffer;
+    context->state.platformAPI.DebugReadTextFile = DebugReadTextFileToBuffer;
+    context->state.platformAPI.DebugWriteFile = DebugWriteFile;
+    context->state.platformAPI.DebugOpenFile = DebugOpenFile;
+    context->state.platformAPI.DebugCloseFile = DebugCloseFile;
+    context->state.platformAPI.DebugCopyFile = DebugCopyFile;
+    context->state.platformAPI.DebugWriteToOpenedFile = DebugWriteToOpenedFile;
 
-    context->state.functions.CreateHeap = CreateHeap;
-    context->state.functions.DestroyHeap = DestroyHeap;
-    context->state.functions.HeapAlloc = HeapAlloc;
-    context->state.functions.Free = Free;
+    context->state.platformAPI.CreateHeap = CreateHeap;
+    context->state.platformAPI.DestroyHeap = DestroyHeap;
+    context->state.platformAPI.HeapAlloc = HeapAlloc;
+    context->state.platformAPI.HeapRealloc = HeapRealloc;
+    context->state.platformAPI.Free = Free;
 
-    context->state.stbHeap = (PlatformHeap*)context->stbHeap;
-
-    context->state.rendererAPI.RenderDrawList = RenderDrawList;
+    context->state.rendererAPI.SubmitDrawList = RendererDrawList;
     context->state.rendererAPI.UploadTexture = RendererUploadTexture;
-    context->state.rendererAPI.SetCamera = RenderSetCamera;
-
-
-    context->state.ResourceLoaderInvoke = ResourceLoaderInvoke;
-    context->state.resourceLoaderAPI.BakeFont = ResourceLoaderBakeFont;
-    context->state.resourceLoaderAPI.LoadFontBM = ResourceLoaderLoadFontBM;
-
+    context->state.rendererAPI.SetCamera = RendererSetCamera;
 
     RendererInit(&context->renderer);
 
@@ -279,7 +260,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     SDLSetVsync(VSyncMode::Disabled);
 
     // Init the game
-    context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Init, &GlobalGameData);
+    context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Init);
 
     f64 currentTime = Win32GetTimeStamp();
     f64 accumulator = 0.0;
@@ -311,7 +292,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         SDLPollEvents(&context->sdl, &context->state);
         ImGuiNewFrameForGL3(context->sdl.window, context->state.windowWidth, context->state.windowHeight);
 
-        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Update, &GlobalGameData);
+        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Update);
 
 
         f64 stepTime = accumulator / timePerSimStep;
@@ -321,7 +302,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         f64 simBeginTime = Win32GetTimeStamp();
 
         for (u32 i = 0; i < simSteps; i++) {
-            context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Sim, &GlobalGameData);
+            context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Sim);
             simStepsForSec++;
             context->state.simStepCount++;
 
@@ -334,16 +315,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
             }
         }
 
-        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Render, &GlobalGameData);
+        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Render);
 
         ImGuiEndFrameForGL3();
-
-        // Reload game lib if it was updated
-        bool codeReloaded = UpdateGameCode(&context->gameLib);
-        if (codeReloaded) {
-            log_print("[Platform] Game was hot-reloaded\n");
-            context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Reload, &GlobalGameData);
-        }
 
         //bool show_demo_window = true;
         //ImGui::ShowDemoWindow(&show_demo_window);
@@ -361,7 +335,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         context->state.input.mouseFrameOffsetY = 0;
 
         SDLSwapBuffers(&context->sdl);
-
 
         if (granularityWasSet && vsyncMode == VSyncMode::Disabled && (context->state.targetFramerate > 0)) {
             f64 deltaTime = Win32GetTimeStamp() - beginFrameTime;
@@ -382,7 +355,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     }
 
     // TODO(swarzzy): Is that necessary?
-    SDL_Quit();
+    //SDL_Quit();
     return 0;
 }
 
@@ -391,14 +364,13 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
 #include "SDL.cpp"
 #include "Allocation.cpp"
-#include "ResourceLoader.cpp"
 #include "ImGui.cpp"
 
 #include "../Array.cpp"
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STBTT_STATIC
-#define STBTT_malloc(x,u)   (HeapAlloc(GlobalContext.state.stbHeap, (usize)(x), false))
+#define STBTT_malloc(x,u)   (HeapAlloc(GlobalContext.platformHeap, (usize)(x), false))
 #define STBTT_free(x,u)     (Free(x))
 #define STBTT_assert(x)     assert(x)
 #include "../../ext/stb_truetype-1.24/stb_truetype.h"

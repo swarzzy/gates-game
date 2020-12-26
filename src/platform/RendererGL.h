@@ -38,8 +38,8 @@ struct Renderer {
 };
 
 void RendererInit(Renderer* renderer);
-void RenderSetCamera(m4x4* projection);
-void RenderDrawList(DrawList* list);
+void RendererSetCamera(m4x4* projection);
+void RendererDrawList(DrawList* list);
 
 TextureID RendererUploadTexture(TextureID id, u32 width, u32 height, TextureFormat format, TextureFilter filterMag, TextureWrapMode wrapMode, void* data);
 

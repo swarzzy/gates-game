@@ -6,10 +6,7 @@
 // (including OpenGL calls) and other necessary stuff such as current input state.
 
 #include "Common.h"
-#include "Intrinsics.h"
-#include "Math.h"
-
-#include "Draw.h"
+#include "RenderAPI.h"
 
 #if defined(PLATFORM_WINDOWS)
 #define GAME_CODE_ENTRY __declspec(dllexport)
@@ -19,9 +16,8 @@
 #error Unsupported OS
 #endif
 
-enum struct GameInvoke : u32
-{
-    Init, Reload, Update, Render, Sim
+enum struct GameInvoke : u32 {
+    Init, Update, Render, Sim
 };
 
 #if defined(PLATFORM_WINDOWS)
@@ -32,156 +28,56 @@ typedef int FileHandle;
 const FileHandle InvalidFileHandle = -1;
 #endif
 
-
-// For accessing in-game resources just char versoins will be enough
-typedef u32(DebugGetFileSizeFn)(const char* filename);
-
-// Read file contents to buffer of size bufferSize. If buffer is too small, it will
-// read only that number of bits which will fit in the buffer.
-// Returns number of bytes written to the buffer
-typedef u32(DebugReadFileFn)(void* buffer, u32 bufferSize, const char* filename);
-
-// Read whole file to buffer and null terminate it
-typedef u32(DebugReadTextFileFn)(void* buffer, u32 bufferSize, const char* filename);
-typedef b32(DebugWriteFileFn)(const char* filename, void* data, u32 dataSize);
-typedef b32(DebugCopyFileFn)(const char* source, const char* dest, b32 overwrite);
-
-typedef FileHandle(DebugOpenFileFn)(const char* filename);
-typedef b32(DebugCloseFileFn)(FileHandle handle);
-typedef u32(DebugWriteToOpenedFileFn)(FileHandle handle, void* data, u32 size);
-
-// Memory allocation
 struct PlatformHeap;
 
-typedef PlatformHeap*(CreateHeapFn)();
-typedef void(DestroyHeapFn)(PlatformHeap* heap);
-typedef void*(HeapAllocFn)(PlatformHeap* heap, usize size, bool zero);
-typedef void(FreeFn)(void* ptr);
+struct PlatformAPI {
+    u32(*DebugGetFileSize)(const char* filename);
 
-// Resources
+    // Read file contents to buffer of size bufferSize. If buffer is too small, it will
+    // read only that number of bits which will fit in the buffer.
+    // Returns number of bytes written to the buffer
+    u32(*DebugReadFile)(void* buffer, u32 bufferSize, const char* filename);
 
-enum struct ResourceLoaderCommand: u32 {
-    Image, Font
+    // Read whole file to buffer and null terminate it
+    u32(*DebugReadTextFile)(void* buffer, u32 bufferSize, const char* filename);
+
+    b32(*DebugWriteFile)(const char* filename, void* data, u32 dataSize);
+
+    b32(*DebugCopyFile)(const char* source, const char* dest, b32 overwrite);
+
+    FileHandle(*DebugOpenFile)(const char* filename);
+
+    b32(*DebugCloseFile)(FileHandle handle);
+
+    u32(*DebugWriteToOpenedFile)(FileHandle handle, void* data, u32 size);
+
+
+    PlatformHeap*(*CreateHeap)();
+
+    void(*DestroyHeap)(PlatformHeap* heap);
+
+    void*(*HeapAlloc)(PlatformHeap* heap, usize size, bool zero);
+
+    void*(*HeapRealloc)(PlatformHeap* heap, void* p, usize size, bool zero);
+
+    void(*Free)(void* ptr);
 };
 
-struct LoadImageArgs {
-    const char* filename;
-    u32 forceBitsPerPixel;
-    Allocator* allocator;
-    b32 flipY;
+struct KeyState {
+    u8 pressedNow;
+    u8 wasPressed;
 };
 
-struct LoadImageResult {
-    void* base;
-    void* bits;
-    u32 width;
-    u32 height;
-    u32 channels;
+struct MouseButtonState {
+    u8 pressedNow;
+    u8 wasPressed;
 };
 
-static_assert((sizeof(LoadImageResult) % 4) == 0);
-
-struct GlyphInfo {
-    v2 uv0;
-    v2 uv1;
-    v2 quadMin;
-    v2 quadMax;
-    f32 xAdvance;
-    u16 codepoint;
-};
-
-struct Font {
-    // Should be filled by caller
-    TextureID atlas;
-    b32 sdf;
-    v2 sdfParams;
-
-    GlyphInfo* glyphs;
-    u32 glyphCount;
-    u32 bitmapSize;
-    u8* bitmap;
-    f32 height;
-    f32 ascent;
-    f32 descent;
-    f32 lineGap;
-    u16 glyphIndexTable[U16::Max];
-};
-
-void FontFreeResources(Font* font, Allocator allocator) {
-    if (font->glyphs) {
-        allocator.Dealloc(font->glyphs);
-    }
-    if (font->bitmap) {
-        allocator.Dealloc(font->bitmap);
-    }
-}
-
-struct CodepointRange {
-    u32 begin;
-    u32 end;
-    u32 _count; // Do not fill. Used internally
-};
-
-inline u32 CalcGlyphTableLength(CodepointRange* ranges, u32 rangeCount) {
-    u32 totalCodepointCount = 0;
-    for (u32 i = 0; i < rangeCount; i++) {
-        assert(ranges[i].end > ranges[i].begin);
-        totalCodepointCount += ranges[i].end - ranges[i].begin + 1;
-    }
-    return totalCodepointCount + 1; // One for dummy char
-}
-
-typedef bool(ResourceLoaderBakeFontFn)(Font* result, const char* filename, Allocator* allocator, u32 bitmapDim, f32 height, CodepointRange* ranges, u32 rangeCount);
-typedef bool(ResourceLoaderLoadFontBMFn)(Font* result, const char* filename, Allocator* allocator);
-
-
-typedef void(ResourceLoaderInvokeFn)(ResourceLoaderCommand command, void* args, void* result);
-
-struct ResourceLoaderAPI {
-    ResourceLoaderBakeFontFn* BakeFont;
-    ResourceLoaderLoadFontBMFn* LoadFontBM;
-};
-
-// NOTE: Functions that platform passes to the game
-struct PlatformCalls
-{
-    DebugGetFileSizeFn* DebugGetFileSize;
-    DebugReadFileFn* DebugReadFile;
-    DebugReadTextFileFn* DebugReadTextFile;
-    DebugWriteFileFn* DebugWriteFile;
-    DebugOpenFileFn* DebugOpenFile;
-    DebugCloseFileFn* DebugCloseFile;
-    DebugCopyFileFn* DebugCopyFile;
-    DebugWriteToOpenedFileFn* DebugWriteToOpenedFile;
-
-    CreateHeapFn* CreateHeap;
-    DestroyHeapFn* DestroyHeap;
-    HeapAllocFn* HeapAlloc;
-    FreeFn* Free;
-};
-
-struct KeyState
-{
-    // TODO(swarzzy): u8
-    // TODO(swarzzy): Repeat count
-    b32 pressedNow;
-    b32 wasPressed;
-};
-
-struct MouseButtonState
-{
-    // TODO: u8
-    b32 pressedNow;
-    b32 wasPressed;
-};
-
-enum struct MouseButton : u8
-{
+enum struct MouseButton : u8 {
     Left = 0, Right, Middle, XButton1, XButton2
 };
 
-enum struct Key : u8
-{
+enum struct Key : u8 {
     Invalid = 0x00,
     LeftCtrl,
     RightCtrl,
@@ -302,61 +198,51 @@ enum struct Key : u8
     NumEnter,
 };
 
-// NOTE: Input state that also gets passed to the game by platform
-struct InputState
-{
-    static const u32 KeyCount = 256;
-    static const u32 MouseButtonCount = 5;
-    KeyState keys[KeyCount];
-    MouseButtonState mouseButtons[MouseButtonCount];
+struct InputState {
+    KeyState keys[256];
+    MouseButtonState mouseButtons[5];
     b32 mouseInWindow;
     b32 activeApp;
-    // NOTE: All mouse position values are normalized
+    // All mouse position values are normalized
     f32 mouseX;
     f32 mouseY;
     f32 mouseFrameOffsetX;
     f32 mouseFrameOffsetY;
-    // NOTE: Not normalized
+    // Not normalized
     i32 scrollOffset;
     i32 scrollFrameOffset;
 };
-
-struct ImGuiContext;
-typedef void*(ImGuiAllocFn)(size_t size, void* data);
-typedef void(ImGuiFreeFn)(void* ptr, void* data);
-
-typedef void* STBAllocFn(usize size, void* data);
-typedef void* STBFreeFn(void* ptr, void* data);
 
 // TODO: Half
 enum struct VSyncMode {
     Disabled = 0, Full, Adaptive
 };
 
-struct PlatformState
-{
-    // Mutable variabled
+struct PlatformState {
+    // Mutable variables
     u32 targetSimStepsPerSecond;
     VSyncMode vsync;
     u32 targetFramerate;
+
     // Immutable
-    PlatformCalls functions;
+    PlatformAPI platformAPI;
     RendererAPI rendererAPI;
-    ResourceLoaderAPI resourceLoaderAPI;
-    ResourceLoaderInvokeFn* ResourceLoaderInvoke;
+
     // nullptr if imgui is disabled
-    ImGuiContext* imguiContext;
-    ImGuiAllocFn* ImGuiAlloc;
-    ImGuiFreeFn* ImGuiFree;
+    struct ImGuiContext* imguiContext;
+    void*(*ImGuiAlloc)(size_t size, void* data);
+    void(*ImGuiFree)(void* ptr, void* data);
     void* imguiAllocatorData;
-    PlatformHeap* stbHeap;
+
     InputState input;
+
     u64 tickCount;
     u64 simStepCount;
     i32 framesPerSecond;
     i32 updatesPerSecond;
     i32 simStepsPerSecond;
     f32 deltaTime;
+
     u32 windowWidth;
     u32 windowHeight;
     f32 pixelsPerCentimeter;

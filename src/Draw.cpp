@@ -5,9 +5,9 @@ void DrawListInit(DrawList* list, u32 capacity, Allocator* allocator) {
     assert(!list->vertexBuffer.Capacity());
     assert(!list->indexBuffer.Capacity());
 
-    list->commandBuffer = Array<DrawCommand>(allocator);
-    list->vertexBuffer = Array<Vertex>(allocator);
-    list->indexBuffer = Array<u32>(allocator);
+    list->commandBuffer = DArray<DrawCommand>(allocator);
+    list->vertexBuffer = DArray<Vertex>(allocator);
+    list->indexBuffer = DArray<u32>(allocator);
 }
 
 void DrawListClear(DrawList* list) {

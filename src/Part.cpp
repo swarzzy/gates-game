@@ -33,8 +33,8 @@ void InitPart(PartInfo* info, Desk* desk, Part* part, iv2 p, PartType type) {
     auto initializer = info->partInitializers[(u32)type];
     initializer(desk, part);
     part->p = DeskPosition(p).Normalized();
-    part->wires = Array<WireRecord>(&desk->deskAllocator);
-    part->pinBoundingBoxes = Array<Box2D>(&desk->deskAllocator);
+    part->wires = DArray<WireRecord>(&desk->deskAllocator);
+    part->pinBoundingBoxes = DArray<Box2D>(&desk->deskAllocator);
 
     ComputePartBoundingBoxes(part);
 }
@@ -171,7 +171,7 @@ void UpdateCachedWirePositions(Part* part) {
     } EndEach;
 }
 
-void WireCleanupNodes(Wire* wire, Array<DeskPosition>* buffer) {
+void WireCleanupNodes(Wire* wire, DArray<DeskPosition>* buffer) {
     assert(wire->nodes.Count() >= 4);
     buffer->Clear();
     buffer->PushBack(wire->nodes[0]);

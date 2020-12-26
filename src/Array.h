@@ -9,9 +9,6 @@ struct Array;
 template <typename T>
 struct ArrayRef;
 
-template <typename T>
-using DArray = Array<T>;
-
 template <typename T, typename Derived>
 struct ArrayBase {
     T& operator[](u32 i);
@@ -60,31 +57,31 @@ struct SArray : ArrayBase<T, SArray<T, Size>> {
 };
 
 template <typename T>
-struct Array : ArrayBase<T, Array<T>> {
+struct DArray : ArrayBase<T, DArray<T>> {
     T* data = nullptr;
     u32 count = 0;
     u32 capacity = 0;
     Allocator* allocator = nullptr;
 
-    Array() = default;
-    Array(Allocator* alloc) : allocator(alloc) {}
-    Array(Allocator* alloc, u32 size) : allocator(alloc) { Resize(size); }
+    DArray() = default;
+    DArray(Allocator* alloc) : allocator(alloc) {}
+    DArray(Allocator* alloc, u32 size) : allocator(alloc) { Resize(size); }
 
     forceinline T* Data() { return data; }
     forceinline u32 Count() { return count; }
 
     u32 Capacity() { return capacity; }
 
-    Array Clone();
-    void CopyTo(Array<T>* other);
-    void CopyTo(Array<T>* other, u32 copyCount);
+    DArray Clone();
+    void CopyTo(DArray<T>* other);
+    void CopyTo(DArray<T>* other, u32 copyCount);
 
     void Clear();
     void FreeBuffers();
 
-    void Append(const Array<T>* other);
+    void Append(const DArray<T>* other);
     void Append(T* data, u32 n);
-    void Prepend(const Array<T>* other);
+    void Prepend(const DArray<T>* other);
     void Prepend(T* data, u32 n);
 
     void Resize(u32 newSize);

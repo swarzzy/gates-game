@@ -8,6 +8,7 @@
 #include "Desk.h"
 #include "Tools.h"
 #include "Language.h"
+#include "Assets.h"
 
 enum struct DrawMode {
     Normal = 0, DeskDebug
@@ -71,8 +72,6 @@ const InputState* GetInput();
 bool ImGuiAvailable();
 
 Desk* GetDesk() { return GetContext()->desk; }
-
-LoadImageResult* ResourceLoaderLoadImage(const char* filename, b32 flipY, u32 forceBPP, Allocator allocator);
 
 void* HeapAllocAPI(uptr size, b32 clear, uptr alignment, void* data);
 void HeapFreeAPI(void* ptr, void* data);

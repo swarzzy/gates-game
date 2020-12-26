@@ -1,90 +1,63 @@
 #pragma once
 
-template <typename Char, u32 Size> struct StaticString;
-template <typename Char> struct DynamicString;
-
-template <u32 Size>
-using SString = StaticString<char, Size>;
-
-using DString = DynamicString<char>;
-
-template <typename Char, typename Derived>
-struct StringBase {
-};
-
-template <typename Char, u32 Size>
-struct StaticString : StringBase<Char, StaticString<Char, Size>> {
-    Char data[Size];
-    u32 at = nullptr;
-
-    forceinline Char* Buffer() { return data; }
-    forceinline u32 At() { return at; }
-    forceinline u32 Capacity() { return Size; }
-
-    StaticString();
-};
+template <typename Char>
+usize StringLengthZ(const Char* str) {
+    usize result = 0;
+    while (*str) {
+        result++;
+        str++;
+    }
+    result++;
+    return result;
+}
 
 template <typename Char>
-struct DynamicString : StringBase<Char, DynamicString<Char>> {
+usize StringLength(const Char* str) {
+    usize result = 0;
+    while (*str) {
+        result++;
+        str++;
+    }
+    return result;
+}
+
+#define CopyStringLiteral(str, allocator) CopyString(str, sizeof(str), allocator)
+
+template <typename Char>
+Char* CopyString(const Char* str, usize size, Allocator allocator) {
+    Char buffer = allocator->Alloc<Char>(size);
+    memcpy(buffer, str, sizeof(Char) * size);
+    return buffer;
+}
+
+template <typename Char>
+Char* CopyString(const Char* str, Allocator allocator) {
+    Char* result = CopyString(str, StringLengthZ(str), allocator);
+    return result;
+}
+
+template <typename Char>
+struct StringT {
     Char* data = nullptr;
-    Allocator* allocator;
 
-    forceinline Char* Buffer() { return data + sizeof(u16) * 2; }
-    forceinline u32 At() { return *((u16*)data); }
-    forceinline u32 Capacity() { return *(((u16*)data) + 1); }
+    forceinline Char* Buffer() { return data ? data + sizeof(u16) * 2 : nullptr; }
+    forceinline u32 Length() { return data ? *((u16*)data) : 0; }
+    forceinline bool DynamicallyAllocated() { return data ? (*(((u16*)data) + 1) ? true : false) : 0; }
+    forceinline Char operator[](usize i) { assert(i < Length()); return Buffer()[i]; }
 
-    DynamicString() = default;
-    DynamicString(Allocator* allocator);
+    void* BasePtr() { return data; }
+    // Return both pointers to string and to buffer base
+    Tuple<Char*, void*> Unpack() { return MakeTuple(Buffer(), (void*)data); }
 
-    forceinline u16& _At() { return *((u16*)data); }
-    forceinline u16& _Capacity() { return *(((u16*)data) + 1); }
+    static StringT<Char> StringT<Char>::MakeFromRawBuffer(void* buffer, u16 length, bool dynamicallyAllocated);
+
+    // Internal
+    forceinline u16* _Length() { return (u16*)data; }
+    forceinline u16* _DynamicallyAllocated() { return ((u16*)data) + 1; }
 };
 
-#if 0
-struct StaticString {
-    char* data;
-    u32 capacity;
-    u32 at;
-
-    StaticString(char* buff, u32 buffSize) {
-        data = buff;
-        capacity = buffSize;
-        at = 0;
-    }
-
-    void Append(const char* str) {
-        auto len = (usize)strlen(str);
-        usize remainingSize = capacity - at - 1;
-        usize sizeToCopy = Min(remainingSize, len);
-
-        memcpy(data + at, str, sizeof(char) * sizeToCopy);
-        at += sizeToCopy;
-        assert(at < capacity);
-        data[at] = 0;
-    }
-
-    void Appendfv(const char* fmt, va_list args) {
-        i32 remainingSize = capacity - at - 1;
-        if (remainingSize > 0) {
-            assert(remainingSize > 0);
-            i32 written = FormatStringV(data + at, remainingSize, fmt, args);
-            assert(written >= 0);
-            at += Min(remainingSize - 1, written);
-            assert(at < capacity);
-        }
-    }
-
-
-    void Appendf(const char* fmt, ...) {
-        va_list args;
-        va_start(args, fmt);
-        Appendfv(fmt, args);
-        va_end(args);
-    }
-
-    const char* GetBuffer() const { return data; }
-};
-#endif
+typedef StringT<char> String;
+typedef StringT<char16> StringW;
 
 
 bool MatchStrings(const char* a, const char* b) {
