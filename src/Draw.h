@@ -27,8 +27,8 @@ forceinline void DrawSimpleLineBatch(DrawList* list, v2 begin, v2 end, f32 z, f3
 forceinline void DrawBoxBatch(DrawList* list, Box2D box, f32 z, f32 thickness, v4 color);
 void DrawListEndBatch(DrawList* list);
 
-Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char16* string, f32 maxWidth);
-void DrawTextLine(DrawList* list, Font* font, const char16* string, u32 count, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, f32 fontScale);
-v2 CalcTextSizeUnscaled(Font* font, const char16* string, f32 maxWidth);
+Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char32* string, f32 maxWidth);
+void DrawTextLine(DrawList* list, Font* font, const char32* string, u32 count, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, f32 fontScale);
+v2 CalcTextSizeUnscaled(Font* font, const char32* string, f32 maxWidth);
 // Optionally returns text bounding box relative to p
-Box2D DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align, f32 fontScale = 1.0f);
+Box2D DrawText(DrawList* list, Font* font, const char32* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align, f32 fontScale = 1.0f);

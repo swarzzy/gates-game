@@ -47,7 +47,7 @@ struct GameContext {
 
     iv2 prevMouseDeskPos;
 
-    char16* strings[(u32)Strings::_Count];
+    char32* strings[(u32)Strings::_Count];
 };
 
 void GameInit();

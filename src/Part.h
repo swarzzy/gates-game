@@ -65,7 +65,7 @@ struct Part {
 
     u32 clockDiv;
 
-    const char16* label;
+    const char32* label;
 
     b32 placed;
 };

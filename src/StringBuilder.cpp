@@ -1,169 +1,160 @@
 #include "StringBuilder.h"
 
-template <typename Char>
-StringBuilderT<Char>::StringBuilderT(Allocator* alloc)
+void StringBuilder::_Init(Allocator* alloc, usize count) {
+    allocator = alloc;
+
+    bufferCount = count;
+    buffer = allocator->Alloc<char32>(bufferCount, false);
+    assert(buffer);
+    buffer[0] = 0;
+
+    at = 0;
+    free = count - 1;
+}
+
+
+StringBuilder::StringBuilder(Allocator* alloc)
     : allocator(alloc) {
 }
 
-template <typename Char>
-Char* StringBuilderT<Char>::_AllocateBuffer(u32 count) {
-    u8* mem = (u8*)allocator->Alloc(sizeof(Char) * count + BufferPadding, false);
-    Char* buf = (Char*)(mem + BufferPadding);
-    assert(((uptr)buf % sizeof(Char)) == 0);
-    return buf;
+StringBuilder::StringBuilder(Allocator* alloc, const char32* str, usize extraSpace) {
+    usize size = StringLengthZ(str);
+    _Init(alloc, size + extraSpace);
+    Append(str, size);
 }
 
-template <typename Char>
-void StringBuilderT<Char>::_DeallocateBuffer() {
-    u8* mem = (u8*)buffer - BufferPadding;
-    allocator->Dealloc(mem);
+StringBuilder::StringBuilder(Allocator* alloc, const char32* str, usize sizeZ, usize extraSpace) {
+    _Init(alloc, sizeZ + extraSpace);
+    Append(str, sizeZ);
 }
 
-template <typename Char>
-StringBuilderT<Char>::StringBuilderT(Allocator* alloc, const Char* str, usize extraSpace) {
-    usize lenZ = StringLengthZ(str);
-
-    allocator = alloc;
-
-    bufferCount = lenZ + extraSpace;
-    buffer = _AllocateBuffer(bufferCount);
-    assert(buffer);
-
-    memcpy(buffer, str, sizeof(Char) * lenZ);
-    buffer[lenZ - 1] = 0;
-    at = lenZ - 1;
-    free = extraSpace;
+StringBuilder::StringBuilder(Allocator* alloc, const char* str, usize lenZ, usize extraSpace) {
+    _Init(alloc, lenZ + extraSpace);
+    Append(str, lenZ);
 }
 
-template <typename Char>
-StringBuilderT<Char>::StringBuilderT(Allocator* alloc, const Char* str, usize lenZ, usize extraSpace) {
-    allocator = alloc;
-
-    bufferCount = lenZ + extraSpace;
-    buffer = _AllocateBuffer(bufferCount);
-    assert(buffer);
-
-    memcpy(buffer, str, sizeof(Char) * lenZ);
-    buffer[lenZ - 1] = 0;
-    at = lenZ - 1;
-    free = extraSpace;
+StringBuilder::StringBuilder(Allocator* alloc, const char* str, usize extraSpace) {
+    usize size = StringLengthZ(str);
+    _Init(alloc, size + extraSpace);
+    Append(str, size);
 }
 
-template <typename Char>
-void StringBuilderT<Char>::Reserve(usize size) {
+void StringBuilder::Reserve(usize size) {
     if (bufferCount < size) {
-        Char* newBuffer = _AllocateBuffer(size);
+        char32* newBuffer = allocator->Alloc<char32>(size, false);
         assert(newBuffer);
 
         if (at) {
-            memcpy(newBuffer, buffer, sizeof(Char) * at + 1);
+            memcpy(newBuffer, buffer, (at + 1) * sizeof(char32));
         }
 
-        _DeallocateBuffer();
+        allocator->Dealloc(buffer);
         buffer = newBuffer;
         bufferCount = size;
         free = bufferCount - at - 1;
     }
 }
 
-template <typename Char>
-void StringBuilderT<Char>::FreeBuffers() {
+void StringBuilder::FreeBuffers() {
     if (buffer) {
-        _DeallocateBuffer(buffer);
+        allocator->Dealloc(buffer);
         Allocator* alloc = allocator;
         *this = {};
         allocator = alloc;
     }
 }
 
-template <typename Char>
-void StringBuilderT<Char>::Clear() {
-    builder->at = 0;
-    builder->free = builder->bufferCount;
-    builder->buffer[0] = (Char)0;
+void StringBuilder::Clear() {
+    at = 0;
+    free = bufferCount;
+    buffer[0] = (char32)0;
 }
 
-template <typename Char>
-StringT<Char> StringBuilderT<Char>::StealString() {
-    StringT<Char> result = StringT<Char>();
+char32* StringBuilder::StealString() {
+    char32* result = buffer;
 
-    if (buffer) {
-        result = StringT<Char>::MakeFromRawBuffer((u8*)buffer - BufferPadding, at, bufferCount);
-        Allocator* alloc = allocator;
-        *this = {};
-        allocator = alloc;
-    }
+    Allocator* alloc = allocator;
+    *this = {};
+    allocator = alloc;
 
     return result;
 }
 
-template <typename Char>
-StringT<Char> StringBuilderT<Char>::CopyString() {
-    StringT<Char> result = StringT<Char>();
-
-    if (buffer) {
-        Char* copyBuffer = _AllocateBuffer(at + 1);
-        memcpy(copyBuffer, buffer, sizeof(Char) * (at + 1));
-        result = StringT<Char>::MakeFromRawBuffer((u8*)copyBuffer - BufferPadding, at, bufferCount);
-    }
-
+char32* StringBuilder::CopyString() {
+    char32* result = buffer ? ::CopyString(buffer, at + 1, allocator) : nullptr;
     return result;
 }
 
-template <typename Char>
-void StringBuilderT<Char>::Append(const Char* str, usize lenZ) {
+char* StringBuilder::CopyStringAsASCII() {
+    usize copySize = at + 1;
+    char* copyBuffer = allocator->Alloc<char>(copySize, false);
+
+    for (usize i = 0; i < copySize; i++) {
+        copyBuffer[i] = (char)buffer[i];
+    }
+
+    return copyBuffer;
+}
+
+void StringBuilder::Append(const char32* str, usize sizeZ) {
+    if (free < (sizeZ - 1)) {
+        Reserve(Max(bufferCount + sizeZ - 1 - free, bufferCount * 2));
+        assert(free >= (sizeZ - 1));
+    }
+
+    memcpy(buffer + at, str, sizeZ * sizeof(char32));
+    at += sizeZ - 1;
+    free -= sizeZ - 1;
+    buffer[at] = 0;
+}
+
+void StringBuilder::Append(const char32* str) {
+    Append(str, StringLengthZ(str));
+}
+
+void StringBuilder::Append(const char* str, usize lenZ) {
     if (free < (lenZ - 1)) {
         Reserve(Max(bufferCount + lenZ - 1 - free, bufferCount * 2));
         assert(free >= (lenZ - 1));
     }
 
-    memcpy(buffer + at, str, sizeof(Char) * lenZ);
-    at += lenZ - 1;
-    free -= lenZ - 1;
+    for (usize i = 0; i < lenZ; i++) {
+        buffer[at] = str[i];
+        at++;
+        free--;
+    }
+
+    at--;
+    free++;
+
+    buffer[at] = 0;
 }
 
-template <typename Char>
-void StringBuilderT<Char>::Append(const Char* str) {
+void StringBuilder::Append(const char* str) {
     Append(str, StringLengthZ(str));
 }
 
-template <typename Char>
-void StringBuilderT<Char>::Append(i32 i) {
-    if constexpr (EqualTypes<Char, char>) {
-        Char tmp[64];
-        _ltoa((long)i, tmp, 10);
-        Append(tmp);
-    } else {
-        static_assert(false);
-    }
+void StringBuilder::Append(i32 i) {
+    char tmp[64];
+    _ltoa((long)i, tmp, 10);
+    Append(tmp);
 }
 
-template <typename Char>
-void StringBuilderT<Char>::Append(u32 u) {
-    if constexpr (EqualTypes<Char, char>) {
-        Char tmp[64];
-        _ultoa((unsigned long)u, tmp, 10);
-        Append(tmp);
-    } else {
-        static_assert(false);
-    }
+void StringBuilder::Append(u32 u) {
+    char tmp[64];
+    _ultoa((unsigned long)u, tmp, 10);
+    Append(tmp);
 }
 
-template <typename Char>
-void StringBuilderT<Char>::Append(f64 f) {
-    if constexpr (EqualTypes<Char, char>) {
-        Char tmp[_CVTBUFSIZE];
-        // TODO: _gcvt is not thread safe
-        // TODO: Do something with this magic digits param
-        auto ret = _gcvt(f, 8, tmp);
-        assert(ret);
-        Append(tmp);
-    } else {
-        static_assert(false);
-    }
+void StringBuilder::Append(f64 f) {
+    char tmp[_CVTBUFSIZE];
+    // TODO: _gcvt is not thread safe
+    // TODO: Do something with this magic digits param
+    auto ret = _gcvt(f, 8, tmp);
+    assert(ret);
+    Append(tmp);
 }
 
-template <typename Char>
-void StringBuilderT<Char>::Append(f32 f) {
+void StringBuilder::Append(f32 f) {
     Append((f64)f);
 }

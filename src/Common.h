@@ -116,6 +116,7 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 
 typedef char16_t char16;
+typedef char32_t char32;
 
 typedef uintptr_t uptr;
 

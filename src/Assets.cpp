@@ -349,16 +349,14 @@ bool LoadFontBM(Font* result, const char* filename, Allocator* allocator) {
                             auto dirEndIndex = FindLastDirSeparator(filename);
                             bool alloc = false;
                             const char* bitmapName;
-                            void* bitmapNameBase;
                             if (dirEndIndex != -1) {
-                                auto bitmapNameLen = (u32)strlen(desc.file);
+                                auto bitmapNameLen = StringLengthZ(desc.file);
                                 auto builderAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, GetContext()->mainHeap);
 
                                 StringBuilder builder = StringBuilder(&builderAllocator, filename, dirEndIndex + 2, bitmapNameLen);
                                 builder.Append(desc.file, bitmapNameLen);
-                                auto [str, base] = builder.StealString().Unpack();
-                                bitmapName = str;
-                                bitmapNameBase = base;
+                                bitmapName = builder.CopyStringAsASCII();
+                                builder.FreeBuffers();
                                 alloc = true;
                             } else {
                                 bitmapName = desc.file;
@@ -372,7 +370,8 @@ bool LoadFontBM(Font* result, const char* filename, Allocator* allocator) {
                             auto imageData = stbi_load(bitmapName, &width, &height, &n, 1);
 
                             if (alloc) {
-                                Platform.Free(bitmapNameBase);
+                                // TODO: UB?
+                                Platform.Free(const_cast<char*>(bitmapName));
                             }
 
                             if (imageData && width == result->bitmapSize && height == result->bitmapSize) {

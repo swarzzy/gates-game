@@ -13,7 +13,7 @@ enum struct Language : u32 {
     English, Russian
 };
 
-const char16* GetString(Strings id);
+const char32* GetString(Strings id);
 
 void InitLanguageRussian();
 void InitLanguageEnglish();

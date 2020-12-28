@@ -9,7 +9,7 @@ struct SerializedPart {
     iv2 dim;
     b32 active;
     u32 clockDiv;
-    const char16* label;
+    const char32* label;
 
     u32 inputCount;
     u32 outputCount;

@@ -15,10 +15,10 @@ void GameInit() {
 
 #if 1
     // String builder test
-    StringBuilder builder = StringBuilder(&context->mainAllocator, "Hll");
+    StringBuilder builder = StringBuilder(&context->mainAllocator, U"Hll");
     builder.Reserve(10);
     builder.Append("abcdef", sizeof("abcdef"));
-    builder.Append(" sailor");
+    builder.Append(U" sailor");
     builder.Append(-5);
     builder.AppendLiteral(" ");
     builder.Append((i32)38456348563845638);
@@ -28,8 +28,10 @@ void GameInit() {
     builder.Append("sailor", sizeof("sailor"));
     builder.Append("_qwertyuiopasdfghjhlkhklhkh_", sizeof("_qwertyuiopasdfghjhlkhklhkh_"));
 
-    String str1 = builder.CopyString();
-    String str2 = builder.StealString();
+    char32* str1 = builder.CopyString();
+    char* str3 = builder.CopyStringAsASCII();
+    char32* str2 = builder.StealString();
+
 #endif
 
     auto image = LoadImage("../res/alpha_test.png", true, 4, &context->mainAllocator);
@@ -66,7 +68,7 @@ void GameInit() {
     PartInfoInit(&context->partInfo);
 
     for (u32 i = 0; i < (u32)Strings::_Count; i++) {
-        context->strings[i] = u"<null>";
+        context->strings[i] = U"<null>";
     }
 
     context->language = Language::Russian;
