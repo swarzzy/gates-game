@@ -17,7 +17,7 @@ struct DeskPosition {
     iv2 cell = {};
     v2 offset = {};
 
-    explicit DeskPosition() = default;
+    DeskPosition() = default;
     explicit DeskPosition(iv2 cellValue, v2 offsetValue);
     explicit DeskPosition(iv2 cellValue);
     explicit DeskPosition(v2 offsetValue);

@@ -42,6 +42,7 @@
 #define offset_of(type, member) ((uptr)(&(((type*)0)->member)))
 #define invalid_default() default: { BreakDebug(); } break
 #define unreachable() BreakDebug()
+#define compile_if if constexpr // Prevent editors indentation from getting crazy
 
 // NOTE: Jonathan Blow defer implementation. Reference: https://pastebin.com/SX3mSC9n
 #define concat_internal(x,y) x##y
@@ -165,6 +166,9 @@ namespace U16 {
 namespace U64 {
     constexpr u64 Max = UINT64_MAX;
 }
+
+#define Kilobytes(kb) ((kb) * (u32)1024)
+#define Megabytes(mb) ((mb) * (u32)1024 * (u32)1024)
 
 // NOTE: Allocator API
 typedef void*(AllocateFn)(uptr size, b32 clear, uptr alignment, void* allocatorData);

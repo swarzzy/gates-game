@@ -1,6 +1,6 @@
 #pragma once
 
-usize StringSizeZ(const char* str) {
+constexpr usize StringSizeZ(const char* str) {
     usize result = 0;
     while (*str) {
         result++;
@@ -10,7 +10,7 @@ usize StringSizeZ(const char* str) {
     return result;
 }
 
-usize StringSize(const char* str) {
+constexpr usize StringSize(const char* str) {
     usize result = 0;
     while (*str) {
         result++;
@@ -21,7 +21,7 @@ usize StringSize(const char* str) {
 
 
 template <typename Char>
-usize StringLengthZ(const Char* str) {
+constexpr usize StringLengthZ(const Char* str) {
     usize result = 0;
     while (*str) {
         result++;
@@ -32,7 +32,7 @@ usize StringLengthZ(const Char* str) {
 }
 
 template <typename Char>
-usize StringLength(const Char* str) {
+constexpr usize StringLength(const Char* str) {
     usize result = 0;
     while (*str) {
         result++;
@@ -222,7 +222,9 @@ i32 FindLastDirSeparator(const char* path) {
     return splitPos;
 }
 
+
 #if false
+
 [https://bjoern.hoehrmann.de/utf-8/decoder/dfa/]
 // Copyright (c) 2008-2009 Bjoern Hoehrmann <bjoern@hoehrmann.de>
 // See http://bjoern.hoehrmann.de/utf-8/decoder/dfa/ for details.

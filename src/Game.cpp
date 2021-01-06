@@ -4,6 +4,8 @@
 
 #include "Desk.h"
 #include "StringBuilder.h"
+#include "Serialize.h"
+
 
 CodepointRange ranges[2];
 f32 DefaultFontHeight = 24.0f;
@@ -33,6 +35,72 @@ void GameInit() {
     char32* str2 = builder.StealString();
 
 #endif
+#if false
+
+    double value = 0.0;
+    char buffer[128];
+    const char* start = nullptr;
+    stbsp__uint32 len = 0;
+    stbsp__int32 decimalPos = 0;
+    stbsp__uint32 fracDigits = 0;
+
+    //#define STBSP__NUMSZ 512 // big enough for e308 (with commas) or e-307
+    //char num[STBSP__NUMSZ];
+    // sets decimal pos to STBSP__SPECIAL
+    auto a = stbsp__real_to_str(&start, &len, buffer, &decimalPos, value, fracDigits);
+
+    serializer.BeginStruct();
+    serializer.WriteField(U"field 1", U"value1");
+    serializer.WriteField(U"field 2", U"value2");
+    serializer.WriteField(U"field 3", U"value3");
+    //serializer.BeginArrayRow();
+    serializer.WriteValue(U"1", false);
+    serializer.WriteValue(U"2", false);
+    serializer.WriteValue(U"3", false);
+    serializer.WriteValue(U"4", false);
+    serializer.EndArray();
+    serializer.WriteField(U"field 4", U"value4");
+    serializer.EndStruct();
+    serializer.BeginStruct();
+    serializer.WriteField(U"field 5", U"value5");
+    serializer.EndStruct();
+#endif
+    SerializedPart part {};
+    part.id = 5;
+    part.type = 1;
+    part.pTile = IV2(100, -2);
+    part.pOffset = V2(0.4f, 0.5f);
+    part.dim = IV2(3, 5);
+    part.active = true;
+    part.label = U"Test part";
+    part.inputCount = 3;
+    part.outputCount = 1;
+    part.pinRelPositions = DArray<v2>(&context->mainAllocator);
+    part.pinRelPositions.PushBack(V2(0.0f, 0.0f));
+    part.pinRelPositions.PushBack(V2(1.0f, 0.0f));
+    part.pinRelPositions.PushBack(V2(0.0f, 1.0f));
+    part.pinRelPositions.PushBack(V2(1.0f, 1.0f));
+    part.pinRelPositions.PushBack(V2(-0.0f, -1.0f));
+    part.pinRelPositions.PushBack(V2(1.175494351e-38, 3.402823466e+38));
+    //part.pinRelPositions.PushBack(V2(1.0f, HUGE_VAL));
+
+
+    JsonSerializer serializer = JsonSerializer(&context->mainAllocator);
+    //serializer.BeginArray();
+
+    SerializeToJson(&serializer, &part);
+
+    //serializer.EndArray();
+
+    auto data = serializer.GenerateStringUtf8();
+
+    Platform.DebugWriteFile("test.json", data.Data(), data.Count() - 1);
+
+    //data.Data()[491] = 0;
+
+    json_parse_result_s parseResult;
+    json_value_s* root = json_parse_ex(data.Data(), data.Count() - 1, json_parse_flags_allow_json5, nullptr, nullptr, &parseResult);
+
 
     auto image = LoadImage("../res/alpha_test.png", true, 4, &context->mainAllocator);
     TextureID texture = Renderer.UploadTexture(0, image->width, image->height, TextureFormat::RGBA8, TextureFilter::Bilinear, TextureWrapMode::Repeat, image->bits);
@@ -78,10 +146,6 @@ void GameInit() {
         CreateDesk();
         DestroyDesk();
     }
-
-    const char json[] = "{\"a\" : true, \"b\" : [false, null, \"foo\"]}";
-
-    json_value_s* root = json_parse(json, strlen(json));
 }
 
 void GameReload() {
@@ -231,6 +295,13 @@ void GameUpdateDesk() {
     auto deskCanvas = &desk->canvas;
     auto partInfo = &context->partInfo;
     auto toolManager = &desk->toolManager;
+
+    if (KeyPressed(Key::F5)) {
+        ListForEach(&desk->parts, part) {
+            //SerializedPart serialized {};
+            //SerializePart(desk, part, &serialized);
+        } ListEndEach(part);
+    }
 
     f32 scaleSpeed = 0.1f;
 

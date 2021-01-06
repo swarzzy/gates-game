@@ -1,6 +1,13 @@
 #define __CLANG_FLOAT_H
 #define __STDC_UTF_16__
 
+#define STB_SPRINTF_IMPLEMENTATION 1
+#include "../ext/stb_sprintf/stb_sprintf.h"
+
+#include "../ext/utf8/utf8.h"
+
+#include "../ext/json/json.h"
+
 #include "Common.h"
 #include "Globals.h"
 #include "Platform.h"
@@ -11,8 +18,6 @@
 #include "../ext/imgui-1.78/imgui.h"
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "../ext/imgui-1.78/imgui_internal.h"
-
-#include "../ext/json/json.h"
 
 inline void AssertHandler(void* data, const char* file, const char* func, u32 line, const char* assertStr, const char* fmt, va_list* args) {
     log_print("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
@@ -113,6 +118,7 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
 #include "Language.cpp"
 #include "Assets.cpp"
 #include "StringBuilder.cpp"
+#include "Serialize.cpp"
 
 #include "Intrinsics.cpp"
 

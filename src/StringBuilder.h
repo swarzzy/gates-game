@@ -17,6 +17,11 @@ struct StringBuilder {
     StringBuilder(Allocator* allocator, const char* str, usize lenZ, usize extraSpace = 0);
     StringBuilder(Allocator* allocator, const char* str, usize extraSpace = 0);
 
+    const char32* Buffer() { return buffer; }
+    usize Length() { return at; }
+    usize LengthZ() { return at + 1; }
+    usize CapacityZ() { return bufferCount; }
+    usize At() { return at; }
 
     void Reserve(usize size);
 
@@ -34,8 +39,9 @@ struct StringBuilder {
     void Append(const char* str);
     void Append(i32 i);
     void Append(u32 u);
-    void Append(f64 f);
-    void Append(f32 f);
+    void Append(f64 f, usize fracDigits = 8);
+    void Append(f32 f, usize fracDigits = 8);
+    void Append(bool b);
 
     void _Init(Allocator* alloc, const usize count);
 };

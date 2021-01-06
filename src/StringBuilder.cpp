@@ -113,25 +113,29 @@ void StringBuilder::Append(const char32* str) {
 }
 
 void StringBuilder::Append(const char* str, usize lenZ) {
-    if (free < (lenZ - 1)) {
-        Reserve(Max(bufferCount + lenZ - 1 - free, bufferCount * 2));
-        assert(free >= (lenZ - 1));
+    if (str && lenZ) {
+        if (free < (lenZ - 1)) {
+            Reserve(Max(bufferCount + lenZ - 1 - free, bufferCount * 2));
+            assert(free >= (lenZ - 1));
+        }
+
+        for (usize i = 0; i < lenZ; i++) {
+            buffer[at] = str[i];
+            at++;
+            free--;
+        }
+
+        at--;
+        free++;
+
+        buffer[at] = 0;
     }
-
-    for (usize i = 0; i < lenZ; i++) {
-        buffer[at] = str[i];
-        at++;
-        free--;
-    }
-
-    at--;
-    free++;
-
-    buffer[at] = 0;
 }
 
 void StringBuilder::Append(const char* str) {
-    Append(str, StringLengthZ(str));
+    if (str) {
+        Append(str, StringLengthZ(str));
+    }
 }
 
 void StringBuilder::Append(i32 i) {
@@ -146,15 +150,23 @@ void StringBuilder::Append(u32 u) {
     Append(tmp);
 }
 
-void StringBuilder::Append(f64 f) {
-    char tmp[_CVTBUFSIZE];
-    // TODO: _gcvt is not thread safe
-    // TODO: Do something with this magic digits param
-    auto ret = _gcvt(f, 8, tmp);
-    assert(ret);
+void StringBuilder::Append(f64 f, usize fracDigits) {
+    char tmp[256];
+    int _fracDigits = Max((usize)0, Min((usize)24, fracDigits));
+    stbsp_snprintf(tmp, 256, "%.*g", _fracDigits, f);
     Append(tmp);
 }
 
-void StringBuilder::Append(f32 f) {
-    Append((f64)f);
+void StringBuilder::Append(f32 f, usize fracDigits) {
+    Append((f64)f, fracDigits);
+}
+
+void StringBuilder::Append(bool b) {
+    if (b) {
+        const char32* v = U"true";
+        Append(v, StringLengthZ(v));
+    } else {
+        const char32* v = U"false";
+        Append(v, StringLengthZ(v));
+    }
 }
