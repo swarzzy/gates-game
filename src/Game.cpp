@@ -86,9 +86,46 @@ void GameInit() {
 
 
     JsonSerializer serializer = JsonSerializer(&context->mainAllocator);
+    serializer.inlineMode = false;
+
+    serializer.BeginObject();
+
+    serializer.BeginObject(U"One");
+
+    serializer.BeginArray(U"Foo");
+    serializer.WriteArrayMember(1);
+    serializer.WriteArrayMember(2);
+    serializer.WriteArrayMember(3);
+    serializer.WriteArrayMember(4);
+    serializer.WriteArrayMember(5, false);
+    serializer.EndArray(false);
+
+    serializer.EndObject(true);
+
+    serializer.BeginObject(U"Two");
+    serializer.WriteField(U"Vector", V3(0.0f, 1.0f, 2.0f));
+    serializer.EndObject(true);
+
+    serializer.BeginArray(U"Array");
+
+    serializer.BeginObject();
+    serializer.WriteField(U"Bar", U"Hello");
+    serializer.EndObject(true);
+
+    serializer.BeginObject();
+    serializer.WriteField(U"Bar", U"Hello");
+    serializer.EndObject(false);
+
+    serializer.EndArray(true);
+
+    serializer.BeginObject(U"Part");
+    SerializeToJson(&serializer, &part);
+    serializer.EndObject(false);
+
+    serializer.EndObject(false);
+
     //serializer.BeginArray();
 
-    SerializeToJson(&serializer, &part);
 
     //serializer.EndArray();
 
@@ -101,6 +138,15 @@ void GameInit() {
     json_parse_result_s parseResult;
     json_value_s* root = json_parse_ex(data.Data(), data.Count() - 1, json_parse_flags_allow_json5, nullptr, nullptr, &parseResult);
 
+    assert(root->type == json_type_array);
+
+    auto array = json_value_as_array(root);
+
+    auto it = array->start;
+    while (it) {
+
+        it = it->next;
+    }
 
     auto image = LoadImage("../res/alpha_test.png", true, 4, &context->mainAllocator);
     TextureID texture = Renderer.UploadTexture(0, image->width, image->height, TextureFormat::RGBA8, TextureFilter::Bilinear, TextureWrapMode::Repeat, image->bits);
@@ -139,8 +185,8 @@ void GameInit() {
         context->strings[i] = U"<null>";
     }
 
-    context->language = Language::Russian;
-    InitLanguageRussian();
+    context->language = Language::English;
+    InitLanguageEnglish();
 
     for (int i = 0; i < 10000; i++) {
         CreateDesk();

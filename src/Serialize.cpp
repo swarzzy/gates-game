@@ -7,110 +7,130 @@ JsonSerializer::JsonSerializer(Allocator* allocator) {
 }
 
 void JsonSerializer::_Indent() {
-    for (i32 i = 0; i < indentLevel; i++) {
-        builder.Append(U"    ");
+    if (!inlineMode) {
+        for (i32 i = 0; i < indentLevel; i++) {
+            builder.Append(U"    ");
+        }
     }
 }
 
-void JsonSerializer::BeginArray() {
+void JsonSerializer::BeginField(const char32* name) {
     _Indent();
-    builder.Append(U"[\n");
+    if (name) {
+        builder.Append(U"\"");
+        builder.Append(name);
+        builder.Append(U"\": ");
+    }
+}
+
+void JsonSerializer::EndField(bool comma) {
+    if (inlineMode) {
+        if (comma) builder.Append(U", ");
+    } else {
+        if (comma) builder.Append(U",\n");
+        else builder.Append(U"\n");
+    }
+}
+
+
+void JsonSerializer::BeginArray(const char32* name) {
+    BeginField(name);
+    if (inlineMode) builder.Append(U"[ ");
+    else builder.Append(U"[\n");
     indentLevel++;
 }
 
-void JsonSerializer::EndArray() {
+void JsonSerializer::EndArray(bool comma) {
     assert(indentLevel > 0);
-    if (indentLevel > 0) {
-        indentLevel--;
-        builder.Append(U"\n");
-        _Indent();
-        builder.Append(U"],\n");
-    }
+    indentLevel--;
+    _Indent();
+    if (inlineMode) builder.Append(U" ]");
+    else builder.Append(U"]");
+    EndField(comma);
 }
 
-void JsonSerializer::BeginStruct() {
-    _Indent();
-    builder.Append(U"{\n");
+void JsonSerializer::BeginObject(const char32* name) {
+    BeginField(name);
+    if (inlineMode) builder.Append(U"{ ");
+    else builder.Append(U"{\n");
     indentLevel++;
 }
 
-void JsonSerializer::EndStruct(bool comma) {
+void JsonSerializer::EndObject(bool comma) {
     assert(indentLevel > 0);
-    if (indentLevel > 0) {
-        indentLevel--;
-        _Indent();
-        builder.Append(U"}");
-        if (comma) builder.Append(U",");
-        //else builder.Append(U"\n");
-    }
+    indentLevel--;
+    _Indent();
+    if (inlineMode) builder.Append(U" }");
+    else builder.Append(U"}");
+    EndField(comma);
+}
+
+template <typename T>
+void JsonSerializer::WriteArrayMember(T value, bool comma) {
+    WriteField(nullptr, value, comma);
 }
 
 template <typename T>
 void JsonSerializer::WriteField(const char32* name, T value, bool comma) {
-    _Indent();
-    builder.Append(U"\"");
-    builder.Append(name);
-    builder.Append(U"\": ");
-    WriteValue(value, true, comma);
-}
-
-template <typename T>
-void JsonSerializer::_WriteValue(T value, bool newLine, bool quoted, bool comma) {
-    if (quoted) builder.Append("\"");
-    builder.Append(value);
-    if (quoted) builder.Append("\"");
-    if (comma) builder.Append(", ");
-    if (newLine) builder.Append(U"\n");
-}
-
-void JsonSerializer::WriteValue(u32 value, bool newLine, bool comma) {
-    _WriteValue(value, newLine, false, comma);
-}
-
-void JsonSerializer::WriteValue(i32 value, bool newLine, bool comma) {
-    _WriteValue(value, newLine, false, comma);
-}
-
-void JsonSerializer::WriteValue(f32 value, bool newLine, bool comma) {
-    _WriteValue(value, newLine, false, comma);
-}
-
-void JsonSerializer::WriteValue(bool value, bool newLine, bool comma) {
-    _WriteValue(value, newLine, false, comma);
-}
-
-void JsonSerializer::WriteValue(const char32* value, bool newLine, bool comma) {
-    _WriteValue(value, newLine, true, comma);
+    BeginField(name);
+    WriteValue(value);
+    EndField(comma);
 }
 
 template <typename T, u32 Size>
-void JsonSerializer::WriteValue(Vector<T, Size> value, bool newLine, bool comma) {
-    builder.Append("[ ");
-    for (u32 i = 0; i < Size; i++) {
-        _WriteValue(value.data[i], false, false, i != (Size - 1));
-    }
-
-    builder.Append(" ]");
-    if (comma) builder.Append(", ");
-    if (newLine) builder.Append("\n");
+void JsonSerializer::WriteField(const char32* name, Vector<T, Size> value, bool comma) {
+    BeginArray(name);
+    WriteValue(value);
+    EndArray(comma);
 }
 
 template <typename T>
-void JsonSerializer::WriteValue(ArrayRef<T> value, bool newLine, bool comma) {
-    builder.Append("[ \n");
-    indentLevel++;
-    for (u32 i = 0; i < value.Count(); i++) {
-        _Indent();
-        WriteValue(value.Data()[i], true, i != (value.Count() - 1));
-    }
-    indentLevel--;
-    _Indent();
-
-    builder.Append(" ]");
-    if (comma) builder.Append(", ");
-    if (newLine) builder.Append("\n");
+void JsonSerializer::WriteField(const char32* name, ArrayRef<T> value, bool comma) {
+    BeginArray(name);
+    WriteValue(value);
+    EndArray(comma);
 }
 
+template <typename T>
+void JsonSerializer::_WriteValue(T value, bool quoted) {
+    if (quoted) builder.Append("\"");
+    builder.Append(value);
+    if (quoted) builder.Append("\"");
+}
+
+void JsonSerializer::WriteValue(u32 value) {
+    _WriteValue(value, false);
+}
+
+void JsonSerializer::WriteValue(i32 value) {
+    _WriteValue(value, false);
+}
+
+void JsonSerializer::WriteValue(f32 value) {
+    _WriteValue(value, false);
+}
+
+void JsonSerializer::WriteValue(bool value) {
+    _WriteValue(value, false);
+}
+
+void JsonSerializer::WriteValue(const char32* value) {
+    _WriteValue(value, true);
+}
+
+template <typename T, u32 Size>
+void JsonSerializer::WriteValue(Vector<T, Size> value) {
+    for (u32 i = 0; i < Size; i++) {
+        WriteArrayMember(value.data[i], i != (Size - 1));
+    }
+}
+
+template <typename T>
+void JsonSerializer::WriteValue(ArrayRef<T> value) {
+    for (u32 i = 0; i < value.Count(); i++) {
+        WriteArrayMember(value.Data()[i], i != (value.Count() - 1));
+    }
+}
 
 ArrayRef<char> JsonSerializer::GenerateStringUtf8() {
     outputBuffer.Clear();

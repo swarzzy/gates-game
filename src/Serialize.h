@@ -7,36 +7,48 @@ struct JsonSerializer {
     StringBuilder builder = StringBuilder();
     DArray<char> outputBuffer = DArray<char>();
     i32 indentLevel = 0;
+    bool inlineMode;
 
     JsonSerializer() = default;
     JsonSerializer(Allocator* allocator);
 
-    void BeginArray();
-    void EndArray();
-    void BeginStruct();
-    void EndStruct(bool comma);
+    void BeginField(const char32* name);
+    void EndField(bool comma);
 
-    void WriteValue(const char32* value, bool newLine, bool comma);
-    void WriteValue(u32 value, bool newLine, bool comma);
-    void WriteValue(i32 value, bool newLine, bool comma);
-    void WriteValue(f32 value, bool newLine, bool comma);
-    void WriteValue(bool value, bool newLine, bool comma);
+    void BeginArray(const char32* name = nullptr);
+    void EndArray(bool comma);
+
+    void BeginObject(const char32* name = nullptr);
+    void EndObject(bool comma);
+
+    template <typename T>
+    void WriteArrayMember(T value, bool comma = true);
+
+    template <typename T>
+    void WriteField(const char32* name, T value, bool comma = true);
+
     template <typename T, u32 Size>
-    void WriteValue(Vector<T, Size> value, bool newLine, bool comma);
-    template <typename T>
-    void WriteValue(ArrayRef<T> value, bool newLine, bool comma);
-
-
-#define WriteFieldM(var, member, comma) WriteField(U#member, var->member, comma);
+    void WriteField(const char32* name, Vector<T, Size> value, bool comma = true);
 
     template <typename T>
-    void WriteField(const char32* name, T value, bool comma);
+    void WriteField(const char32* name, ArrayRef<T> value, bool comma = true);
+
+    void WriteValue(const char32* value);
+    void WriteValue(u32 value);
+    void WriteValue(i32 value);
+    void WriteValue(f32 value);
+    void WriteValue(bool value);
+
+    template <typename T, u32 Size>
+    void WriteValue(Vector<T, Size> value);
+
+    template <typename T>
+    void WriteValue(ArrayRef<T> value);
 
     ArrayRef<char> GenerateStringUtf8();
 
     template <typename T>
-    void _WriteValue(T value, bool newLine, bool quoted, bool comma);
-
+    void _WriteValue(T value, bool quoted);
 
     void _Indent();
 };
@@ -58,17 +70,15 @@ struct SerializedPart {
 };
 
 void SerializeToJson(JsonSerializer* serializer, SerializedPart* serialized) {
-    serializer->BeginStruct();
-    serializer->WriteFieldM(serialized, id, true);
-    serializer->WriteFieldM(serialized, type, true);
-    serializer->WriteFieldM(serialized, pTile, true);
-    serializer->WriteFieldM(serialized, pOffset, true);
-    serializer->WriteFieldM(serialized, dim, true);
-    serializer->WriteFieldM(serialized, active, true);
-    serializer->WriteFieldM(serialized, clockDiv, true);
-    serializer->WriteFieldM(serialized, label, true);
-    serializer->WriteFieldM(serialized, inputCount, true);
-    serializer->WriteFieldM(serialized, outputCount, true);
+    serializer->WriteField(U"id", serialized->id);
+    serializer->WriteField(U"type", serialized->type);
+    serializer->WriteField(U"pTile", serialized->pTile);
+    serializer->WriteField(U"pOffset", serialized->pOffset);
+    serializer->WriteField(U"dim", serialized->dim);
+    serializer->WriteField(U"active", serialized->active);
+    serializer->WriteField(U"clockDiv", serialized->clockDiv);
+    serializer->WriteField(U"label", serialized->label);
+    serializer->WriteField(U"inputCount", serialized->inputCount);
+    serializer->WriteField(U"outputCount", serialized->outputCount);
     serializer->WriteField(U"pinRelPositions", serialized->pinRelPositions.AsRef(), false);
-    serializer->EndStruct(false);
 }
