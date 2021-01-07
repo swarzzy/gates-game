@@ -13,13 +13,13 @@ struct JsonSerializer {
     JsonSerializer(Allocator* allocator);
 
     void BeginField(const char32* name);
-    void EndField(bool comma);
+    void EndField(bool comma = true);
 
     void BeginArray(const char32* name = nullptr);
-    void EndArray(bool comma);
+    void EndArray(bool comma = true);
 
     void BeginObject(const char32* name = nullptr);
-    void EndObject(bool comma);
+    void EndObject(bool comma = true);
 
     template <typename T>
     void WriteArrayMember(T value, bool comma = true);
@@ -33,11 +33,14 @@ struct JsonSerializer {
     template <typename T>
     void WriteField(const char32* name, ArrayRef<T> value, bool comma = true);
 
+    void WriteField(const char32* name, DeskPosition value, bool comma = true);
+
     void WriteValue(const char32* value);
     void WriteValue(u32 value);
     void WriteValue(i32 value);
     void WriteValue(f32 value);
     void WriteValue(bool value);
+    void WriteValue(DeskPosition value);
 
     template <typename T, u32 Size>
     void WriteValue(Vector<T, Size> value);
@@ -68,6 +71,18 @@ struct SerializedPart {
 
     DArray<v2> pinRelPositions;
 };
+
+struct SerializedWire {
+    u32 inputId;
+    u32 outputId;
+    DArray<DeskPosition> nodes;
+};
+
+void SerializeToJson(JsonSerializer* serializer, SerializedWire* wire) {
+    serializer->WriteField(U"inputId", wire->inputId);
+    serializer->WriteField(U"outputId", wire->outputId);
+    serializer->WriteField(U"nodes", wire->nodes.AsRef(), false);
+}
 
 void SerializeToJson(JsonSerializer* serializer, SerializedPart* serialized) {
     serializer->WriteField(U"id", serialized->id);

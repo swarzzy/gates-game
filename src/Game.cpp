@@ -84,11 +84,47 @@ void GameInit() {
     part.pinRelPositions.PushBack(V2(1.175494351e-38, 3.402823466e+38));
     //part.pinRelPositions.PushBack(V2(1.0f, HUGE_VAL));
 
+    SerializedWire wires[2];
+    wires[0].inputId = 1;
+    wires[0].inputId = 55;
+    wires[0].nodes = DArray<DeskPosition>(&context->mainAllocator);
+    wires[0].nodes.PushBack(DeskPosition(IV2(1, 2)));
+    wires[0].nodes.PushBack(DeskPosition(IV2(3, 4)));
+    wires[0].nodes.PushBack(DeskPosition(IV2(5, 6), V2(0.5f, 0.25f)));
+
+    wires[1].inputId = 3;
+    wires[1].inputId = 4;
+    wires[1].nodes = DArray<DeskPosition>(&context->mainAllocator);
+    wires[1].nodes.PushBack(DeskPosition(IV2(10, 10)));
+    wires[1].nodes.PushBack(DeskPosition(IV2(11, 11)));
+    wires[1].nodes.PushBack(DeskPosition(IV2(0, 0), V2(0.0f, 0.23f)));
 
     JsonSerializer serializer = JsonSerializer(&context->mainAllocator);
     serializer.inlineMode = false;
 
     serializer.BeginObject();
+
+    serializer.BeginArray(U"Parts");
+
+    serializer.BeginObject();
+    SerializeToJson(&serializer, &part);
+    serializer.EndObject();
+
+    serializer.EndArray();
+
+    serializer.BeginArray(U"Wires");
+    serializer.BeginObject();
+    SerializeToJson(&serializer, wires + 0);
+    serializer.EndObject();
+    serializer.BeginObject();
+    SerializeToJson(&serializer, wires + 1);
+    serializer.EndObject(false);
+    serializer.EndArray();
+
+    serializer.EndObject(false);
+
+
+    #if false
 
     serializer.BeginObject(U"One");
 
@@ -100,30 +136,44 @@ void GameInit() {
     serializer.WriteArrayMember(5, false);
     serializer.EndArray(false);
 
-    serializer.EndObject(true);
+    serializer.EndObject();
 
     serializer.BeginObject(U"Two");
     serializer.WriteField(U"Vector", V3(0.0f, 1.0f, 2.0f));
-    serializer.EndObject(true);
+    serializer.EndObject();
 
     serializer.BeginArray(U"Array");
 
     serializer.BeginObject();
     serializer.WriteField(U"Bar", U"Hello");
-    serializer.EndObject(true);
+    serializer.EndObject();
 
     serializer.BeginObject();
     serializer.WriteField(U"Bar", U"Hello");
     serializer.EndObject(false);
 
-    serializer.EndArray(true);
+    serializer.EndArray();
 
-    serializer.BeginObject(U"Part");
-    SerializeToJson(&serializer, &part);
+
+    serializer.BeginArray(U"Wires");
+    serializer.BeginObject();
+    SerializeToJson(&serializer, wires + 0);
+    serializer.EndObject();
+    serializer.BeginObject();
+    SerializeToJson(&serializer, wires + 1);
+    serializer.EndObject(false);
+    serializer.EndArray(false);
+
+
     serializer.EndObject(false);
 
-    serializer.EndObject(false);
+    HashMap<int, Foo> map;
 
+    ForEachInHash(&map, it) {
+        Print(it);
+    } EndEachInHash(it);
+
+#endif
     //serializer.BeginArray();
 
 
@@ -138,13 +188,31 @@ void GameInit() {
     json_parse_result_s parseResult;
     json_value_s* root = json_parse_ex(data.Data(), data.Count() - 1, json_parse_flags_allow_json5, nullptr, nullptr, &parseResult);
 
-    assert(root->type == json_type_array);
+    auto rootObj = json_value_as_object(root);
+    assert(rootObj);
 
-    auto array = json_value_as_array(root);
-
-    auto it = array->start;
+    auto it = rootObj->start;
     while (it) {
+        auto name = it->name;
+        if (StringsAreEqual(name->string, "Parts")) {
+            auto array = json_value_as_array(it->value);
+            assert(array);
+            auto partIt = array->start;
+            while(partIt) {
+                printf("Found part\n");
+                partIt = partIt->next;
+            }
+        }
+        if (StringsAreEqual(name->string, "Wires")) {
+            auto array = json_value_as_array(it->value);
+            assert(array);
+            auto wireIt = array->start;
+            while(wireIt) {
+                printf("Found wire\n");
+                wireIt = wireIt->next;
+            }
 
+        }
         it = it->next;
     }
 

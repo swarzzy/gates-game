@@ -91,6 +91,13 @@ void JsonSerializer::WriteField(const char32* name, ArrayRef<T> value, bool comm
     EndArray(comma);
 }
 
+void JsonSerializer::WriteField(const char32* name, DeskPosition value, bool comma) {
+    BeginObject(name);
+    WriteField(U"cell", value.cell);
+    WriteField(U"offset", value.offset, false);
+    EndObject(comma);
+}
+
 template <typename T>
 void JsonSerializer::_WriteValue(T value, bool quoted) {
     if (quoted) builder.Append("\"");

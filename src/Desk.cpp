@@ -1,34 +1,31 @@
 #include "Desk.h"
 
-u32 DeskHash(void* arg) {
-    iv2* key = (iv2*)arg;
+u32 HashU32(TileKey& key) {
     // TODO: Reasonable hashing
-    u32 hash = key->x * 12342 + key->y * 23423;
+    u32 hash = key.key.x * 12342 + key.key.y * 23423;
     return hash;
 }
 
-bool DeskCompare(void* a, void* b) {
-    iv2* key1 = (iv2*)a;
-    iv2* key2 = (iv2*)b;
-    bool result = (key1->x == key2->x) && (key1->y == key2->y);
+bool HashCompareKeys(TileKey& a, TileKey& b) {
+    bool result = (a.key.x == b.key.x) && (a.key.y == b.key.y);
     return result;
 }
 
 DeskTile* GetDeskTile(Desk* desk, iv2 p, bool create) {
     DeskTile* result = nullptr;
-    DeskTile** bucket = HashMapGet(&desk->tileHashMap, &p);
+    DeskTile** bucket = desk->tileHashMap.Find(TileKey(p));
     if (bucket) {
         assert(*bucket);
         result = *bucket;
     } else if (create) {
-        DeskTile** newBucket = HashMapAdd(&desk->tileHashMap, &p);
+        DeskTile** newBucket = desk->tileHashMap.Add(TileKey(p));
         if (newBucket) {
             DeskTile* newTile = CreateDeskTile(desk, p);
             if (newTile) {
                 *newBucket = newTile;
                 result = newTile;
             } else {
-                bool deleted = HashMapDelete(&desk->tileHashMap, &p);
+                bool deleted = desk->tileHashMap.Delete(TileKey(p));
                 assert(deleted);
             }
         }
@@ -217,7 +214,7 @@ Desk* CreateDesk() {
     desk->canvas = CreateCanvas(&desk->deskAllocator);
     ToolManagerInit(&desk->toolManager, desk);
 
-    desk->tileHashMap = HashMap<iv2, DeskTile*, DeskHash, DeskCompare>::Make(desk->deskAllocator);
+    desk->tileHashMap = HashMap<TileKey, DeskTile*>(&desk->deskAllocator);
     desk->wires = List<Wire>(&desk->deskAllocator);
     desk->parts = List<Part>(&desk->deskAllocator);
     desk->partInfo = &context->partInfo;

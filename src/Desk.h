@@ -18,6 +18,12 @@ struct DeskTile {
     DArray<Part*> parts;
 };
 
+struct TileKey {
+    iv2 key;
+    explicit TileKey(iv2 v) : key(v) {}
+};
+
+
 u32 DeskHash(void* arg);
 bool DeskCompare(void* a, void* b);
 
@@ -28,7 +34,7 @@ struct Desk {
     Allocator deskAllocator;
     Canvas canvas;
     PartInfo* partInfo;
-    HashMap<iv2, DeskTile*, DeskHash, DeskCompare> tileHashMap;
+    HashMap<TileKey, DeskTile*> tileHashMap;
     List<Part> parts;
     List<Wire> wires;
     DArray<DeskPosition> wireNodeCleanerBuffer;
