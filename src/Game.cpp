@@ -10,6 +10,25 @@
 CodepointRange ranges[2];
 f32 DefaultFontHeight = 24.0f;
 
+struct StringKey {
+    const char* str;
+    explicit StringKey(const char* s) : str(s) {};
+};
+
+u32 HashU32(StringKey& key) {
+    u32 hash = 0;
+    auto len = StringSizeZ(key.str);
+    for (u32 i = 0; i < len; i++) {
+        hash += key.str[i];
+    }
+    return hash;
+}
+
+bool HashCompareKeys(StringKey& a, StringKey& b) {
+    return StringsAreEqual(a.str, b.str);
+}
+
+
 void GameInit() {
     auto context = GetContext();
     context->mainAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
@@ -167,11 +186,6 @@ void GameInit() {
 
     serializer.EndObject(false);
 
-    HashMap<int, Foo> map;
-
-    ForEachInHash(&map, it) {
-        Print(it);
-    } EndEachInHash(it);
 
 #endif
     //serializer.BeginArray();
@@ -183,23 +197,61 @@ void GameInit() {
 
     Platform.DebugWriteFile("test.json", data.Data(), data.Count() - 1);
 
+    JsonDeserializer deserializer = JsonDeserializer(&context->mainAllocator);
+    ParseDeskDescription(&deserializer, data.Data(), data.Count() - 1);
+
+    auto partsArray = DArray<SerializedPart>(&context->mainAllocator);
+    auto wiresArray = DArray<SerializedWire>(&context->mainAllocator);
+
+    ForEach(&deserializer.parts, it) {
+        JsonPushObject(&deserializer, *it);
+        if (DeserializePart(&deserializer))
+        {
+            partsArray.PushBack(deserializer.scratchPart);
+            partsArray.Last()->pinRelPositions = deserializer.scratchPart.pinRelPositions.Clone();
+            partsArray.Last()->label = CopyString(deserializer.scratchPart.label, &context->mainAllocator);
+        }
+        JsonPopObject(&deserializer);
+    } EndEach;
+
+    ForEach(&deserializer.wires, it) {
+        JsonPushObject(&deserializer, *it);
+        if (DeserializeWire(&deserializer))
+        {
+            wiresArray.PushBack(deserializer.scratchWire);
+            wiresArray.Last()->nodes = deserializer.scratchWire.nodes.Clone();
+        }
+        JsonPopObject(&deserializer);
+    } EndEach;
+
     //data.Data()[491] = 0;
 
     json_parse_result_s parseResult;
     json_value_s* root = json_parse_ex(data.Data(), data.Count() - 1, json_parse_flags_allow_json5, nullptr, nullptr, &parseResult);
 
-    auto rootObj = json_value_as_object(root);
+    json_object_s* rootObj = json_value_as_object(root);
     assert(rootObj);
 
-    auto it = rootObj->start;
+    auto map = HashMap<StringKey, json_value_s*>(&context->mainAllocator);
+
+    json_object_element_s* it = rootObj->start;
     while (it) {
-        auto name = it->name;
+        json_string_s* name = it->name;
         if (StringsAreEqual(name->string, "Parts")) {
-            auto array = json_value_as_array(it->value);
+            json_array_s* array = json_value_as_array(it->value);
             assert(array);
-            auto partIt = array->start;
+            json_array_element_s* partIt = array->start;
             while(partIt) {
-                printf("Found part\n");
+                json_object_s* part = json_value_as_object(partIt->value);
+                assert(part);
+                json_object_element_s* partField = part->start;
+                while (partField) {
+                    json_value_s** v = map.Add(StringKey(partField->name->string));
+                    *v = partField->value;
+                    partField = partField->next;
+                }
+
+
                 partIt = partIt->next;
             }
         }

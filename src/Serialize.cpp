@@ -154,3 +154,101 @@ ArrayRef<char> JsonSerializer::GenerateStringUtf8() {
 
     return outputBuffer.AsRef();
 }
+
+JsonDeserializer::JsonDeserializer(Allocator* allocator)
+    : destinationAllocator(allocator) {
+    for (u32 i = 0; i < array_count(prototypes); i++) {
+        prototypes[i] = HashMap<PrototypeKey, json_value_s*>(allocator);
+    }
+
+    parts = DArray<json_object_s*>(allocator);
+    wires = DArray<json_object_s*>(allocator);
+
+    scratchPart.pinRelPositions = DArray<v2>(allocator);
+    scratchWire.nodes = DArray<DeskPosition>(allocator);
+}
+
+bool ParseDeskDescription(JsonDeserializer* deserializer, const char* json, u32 lenZ) {
+    bool result = true;
+
+    deserializer->parts.Clear();
+    deserializer->wires.Clear();
+
+    json_parse_result_s parseResult;
+    // TODO allocator
+    json_value_s* root = json_parse_ex(json, lenZ - 1, json_parse_flags_allow_json5, nullptr, nullptr, &parseResult);
+    if (!root) {
+        result = false;
+        return result;
+    }
+
+    defer {
+        // TODO: if (root) free
+        if (result == false) {
+            deserializer->parts.Clear();
+            deserializer->wires.Clear();
+        }
+
+        if (result == true && deserializer->parts.Count() == 0) {
+            result = false;
+        }
+    };
+
+
+    json_object_s* rootObj = json_value_as_object(root);
+    if (!rootObj) {
+        result = false;
+        return result;
+    }
+
+    json_object_element_s* it = rootObj->start;
+    while (it) {
+        json_string_s* name = it->name;
+        if (StringsAreEqual(name->string, "Parts")) {
+            json_array_s* array = json_value_as_array(it->value);
+            if (!array) {
+                result = false;
+                return result;
+            }
+
+            json_array_element_s* partIt = array->start;
+            while(partIt) {
+                json_object_s* part = json_value_as_object(partIt->value);
+                if (!part) {
+                    result = false;
+                    return result;
+                }
+
+                deserializer->parts.PushBack(part);
+
+                partIt = partIt->next;
+            }
+        } else if (StringsAreEqual(name->string, "Wires")) {
+            auto array = json_value_as_array(it->value);
+            if (!array) {
+                result = false;
+                return result;
+            }
+
+            auto wireIt = array->start;
+            while(wireIt) {
+                json_object_s* wire = json_value_as_object(wireIt->value);
+                if (!wire) {
+                    result = false;
+                    return result;
+                }
+
+                deserializer->wires.PushBack(wire);
+
+                wireIt = wireIt->next;
+            }
+        } else {
+            result = false;
+            return result;
+        }
+
+        it = it->next;
+    }
+
+    return result;
+}

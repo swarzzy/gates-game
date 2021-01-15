@@ -14,6 +14,8 @@
 
 // unknown attribute
 #pragma warning(disable: 5030)
+// gogo skips variable initialization
+#pragma warning(disable: 4533)
 
 #define BreakDebug() __debugbreak()
 #define WriteFence() (_WriteBarrier(), _mm_sfence())
@@ -81,7 +83,6 @@ struct EqualTypesImpl<T, T> {
 template<typename T, typename U>
 inline constexpr bool EqualTypes = EqualTypesImpl<T, U>::value;
 
-
 // Making tuples be a thing using suuuper crazy template nonsence
 template <typename T1, typename T2 = void, typename T3 = void, typename T4 = void, typename T5 = void>
 struct Tuple { T1 item1; T2 item2; T2 item3; T4 item4; T5 item5; };
@@ -102,6 +103,15 @@ template <typename T1, typename T2>
 struct Tuple<T1, T2, void, void, void> { T1 item1; T2 item2; };
 template <typename T1, typename T2>
 inline Tuple<T1, T2> MakeTuple(T1 item1, T2 item2) { return Tuple<T1, T2> { item1, item2 }; }
+
+template <typename T>
+struct Option {
+    T value;
+    bool hasValue = false;
+
+    Option() = default;
+    Option(T v) : value(v), hasValue(true) {}
+};
 
 typedef uint8_t byte;
 typedef unsigned char uchar;

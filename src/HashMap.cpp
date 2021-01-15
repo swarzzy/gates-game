@@ -20,6 +20,8 @@ void HashMap<Key, Value>::Reserve(usize sz) {
 
         FreeBuffers();
         *this = newMap;
+
+        assert(IsPowerOfTwo((u32)capacity));
     }
 }
 

@@ -196,12 +196,10 @@ bool _ParseBMEntryU32(char* text, const char* name, u32 nameLen, u32* result) {
     char* loc = strstr(text, name);
     if (loc) {
         loc += nameLen;
-        auto parseResult = StringToInt(loc);
-        if (parseResult.succeed) {
-            if (parseResult.value >= 0) {
-                *result = (u32)parseResult.value;
-                success = true;
-            }
+        auto parseResult = StringToU32(loc);
+        if (parseResult.hasValue) {
+            *result = (u32)parseResult.value;
+            success = true;
         }
     }
     return success;
@@ -213,8 +211,8 @@ bool _ParseBMEntryI32(char* text, const char* name, u32 nameLen, i32* result) {
     char* loc = strstr(text, name);
     if (loc) {
         loc += nameLen;
-        auto parseResult = StringToInt(loc);
-        if (parseResult.succeed) {
+        auto parseResult = StringToI32(loc);
+        if (parseResult.hasValue) {
             *result = parseResult.value;
             success = true;
         }

@@ -102,7 +102,7 @@ void StringBuilder::Append(const char32* str, usize sizeZ) {
         assert(free >= (sizeZ - 1));
     }
 
-    memcpy(buffer + at, str, sizeZ * sizeof(char32));
+    memcpy(buffer + at, str, (sizeZ - 1) * sizeof(char32));
     at += sizeZ - 1;
     free -= sizeZ - 1;
     buffer[at] = 0;
@@ -113,22 +113,61 @@ void StringBuilder::Append(const char32* str) {
 }
 
 void StringBuilder::Append(const char* str, usize lenZ) {
-    if (str && lenZ) {
-        if (free < (lenZ - 1)) {
-            Reserve(Max(bufferCount + lenZ - 1 - free, bufferCount * 2));
-            assert(free >= (lenZ - 1));
+    if (str && *str && lenZ) {
+        char32 inplaceBuffer[128];
+        usize actualLength = 1;
+        bool tooBig = false;
+        bool valid = true;
+
+        {
+            // Validate string, count number of bytes and write to stack buffer if there is enough place
+            u32 codepoint;
+            u32 state = 0;
+            for (; *str; str++) {
+                if (!Utf8Decode(&state, &codepoint, *str)) {
+                    inplaceBuffer[actualLength - 1] = (char32)codepoint;
+                    actualLength++;
+                    if (actualLength >= array_count(inplaceBuffer)) {
+                        tooBig = true;
+                    }
+                }
+            }
+
+            if (state != UTF8_ACCEPT) {
+                valid = false;
+            }
         }
 
-        for (usize i = 0; i < lenZ; i++) {
-            buffer[at] = str[i];
-            at++;
-            free--;
+        if (valid) {
+            if (!tooBig) {
+                Append(inplaceBuffer, actualLength);
+            } else {
+                if (free < (actualLength - 1)) {
+                    Reserve(Max(bufferCount + actualLength - 1 - free, bufferCount * 2));
+                    assert(free >= (actualLength - 1));
+                }
+
+                {
+                    // Convert again and push to builder buffer
+                    u32 codepoint;
+                    u32 state = 0;
+                    for (; *str; str++) {
+                        if (!Utf8Decode(&state, &codepoint, *str)) {
+                            buffer[at] = (char32)codepoint;
+                            at++;
+                            free--;
+                        }
+                    }
+
+                    at--;
+                    free++;
+                    buffer[at] = 0;
+
+
+                    assert(state == UTF8_ACCEPT);
+                }
+            }
         }
-
-        at--;
-        free++;
-
-        buffer[at] = 0;
     }
 }
 
