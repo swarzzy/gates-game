@@ -196,6 +196,30 @@ Part* GetPartMemory(Desk* desk) {
     return result;
 }
 
+u32 RegisterPartID(Desk* desk, Part* part) {
+    u32 id = ++desk->partSerialCount;
+    auto entry = desk->partsTable.Add(PartID(id));
+    assert(entry);
+    *entry = part;
+    return id;
+}
+
+void UnregisterPartID(Desk* desk, u32 id) {
+    desk->partsTable.Delete(PartID(id));
+}
+
+Part* GetPartByID(Desk* desk, u32 id) {
+    Part* result = nullptr;
+    if (id) {
+        auto entry = desk->partsTable.Find(PartID(id));
+        if (entry) {
+            result = *entry;
+        }
+    }
+    return result;
+}
+
+
 void ReleasePartMemory(Desk* desk, Part* part) {
     desk->parts.Remove(part);
 }
@@ -219,6 +243,14 @@ Desk* CreateDesk() {
     desk->parts = List<Part>(&desk->deskAllocator);
     desk->partInfo = &context->partInfo;
     desk->wireNodeCleanerBuffer = DArray<DeskPosition>(&desk->deskAllocator);
+
+    desk->serializer.Init(&desk->deskAllocator);
+    desk->deserializer.Init(&desk->deskAllocator);
+    desk->serializerScratchPart.pinRelPositions = DArray<v2>(&desk->deskAllocator);
+    desk->serializerScratchWire.nodes = DArray<DeskPosition>(&desk->deskAllocator);
+
+    desk->partsTable = HashMap<PartID, Part*>(&desk->deskAllocator);
+    desk->idRemappingTable = HashMap<PartID, u32>(&desk->deskAllocator);
 
     context->desk = desk;
 

@@ -4,6 +4,8 @@ struct Part;
 struct Wire;
 struct Desk;
 struct PartInfo;
+struct SerializedPart;
+struct SerializedWire;
 
 enum struct PartType : u32 {
     Unknown = 0, And, Or, Not, Led, Source, Clock, _Count
@@ -83,8 +85,6 @@ struct IRect {
 // 2. Initialize part in that memory
 // 3. Place the part onto the desk
 
-// Initialize part memory
-void InitPart(PartInfo* info, Desk* desk, Part* part, iv2 p, PartType type);
 void DeinitPart(Desk* desk, Part* part);
 
 void UnwirePart(Desk* desk, Part* part);
@@ -92,6 +92,9 @@ void UnwirePart(Desk* desk, Part* part);
 // Allocate part memory, initialize it and place the part to the desk
 Part* TryCreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type);
 void DestroyPart(Desk* desk, Part* part);
+
+Part* TryCreatePartFromSerialized(Desk* desk, PartInfo* info, SerializedPart* serialized);
+Wire* TryCreateWireFromSerialized(Desk* desk, SerializedWire* wire);
 
 void DestroyWire(Desk* desk, Wire* wire);
 
@@ -106,6 +109,7 @@ u32 PinCount(Part* part);
 bool ArePinsWired(Pin* input, Pin* output);
 Wire* TryWirePins(Desk* desk, Pin* input, Pin* output);
 bool UnwirePin(Pin* pin, Wire* wire);
+bool IsPinFree(Pin* pin);
 
 void UpdateCachedWirePositions(Part* part);
 void WireCleanupNodes(Wire* wire, Array<DeskPosition>* buffer);

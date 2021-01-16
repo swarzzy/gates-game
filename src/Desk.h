@@ -7,6 +7,7 @@
 #include "List.h"
 #include "Part.h"
 #include "Tools.h"
+#include "Serialize.h"
 
 struct Desk;
 struct Wire;
@@ -23,9 +24,22 @@ struct TileKey {
     explicit TileKey(iv2 v) : key(v) {}
 };
 
+struct PartID {
+    u32 value;
+    PartID() = default;
+    PartID(u32 v) : value(v) {}
+};
 
-u32 DeskHash(void* arg);
-bool DeskCompare(void* a, void* b);
+u32 HashU32(PartID& key) {
+    // TODO: Reasonable hashing
+    u32 hash = key.value;
+    return hash;
+}
+
+bool HashCompareKeys(PartID& a, PartID& b) {
+    bool result = a.value == b.value;
+    return result;
+}
 
 struct Desk {
     u32 partSerialCount;
@@ -39,6 +53,14 @@ struct Desk {
     List<Wire> wires;
     DArray<DeskPosition> wireNodeCleanerBuffer;
     ToolManager toolManager;
+
+    SerializedPart serializerScratchPart;
+    SerializedWire serializerScratchWire;
+    JsonSerializer serializer;
+    JsonDeserializer deserializer;
+
+    HashMap<PartID, Part*> partsTable;
+    HashMap<PartID, u32> idRemappingTable;
 };
 
 struct GetWireAtResult {
@@ -62,6 +84,10 @@ Desk* CreateDesk();
 void DestroyDesk();
 
 Part* GetPartMemory(Desk* desk);
+u32 RegisterPartID(Desk* desk, Part* part);
+void UnregisterPartID(Desk* desk, u32 id);
+
+Part* GetPartByID(Desk* desk, u32 id);
 
 // Desk spatial representation API
 //DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create = false);

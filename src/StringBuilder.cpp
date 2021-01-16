@@ -1,15 +1,10 @@
 #include "StringBuilder.h"
 
 void StringBuilder::_Init(Allocator* alloc, usize count) {
-    allocator = alloc;
-
-    bufferCount = count;
-    buffer = allocator->Alloc<char32>(bufferCount, false);
-    assert(buffer);
-    buffer[0] = 0;
-
+    bufferCount = 0;
+    free = 0;
     at = 0;
-    free = count - 1;
+    buffer = nullptr;
 }
 
 
@@ -17,25 +12,29 @@ StringBuilder::StringBuilder(Allocator* alloc)
     : allocator(alloc) {
 }
 
-StringBuilder::StringBuilder(Allocator* alloc, const char32* str, usize extraSpace) {
+StringBuilder::StringBuilder(Allocator* alloc, const char32* str, usize extraSpace)
+    : allocator(alloc) {
     usize size = StringLengthZ(str);
-    _Init(alloc, size + extraSpace);
+    Reserve(size + extraSpace);
     Append(str, size);
 }
 
-StringBuilder::StringBuilder(Allocator* alloc, const char32* str, usize sizeZ, usize extraSpace) {
-    _Init(alloc, sizeZ + extraSpace);
+StringBuilder::StringBuilder(Allocator* alloc, const char32* str, usize sizeZ, usize extraSpace)
+    : allocator(alloc) {
+    Reserve(sizeZ + extraSpace);
     Append(str, sizeZ);
 }
 
-StringBuilder::StringBuilder(Allocator* alloc, const char* str, usize lenZ, usize extraSpace) {
-    _Init(alloc, lenZ + extraSpace);
+StringBuilder::StringBuilder(Allocator* alloc, const char* str, usize lenZ, usize extraSpace)
+    : allocator(alloc) {
+    Reserve(lenZ + extraSpace);
     Append(str, lenZ);
 }
 
-StringBuilder::StringBuilder(Allocator* alloc, const char* str, usize extraSpace) {
+StringBuilder::StringBuilder(Allocator* alloc, const char* str, usize extraSpace)
+    : allocator(alloc) {
     usize size = StringLengthZ(str);
-    _Init(alloc, size + extraSpace);
+    Reserve(size + extraSpace);
     Append(str, size);
 }
 
@@ -45,10 +44,14 @@ void StringBuilder::Reserve(usize size) {
         assert(newBuffer);
 
         if (at) {
+            assert((at + 1) <= size);
             memcpy(newBuffer, buffer, (at + 1) * sizeof(char32));
         }
+        if (buffer)
+        {
+            allocator->Dealloc(buffer);
+        }
 
-        allocator->Dealloc(buffer);
         buffer = newBuffer;
         bufferCount = size;
         free = bufferCount - at - 1;
@@ -66,8 +69,11 @@ void StringBuilder::FreeBuffers() {
 
 void StringBuilder::Clear() {
     at = 0;
-    free = bufferCount;
-    buffer[0] = (char32)0;
+    if (bufferCount) free = bufferCount - 1;
+    else free = 0;
+    if (buffer) {
+        buffer[0] = (char32)0;
+    }
 }
 
 char32* StringBuilder::StealString() {
@@ -97,39 +103,46 @@ char* StringBuilder::CopyStringAsASCII() {
 }
 
 void StringBuilder::Append(const char32* str, usize sizeZ) {
-    if (free < (sizeZ - 1)) {
-        Reserve(Max(bufferCount + sizeZ - 1 - free, bufferCount * 2));
-        assert(free >= (sizeZ - 1));
-    }
+    if (str) {
+        if (free < (sizeZ - 1)) {
+            Reserve(Max(bufferCount + sizeZ - free, bufferCount * 2));
+            assert(free >= (sizeZ - 1));
+        }
 
-    memcpy(buffer + at, str, (sizeZ - 1) * sizeof(char32));
-    at += sizeZ - 1;
-    free -= sizeZ - 1;
-    buffer[at] = 0;
+        assert((at + free) == (bufferCount - 1));
+        memcpy(buffer + at, str, (sizeZ - 1) * sizeof(char32));
+        at += sizeZ - 1;
+        free -= sizeZ - 1;
+        buffer[at] = 0;
+    }
 }
 
 void StringBuilder::Append(const char32* str) {
-    Append(str, StringLengthZ(str));
+    if (str) {
+        Append(str, StringLengthZ(str));
+    }
 }
 
-void StringBuilder::Append(const char* str, usize lenZ) {
-    if (str && *str && lenZ) {
+void StringBuilder::Append(const char* _str, usize count) {
+    if (_str && *_str && count) {
         char32 inplaceBuffer[128];
         usize actualLength = 1;
         bool tooBig = false;
         bool valid = true;
 
         {
+            const char* str = _str;
             // Validate string, count number of bytes and write to stack buffer if there is enough place
             u32 codepoint;
             u32 state = 0;
-            for (; *str; str++) {
+            for (; *str; ++str) {
                 if (!Utf8Decode(&state, &codepoint, *str)) {
                     inplaceBuffer[actualLength - 1] = (char32)codepoint;
                     actualLength++;
                     if (actualLength >= array_count(inplaceBuffer)) {
                         tooBig = true;
                     }
+                    if (actualLength == count) break;
                 }
             }
 
@@ -143,26 +156,30 @@ void StringBuilder::Append(const char* str, usize lenZ) {
                 Append(inplaceBuffer, actualLength);
             } else {
                 if (free < (actualLength - 1)) {
-                    Reserve(Max(bufferCount + actualLength - 1 - free, bufferCount * 2));
-                    assert(free >= (actualLength - 1));
+                    Reserve(Max(bufferCount + actualLength + 1 - free, bufferCount * 2));
+                    assert(free >= actualLength);
                 }
 
                 {
+                    const char* str = _str;
                     // Convert again and push to builder buffer
                     u32 codepoint;
                     u32 state = 0;
-                    for (; *str; str++) {
+                    u32 writtenCount = 0;
+                    for (; *str; ++str) {
                         if (!Utf8Decode(&state, &codepoint, *str)) {
                             buffer[at] = (char32)codepoint;
                             at++;
+                            assert(free > 0);
                             free--;
+                            writtenCount++;
+                            if (writtenCount == count) break;
                         }
                     }
 
                     at--;
                     free++;
                     buffer[at] = 0;
-
 
                     assert(state == UTF8_ACCEPT);
                 }

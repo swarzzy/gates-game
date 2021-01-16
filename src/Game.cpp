@@ -34,7 +34,7 @@ void GameInit() {
     context->mainAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
     context->menuCanvas = CreateCanvas(&context->mainAllocator);
 
-#if 1
+#if 0
     // String builder test
     StringBuilder builder = StringBuilder(&context->mainAllocator, U"Hll");
     builder.Reserve(10);
@@ -54,7 +54,7 @@ void GameInit() {
     char32* str2 = builder.StealString();
 
 #endif
-#if false
+#if 0
 
     double value = 0.0;
     char buffer[128];
@@ -83,7 +83,7 @@ void GameInit() {
     serializer.BeginStruct();
     serializer.WriteField(U"field 5", U"value5");
     serializer.EndStruct();
-#endif
+
     SerializedPart part {};
     part.id = 5;
     part.type = 1;
@@ -267,6 +267,7 @@ void GameInit() {
         }
         it = it->next;
     }
+#endif
 
     auto image = LoadImage("../res/alpha_test.png", true, 4, &context->mainAllocator);
     TextureID texture = Renderer.UploadTexture(0, image->width, image->height, TextureFormat::RGBA8, TextureFilter::Bilinear, TextureWrapMode::Repeat, image->bits);
@@ -308,10 +309,12 @@ void GameInit() {
     context->language = Language::English;
     InitLanguageEnglish();
 
+    #if false
     for (int i = 0; i < 10000; i++) {
         CreateDesk();
         DestroyDesk();
     }
+    #endif
 }
 
 void GameReload() {
@@ -393,6 +396,39 @@ void GameRenderMenu() {
         if (context->hitNewGame) {
             CreateDesk();
             context->gameState = GameState::Desk;
+
+            auto desk = GetDesk();
+            u32 saveFileSize = Platform.DebugGetFileSize("desk.json");
+            void* saveFileData = desk->deskAllocator.Alloc(saveFileSize + 1, false);
+            assert(saveFileData);
+            u32 readSize = Platform.DebugReadTextFile(saveFileData, saveFileSize + 1, "desk.json");
+            assert(readSize == saveFileSize + 1);
+            char* deskJson = (char*)saveFileData;
+
+            auto deserializer = &desk->deserializer;
+            bool parsed = ParseDeskDescription(deserializer, deskJson, readSize);
+            assert(parsed);
+
+            desk->idRemappingTable.Clear();
+
+            ForEach(&deserializer->parts, it) {
+                JsonPushObject(deserializer, *it);
+                if (DeserializePart(deserializer)) {
+                    Part* part = TryCreatePartFromSerialized(desk, desk->partInfo, &deserializer->scratchPart);
+                    assert(part);
+                }
+                JsonPopObject(deserializer);
+            } EndEach;
+
+            ForEach(&deserializer->wires, it) {
+                JsonPushObject(deserializer, *it);
+                if (DeserializeWire(deserializer)) {
+                    Wire* wire = TryCreateWireFromSerialized(desk, &deserializer->scratchWire);
+                    assert(wire);
+                }
+                JsonPopObject(deserializer);
+            } EndEach;
+
             return;
         }
 
@@ -461,12 +497,40 @@ void GameUpdateDesk() {
     auto deskCanvas = &desk->canvas;
     auto partInfo = &context->partInfo;
     auto toolManager = &desk->toolManager;
+    auto serializer = &desk->serializer;
 
     if (KeyPressed(Key::F5)) {
+        serializer->Clear();
+        serializer->BeginObject();
+
+        serializer->BeginArray(U"Parts");
+
         ListForEach(&desk->parts, part) {
-            //SerializedPart serialized {};
-            //SerializePart(desk, part, &serialized);
+            serializer->BeginObject();
+            desk->serializerScratchPart.pinRelPositions.Clear();
+            SerializePart(part, &desk->serializerScratchPart);
+            SerializeToJson(serializer, &desk->serializerScratchPart);
+            serializer->EndObject();
         } ListEndEach(part);
+
+        serializer->EndArray();
+
+        serializer->BeginArray(U"Wires");
+
+        ListForEach(&desk->wires, wire) {
+            serializer->BeginObject();
+            desk->serializerScratchWire.nodes.Clear();
+            SerializeWire(wire, &desk->serializerScratchWire);
+            SerializeToJson(serializer, &desk->serializerScratchWire);
+            serializer->EndObject();
+        } ListEndEach(wire);
+
+        serializer->EndArray();
+
+        serializer->EndObject(false);
+
+        auto fileData = serializer->GenerateStringUtf8();
+        Platform.DebugWriteFile("desk.json", fileData.Data(), fileData.Count() - 1);
     }
 
     f32 scaleSpeed = 0.1f;

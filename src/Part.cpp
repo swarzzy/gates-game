@@ -28,18 +28,6 @@ void ComputePartBoundingBoxes(Part* part) {
     part->boundingBox = box;
 }
 
-void InitPart(PartInfo* info, Desk* desk, Part* part, iv2 p, PartType type) {
-    assert((u32)type < (u32)PartType::_Count);
-    auto initializer = info->partInitializers[(u32)type];
-    initializer(desk, part);
-    part->id = ++desk->partSerialCount;
-    part->p = DeskPosition(p).Normalized();
-    part->wires = DArray<WireRecord>(&desk->deskAllocator);
-    part->pinBoundingBoxes = DArray<Box2D>(&desk->deskAllocator);
-
-    ComputePartBoundingBoxes(part);
-}
-
 void DeinitPart(Desk* desk, Part* part) {
     DeallocatePins(desk, part);
     part->wires.FreeBuffers();
@@ -198,16 +186,115 @@ Part* TryCreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type) {
     Part* result = nullptr;
     Part* part = GetPartMemory(desk);
     if (part) {
-        InitPart(info, desk, part, p, type);
+        // TODO: nocheckin
+        // Ensure we are not wasting part id's on failture
+        assert((u32)type < (u32)PartType::_Count);
+        auto initializer = info->partInitializers[(u32)type];
+        initializer(desk, part);
+        part->id = RegisterPartID(desk, part);
+        part->p = DeskPosition(p).Normalized();
+        part->wires = DArray<WireRecord>(&desk->deskAllocator);
+        part->pinBoundingBoxes = DArray<Box2D>(&desk->deskAllocator);
+
+        ComputePartBoundingBoxes(part);
+
         if (!CheckCollisions(desk, part)) {
             RegisterPart(desk, part);
             result = part;
         } else {
+            UnregisterPartID(desk, part->id);
             DeinitPart(desk, part);
             ReleasePartMemory(desk, part);
         }
     }
 
+    return result;
+}
+
+Part* TryCreatePartFromSerialized(Desk* desk, PartInfo* info, SerializedPart* serialized) {
+    Part* result = nullptr;
+    Part* part = GetPartMemory(desk);
+    if (part) {
+        assert((u32)serialized->type < (u32)PartType::_Count);
+        auto initializer = info->partInitializers[(u32)serialized->type];
+
+        initializer(desk, part);
+
+        auto idEntry = desk->idRemappingTable.Add(PartID(serialized->id));
+        if (idEntry) {
+            *idEntry = RegisterPartID(desk, part);
+            u32 id = *idEntry;
+
+            part->id = id;
+            part->p = DeskPosition(serialized->pTile, serialized->pOffset).Normalized();
+            part->active = serialized->active;
+            part->clockDiv = serialized->clockDiv;
+            // TODO: deserialize labels
+            //part->label =
+
+            part->wires = DArray<WireRecord>(&desk->deskAllocator);
+            part->pinBoundingBoxes = DArray<Box2D>(&desk->deskAllocator);
+            ComputePartBoundingBoxes(part);
+
+            if (!CheckCollisions(desk, part)) {
+                RegisterPart(desk, part);
+                result = part;
+            } else {
+                UnregisterPartID(desk, part->id);
+                DeinitPart(desk, part);
+                ReleasePartMemory(desk, part);
+                desk->idRemappingTable.Delete(PartID(serialized->id));
+            }
+        }
+    }
+    return result;
+}
+
+bool IsPinFree(Pin* pin) {
+    bool result = true;
+    ForEach(&pin->part->wires, record) {
+        if (record->pin == pin) {
+            result = false;
+            break;
+        }
+    } EndEach;
+    return result;
+}
+
+Wire* TryCreateWireFromSerialized(Desk* desk, SerializedWire* wire) {
+    Wire* result = nullptr;
+
+    u32* inputId = desk->idRemappingTable.Find(PartID(wire->inputId));
+    u32* outputId = desk->idRemappingTable.Find(PartID(wire->outputId));
+
+    if (inputId && outputId) {
+        Part* input = GetPartByID(desk, *inputId);
+        Part* output = GetPartByID(desk, *outputId);
+
+        if (input && output) {
+            if (wire->inputPinIndex < input->inputCount && wire->outputPinIndex < output->outputCount) {
+                Pin* inputPin = GetInput(input, wire->inputPinIndex);
+                Pin* outputPin = GetOutput(output, wire->outputPinIndex);
+                if (IsPinFree(inputPin)) {
+                    Wire* newWire = AddWire(desk);
+
+                    auto inputRecord = input->wires.PushBack();
+                    auto outputRecord = output->wires.PushBack();
+                    newWire->input = inputPin;
+                    inputRecord->wire = newWire;
+                    inputRecord->pin = inputPin;
+
+                    newWire->output = outputPin;
+                    outputRecord->wire = newWire;
+                    outputRecord->pin = outputPin;
+
+                    wire->nodes.CopyTo(&newWire->nodes);
+
+                    result = newWire;
+                }
+            }
+        }
+    }
     return result;
 }
 
@@ -231,6 +318,7 @@ void UnwirePart(Desk* desk, Part* part) {
 void DestroyPart(Desk* desk, Part* part) {
     UnwirePart(desk, part);
     UnregisterPart(desk, part);
+    UnregisterPartID(desk, part->id);
     DeinitPart(desk, part);
     ReleasePartMemory(desk, part);
 }
