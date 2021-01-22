@@ -284,8 +284,9 @@ void DrawConsole(Console* console) {
                 ImGui::SetKeyboardFocusHere();
                 console->justOpened = false;
             }
+
+            ImGui::SetKeyboardFocusHere();
             if (ImGui::InputText("##Input", console->inputBuffer, array_count(console->inputBuffer), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory | ImGuiInputTextFlags_CallbackCompletion, ConsoleInputCallback, console)) {
-                ImGui::SetKeyboardFocusHere(-1);
                 if (!console->inputBuffer[0]) {
                     LogMessage(console->logger, "\n");
                 } else {

@@ -67,7 +67,7 @@ struct SerializedPart {
     iv2 dim;
     bool active;
     u32 clockDiv;
-    const char32* label;
+    char32* label;
 
     u32 inputCount;
     u32 outputCount;
@@ -152,6 +152,7 @@ struct JsonDeserializer {
     DArray<json_object_s*> parts;
     DArray<json_object_s*> wires;
     Allocator* destinationAllocator;
+    json_value_s* root;
 
     SerializedPart scratchPart;
     SerializedWire scratchWire;
@@ -160,6 +161,7 @@ struct JsonDeserializer {
 };
 
 bool ParseDeskDescription(JsonDeserializer* deserializer, const char* json, u32 lenZ);
+void FreeDeskDescription(JsonDeserializer* deserializer);
 
 HashMap<PrototypeKey, json_value_s*>* JsonPushObject(JsonDeserializer* deserializer, json_object_s* obj);
 void JsonPopObject(JsonDeserializer* deserializer);
@@ -185,3 +187,6 @@ Option<Vector<T, Size>> JsonTryGetVector(JsonDeserializer* deserializer, const c
 
 bool DeserializePart(JsonDeserializer* deserializer);
 bool DeserializeWire(JsonDeserializer* deserializer);
+
+ArrayRef<char> SerializeDeskToJson(Desk* desk, JsonSerializer* serializer);
+bool DeserializeDeskFromJson(JsonDeserializer* deserializer, const char* json, usize jsonLenZ, Desk* desk);

@@ -127,3 +127,5 @@ void RemoveWire(Desk* desk, Wire* wire);
 
 // Position is desk-relative
 GetWireAtResult GetWireAt(Desk* desk, v2 p);
+
+bool LoadDeskFromFile(JsonDeserializer* deserializer, Desk* desk, const char* filename);

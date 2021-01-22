@@ -229,8 +229,14 @@ Part* TryCreatePartFromSerialized(Desk* desk, PartInfo* info, SerializedPart* se
             part->p = DeskPosition(serialized->pTile, serialized->pOffset).Normalized();
             part->active = serialized->active;
             part->clockDiv = serialized->clockDiv;
-            // TODO: deserialize labels
-            //part->label =
+
+            if (serialized->label) {
+                // Own the label
+                part->label = serialized->label;
+                serialized->label = nullptr;
+            } else {
+                part->label = nullptr;
+            }
 
             part->wires = DArray<WireRecord>(&desk->deskAllocator);
             part->pinBoundingBoxes = DArray<Box2D>(&desk->deskAllocator);

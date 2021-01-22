@@ -177,23 +177,39 @@ void JsonDeserializer::Init(Allocator* allocator) {
     scratchWire.nodes = DArray<DeskPosition>(allocator);
 }
 
+void FreeDeskDescription(JsonDeserializer* deserializer) {
+    assert(deserializer->root);
+    deserializer->destinationAllocator->Dealloc(deserializer->root);
+    deserializer->root = nullptr;
+}
+
 bool ParseDeskDescription(JsonDeserializer* deserializer, const char* json, u32 lenZ) {
     bool result = true;
 
     deserializer->parts.Clear();
     deserializer->wires.Clear();
 
+    auto allocator = [](void* data, size_t size) {
+        auto a = (Allocator*)data;
+        return a->Alloc(size, false);
+    };
+
     json_parse_result_s parseResult;
-    // TODO allocator
-    json_value_s* root = json_parse_ex(json, lenZ - 1, json_parse_flags_allow_json5, nullptr, nullptr, &parseResult);
+    json_value_s* root = json_parse_ex(json, lenZ - 1, json_parse_flags_allow_json5, allocator, deserializer->destinationAllocator, &parseResult);
     if (!root) {
         result = false;
         return result;
     }
 
+    deserializer->root = root;
+
     defer {
-        // TODO: if (root) free
         if (result == false) {
+            if (deserializer->root) {
+                deserializer->destinationAllocator->Dealloc(deserializer->root);
+                deserializer->root = nullptr;
+            }
+
             deserializer->parts.Clear();
             deserializer->wires.Clear();
         }
@@ -341,9 +357,7 @@ Option<char32*> JsonTryGetString(JsonDeserializer* deserializer, json_value_s* v
     Option<char32*> result {};
     json_string_s* str = json_value_as_string(value);
     if (str) {
-        // nocheckin
-        // TODO: ensure str->string_size counts null
-        auto builder = StringBuilder(deserializer->destinationAllocator, str->string, (usize)str->string_size, 0);
+        auto builder = StringBuilder(deserializer->destinationAllocator, str->string, (usize)str->string_size + 1, 0);
         result = Option(builder.StealString());
     }
     return result;
@@ -474,6 +488,7 @@ Option<Vector<T, Size>> JsonTryGetVector(JsonDeserializer* deserializer, const c
 
 bool DeserializePart(JsonDeserializer* deserializer) {
     auto tmp = deserializer->scratchPart.pinRelPositions;
+    assert(!deserializer->scratchPart.label); // Ensure ownership over label is taken away
     deserializer->scratchPart = {};
     deserializer->scratchPart.pinRelPositions = tmp;
     deserializer->scratchPart.pinRelPositions.Clear();
@@ -506,7 +521,7 @@ bool DeserializePart(JsonDeserializer* deserializer) {
     deserializer->scratchPart.dim = dim.value;
     deserializer->scratchPart.active = active.value;
     deserializer->scratchPart.clockDiv = clockDiv.value;
-    deserializer->scratchPart.label = label.value ? label.value : U"";
+    deserializer->scratchPart.label = label.value;
     deserializer->scratchPart.inputCount = inputCount.value;
     deserializer->scratchPart.outputCount = outputCount.value;
 
@@ -561,4 +576,80 @@ notOk:
     deserializer->scratchWire.nodes.Clear();
 
     return false;
+}
+
+ArrayRef<char> SerializeDeskToJson(Desk* desk, JsonSerializer* serializer) {
+    serializer->Clear();
+    serializer->BeginObject();
+
+    serializer->BeginArray(U"Parts");
+
+    ListForEach(&desk->parts, part) {
+        serializer->BeginObject();
+        desk->serializerScratchPart.pinRelPositions.Clear();
+        SerializePart(part, &desk->serializerScratchPart);
+        SerializeToJson(serializer, &desk->serializerScratchPart);
+        serializer->EndObject();
+    } ListEndEach(part);
+
+    serializer->EndArray();
+
+    serializer->BeginArray(U"Wires");
+
+    ListForEach(&desk->wires, wire) {
+        serializer->BeginObject();
+        desk->serializerScratchWire.nodes.Clear();
+        SerializeWire(wire, &desk->serializerScratchWire);
+        SerializeToJson(serializer, &desk->serializerScratchWire);
+        serializer->EndObject();
+    } ListEndEach(wire);
+
+    serializer->EndArray();
+
+    serializer->EndObject(false);
+
+    auto fileData = serializer->GenerateStringUtf8();
+
+    return fileData;
+}
+
+bool DeserializeDeskFromJson(JsonDeserializer* deserializer, const char* json, usize jsonLenZ, Desk* desk) {
+    bool result = true;
+    bool parsed = ParseDeskDescription(deserializer, json, jsonLenZ);
+    if (parsed) {
+        defer { FreeDeskDescription(deserializer); };
+        desk->idRemappingTable.Clear();
+
+        ForEach(&deserializer->parts, it) {
+            JsonPushObject(deserializer, *it);
+            if (DeserializePart(deserializer)) {
+                Part* part = TryCreatePartFromSerialized(desk, desk->partInfo, &deserializer->scratchPart);
+                if (!part) {
+                    result = false;
+                    break;
+                }
+                if (deserializer->scratchPart.label) {
+                    // If nobody owned the label, deallocate it
+                    deserializer->destinationAllocator->Dealloc(deserializer->scratchPart.label);
+                    deserializer->scratchPart.label = nullptr;
+                }
+            }
+            JsonPopObject(deserializer);
+        } EndEach;
+
+        ForEach(&deserializer->wires, it) {
+            JsonPushObject(deserializer, *it);
+            if (DeserializeWire(deserializer)) {
+                Wire* wire = TryCreateWireFromSerialized(desk, &deserializer->scratchWire);
+                if (!wire) {
+                    result = false;
+                    break;
+                }
+            }
+            JsonPopObject(deserializer);
+        } EndEach;
+    } else {
+        result = false;
+    }
+    return result;
 }

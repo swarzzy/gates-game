@@ -38,6 +38,7 @@ struct GameContext {
     DrawMode drawMode;
 
     Desk* desk;
+    b32 shouldExitDesk;
 
     TextureID testTexture;
     TextureID fontAtlas;

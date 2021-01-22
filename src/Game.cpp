@@ -328,6 +328,15 @@ void GameUpdate() {
     case GameState::Desk: { GameUpdateDesk(); } break;
         invalid_default();
     }
+
+    if (context->gameState == GameState::Desk && context->shouldExitDesk) {
+        DestroyDesk();
+        context->gameState = GameState::Menu;
+    }
+
+    if(KeyPressed(Key::Tilde)) {
+        context->consoleEnabled = !context->consoleEnabled;
+    }
 }
 
 void GameSim() {
@@ -337,11 +346,6 @@ void GameSim() {
     case GameState::Menu: { } break;
     case GameState::Desk: { GameSimDesk(); } break;
         invalid_default();
-    }
-
-
-    if(KeyPressed(Key::Tilde)) {
-        context->consoleEnabled = !context->consoleEnabled;
     }
 }
 
@@ -396,39 +400,7 @@ void GameRenderMenu() {
         if (context->hitNewGame) {
             CreateDesk();
             context->gameState = GameState::Desk;
-
             auto desk = GetDesk();
-            u32 saveFileSize = Platform.DebugGetFileSize("desk.json");
-            void* saveFileData = desk->deskAllocator.Alloc(saveFileSize + 1, false);
-            assert(saveFileData);
-            u32 readSize = Platform.DebugReadTextFile(saveFileData, saveFileSize + 1, "desk.json");
-            assert(readSize == saveFileSize + 1);
-            char* deskJson = (char*)saveFileData;
-
-            auto deserializer = &desk->deserializer;
-            bool parsed = ParseDeskDescription(deserializer, deskJson, readSize);
-            assert(parsed);
-
-            desk->idRemappingTable.Clear();
-
-            ForEach(&deserializer->parts, it) {
-                JsonPushObject(deserializer, *it);
-                if (DeserializePart(deserializer)) {
-                    Part* part = TryCreatePartFromSerialized(desk, desk->partInfo, &deserializer->scratchPart);
-                    assert(part);
-                }
-                JsonPopObject(deserializer);
-            } EndEach;
-
-            ForEach(&deserializer->wires, it) {
-                JsonPushObject(deserializer, *it);
-                if (DeserializeWire(deserializer)) {
-                    Wire* wire = TryCreateWireFromSerialized(desk, &deserializer->scratchWire);
-                    assert(wire);
-                }
-                JsonPopObject(deserializer);
-            } EndEach;
-
             return;
         }
 
@@ -500,36 +472,7 @@ void GameUpdateDesk() {
     auto serializer = &desk->serializer;
 
     if (KeyPressed(Key::F5)) {
-        serializer->Clear();
-        serializer->BeginObject();
-
-        serializer->BeginArray(U"Parts");
-
-        ListForEach(&desk->parts, part) {
-            serializer->BeginObject();
-            desk->serializerScratchPart.pinRelPositions.Clear();
-            SerializePart(part, &desk->serializerScratchPart);
-            SerializeToJson(serializer, &desk->serializerScratchPart);
-            serializer->EndObject();
-        } ListEndEach(part);
-
-        serializer->EndArray();
-
-        serializer->BeginArray(U"Wires");
-
-        ListForEach(&desk->wires, wire) {
-            serializer->BeginObject();
-            desk->serializerScratchWire.nodes.Clear();
-            SerializeWire(wire, &desk->serializerScratchWire);
-            SerializeToJson(serializer, &desk->serializerScratchWire);
-            serializer->EndObject();
-        } ListEndEach(wire);
-
-        serializer->EndArray();
-
-        serializer->EndObject(false);
-
-        auto fileData = serializer->GenerateStringUtf8();
+        auto fileData = SerializeDeskToJson(desk, serializer);
         Platform.DebugWriteFile("desk.json", fileData.Data(), fileData.Count() - 1);
     }
 
@@ -700,12 +643,7 @@ void GameRenderDesk() {
 
     if (MouseButtonPressed(MouseButton::Left) && context->hitExitDesk) {
         context->hitExitDesk = false;
-        DestroyDesk();
-        context->gameState = GameState::Menu;
-    }
-
-    if (context->consoleEnabled) {
-        DrawConsole(&context->console);
+        context->shouldExitDesk = true;
     }
 }
 

@@ -347,3 +347,23 @@ GetWireAtResult GetWireAt(Desk* desk, v2 p) {
 
     return result;
 }
+
+bool LoadDeskFromFile(JsonDeserializer* deserializer, Desk* desk, const char* filename) {
+    bool result = false;
+    u32 saveFileSize = Platform.DebugGetFileSize(filename);
+    if (saveFileSize) {
+        void* saveFileData = desk->deskAllocator.Alloc(saveFileSize + 1, false);
+        assert(saveFileData);
+        defer { desk->deskAllocator.Dealloc(saveFileData); };
+
+        u32 readSize = Platform.DebugReadTextFile(saveFileData, saveFileSize + 1, filename);
+        if (readSize == saveFileSize + 1) {
+            char* deskJson = (char*)saveFileData;
+            auto deserialized = DeserializeDeskFromJson(deserializer, deskJson, readSize, desk);
+            if (deserialized) {
+                result = true;
+            }
+        }
+    }
+    return result;
+}
