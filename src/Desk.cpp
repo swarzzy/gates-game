@@ -1,34 +1,31 @@
 #include "Desk.h"
 
-u32 DeskHash(void* arg) {
-    iv2* key = (iv2*)arg;
+u32 HashU32(TileKey& key) {
     // TODO: Reasonable hashing
-    u32 hash = key->x * 12342 + key->y * 23423;
+    u32 hash = key.key.x * 12342 + key.key.y * 23423;
     return hash;
 }
 
-bool DeskCompare(void* a, void* b) {
-    iv2* key1 = (iv2*)a;
-    iv2* key2 = (iv2*)b;
-    bool result = (key1->x == key2->x) && (key1->y == key2->y);
+bool HashCompareKeys(TileKey& a, TileKey& b) {
+    bool result = (a.key.x == b.key.x) && (a.key.y == b.key.y);
     return result;
 }
 
 DeskTile* GetDeskTile(Desk* desk, iv2 p, bool create) {
     DeskTile* result = nullptr;
-    DeskTile** bucket = HashMapGet(&desk->tileHashMap, &p);
+    DeskTile** bucket = desk->tileHashMap.Find(TileKey(p));
     if (bucket) {
         assert(*bucket);
         result = *bucket;
     } else if (create) {
-        DeskTile** newBucket = HashMapAdd(&desk->tileHashMap, &p);
+        DeskTile** newBucket = desk->tileHashMap.Add(TileKey(p));
         if (newBucket) {
             DeskTile* newTile = CreateDeskTile(desk, p);
             if (newTile) {
                 *newBucket = newTile;
                 result = newTile;
             } else {
-                bool deleted = HashMapDelete(&desk->tileHashMap, &p);
+                bool deleted = desk->tileHashMap.Delete(TileKey(p));
                 assert(deleted);
             }
         }
@@ -199,6 +196,30 @@ Part* GetPartMemory(Desk* desk) {
     return result;
 }
 
+u32 RegisterPartID(Desk* desk, Part* part) {
+    u32 id = ++desk->partSerialCount;
+    auto entry = desk->partsTable.Add(PartID(id));
+    assert(entry);
+    *entry = part;
+    return id;
+}
+
+void UnregisterPartID(Desk* desk, u32 id) {
+    desk->partsTable.Delete(PartID(id));
+}
+
+Part* GetPartByID(Desk* desk, u32 id) {
+    Part* result = nullptr;
+    if (id) {
+        auto entry = desk->partsTable.Find(PartID(id));
+        if (entry) {
+            result = *entry;
+        }
+    }
+    return result;
+}
+
+
 void ReleasePartMemory(Desk* desk, Part* part) {
     desk->parts.Remove(part);
 }
@@ -217,11 +238,19 @@ Desk* CreateDesk() {
     desk->canvas = CreateCanvas(&desk->deskAllocator);
     ToolManagerInit(&desk->toolManager, desk);
 
-    desk->tileHashMap = HashMap<iv2, DeskTile*, DeskHash, DeskCompare>::Make(desk->deskAllocator);
+    desk->tileHashMap = HashMap<TileKey, DeskTile*>(&desk->deskAllocator);
     desk->wires = List<Wire>(&desk->deskAllocator);
     desk->parts = List<Part>(&desk->deskAllocator);
     desk->partInfo = &context->partInfo;
     desk->wireNodeCleanerBuffer = DArray<DeskPosition>(&desk->deskAllocator);
+
+    desk->serializer.Init(&desk->deskAllocator);
+    desk->deserializer.Init(&desk->deskAllocator);
+    desk->serializerScratchPart.pinRelPositions = DArray<v2>(&desk->deskAllocator);
+    desk->serializerScratchWire.nodes = DArray<DeskPosition>(&desk->deskAllocator);
+
+    desk->partsTable = HashMap<PartID, Part*>(&desk->deskAllocator);
+    desk->idRemappingTable = HashMap<PartID, u32>(&desk->deskAllocator);
 
     context->desk = desk;
 
@@ -316,5 +345,25 @@ GetWireAtResult GetWireAt(Desk* desk, v2 p) {
         }
     } ListEndEach(wire);
 
+    return result;
+}
+
+bool LoadDeskFromFile(JsonDeserializer* deserializer, Desk* desk, const char* filename) {
+    bool result = false;
+    u32 saveFileSize = Platform.DebugGetFileSize(filename);
+    if (saveFileSize) {
+        void* saveFileData = desk->deskAllocator.Alloc(saveFileSize + 1, false);
+        assert(saveFileData);
+        defer { desk->deskAllocator.Dealloc(saveFileData); };
+
+        u32 readSize = Platform.DebugReadTextFile(saveFileData, saveFileSize + 1, filename);
+        if (readSize == saveFileSize + 1) {
+            char* deskJson = (char*)saveFileData;
+            auto deserialized = DeserializeDeskFromJson(deserializer, deskJson, readSize, desk);
+            if (deserialized) {
+                result = true;
+            }
+        }
+    }
     return result;
 }

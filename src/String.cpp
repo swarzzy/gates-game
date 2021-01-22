@@ -1,5 +1,5 @@
 #include "String.h"
-
+#if false
 template <typename Char>
 StringT<Char> StringT<Char>::MakeFromRawBuffer(void* buffer, u16 length, bool dynamicallyAllocated) {
     StringT result = {};
@@ -11,3 +11,4 @@ StringT<Char> StringT<Char>::MakeFromRawBuffer(void* buffer, u16 length, bool dy
 
     return result;
 }
+#endif

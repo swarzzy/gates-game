@@ -4,6 +4,8 @@ struct Part;
 struct Wire;
 struct Desk;
 struct PartInfo;
+struct SerializedPart;
+struct SerializedWire;
 
 enum struct PartType : u32 {
     Unknown = 0, And, Or, Not, Led, Source, Clock, _Count
@@ -17,7 +19,7 @@ struct Pin {
     PinType type;
     // TODO: Do we need pointer to the part here?
     Part* part;
-    iv2 pRelative;
+    v2 pRelative;
     u8 value;
 };
 
@@ -40,6 +42,7 @@ struct WireRecord {
 };
 
 struct Part {
+    u32 id;
     PartType type;
 
     DeskPosition p;
@@ -64,7 +67,7 @@ struct Part {
 
     u32 clockDiv;
 
-    const char16* label;
+    char32* label;
 
     b32 placed;
 };
@@ -82,8 +85,6 @@ struct IRect {
 // 2. Initialize part in that memory
 // 3. Place the part onto the desk
 
-// Initialize part memory
-void InitPart(PartInfo* info, Desk* desk, Part* part, iv2 p, PartType type);
 void DeinitPart(Desk* desk, Part* part);
 
 void UnwirePart(Desk* desk, Part* part);
@@ -92,9 +93,12 @@ void UnwirePart(Desk* desk, Part* part);
 Part* TryCreatePart(Desk* desk, PartInfo* info, iv2 p, PartType type);
 void DestroyPart(Desk* desk, Part* part);
 
+Part* TryCreatePartFromSerialized(Desk* desk, PartInfo* info, SerializedPart* serialized);
+Wire* TryCreateWireFromSerialized(Desk* desk, SerializedWire* wire);
+
 void DestroyWire(Desk* desk, Wire* wire);
 
-Pin CreatePin(Part* part, i32 xRel, i32 yRel, PinType type);
+Pin CreatePin(Part* part, v2 pRel, PinType type);
 
 void PartProcessSignals(PartInfo* info, Part* part);
 
@@ -105,9 +109,7 @@ u32 PinCount(Part* part);
 bool ArePinsWired(Pin* input, Pin* output);
 Wire* TryWirePins(Desk* desk, Pin* input, Pin* output);
 bool UnwirePin(Pin* pin, Wire* wire);
-
-IRect CalcPartBoundingBox(Part* part);
-IRect CalcPartBoundingBox(Part* part, iv2 overridePos);
+bool IsPinFree(Pin* pin);
 
 void UpdateCachedWirePositions(Part* part);
 void WireCleanupNodes(Wire* wire, Array<DeskPosition>* buffer);

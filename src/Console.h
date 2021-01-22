@@ -51,6 +51,8 @@ struct ConsoleCommand {
 static const ConsoleCommand GlobalConsoleCommands[] = {
     { "dummy",              nullptr },
     { "draw",               ConsoleDrawModeCommand },
+    { "save_as",            SaveAsConsoleCommand },
+    { "load",               LoadConsoleCommand },
 
 #if 0
     { "clear",              ConsoleClearCommand },

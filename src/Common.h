@@ -14,6 +14,8 @@
 
 // unknown attribute
 #pragma warning(disable: 5030)
+// gogo skips variable initialization
+#pragma warning(disable: 4533)
 
 #define BreakDebug() __debugbreak()
 #define WriteFence() (_WriteBarrier(), _mm_sfence())
@@ -42,6 +44,7 @@
 #define offset_of(type, member) ((uptr)(&(((type*)0)->member)))
 #define invalid_default() default: { BreakDebug(); } break
 #define unreachable() BreakDebug()
+#define compile_if if constexpr // Prevent editors indentation from getting crazy
 
 // NOTE: Jonathan Blow defer implementation. Reference: https://pastebin.com/SX3mSC9n
 #define concat_internal(x,y) x##y
@@ -80,7 +83,6 @@ struct EqualTypesImpl<T, T> {
 template<typename T, typename U>
 inline constexpr bool EqualTypes = EqualTypesImpl<T, U>::value;
 
-
 // Making tuples be a thing using suuuper crazy template nonsence
 template <typename T1, typename T2 = void, typename T3 = void, typename T4 = void, typename T5 = void>
 struct Tuple { T1 item1; T2 item2; T2 item3; T4 item4; T5 item5; };
@@ -102,6 +104,15 @@ struct Tuple<T1, T2, void, void, void> { T1 item1; T2 item2; };
 template <typename T1, typename T2>
 inline Tuple<T1, T2> MakeTuple(T1 item1, T2 item2) { return Tuple<T1, T2> { item1, item2 }; }
 
+template <typename T>
+struct Option {
+    T value;
+    bool hasValue = false;
+
+    Option() = default;
+    Option(T v) : value(v), hasValue(true) {}
+};
+
 typedef uint8_t byte;
 typedef unsigned char uchar;
 
@@ -116,6 +127,7 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 
 typedef char16_t char16;
+typedef char32_t char32;
 
 typedef uintptr_t uptr;
 
@@ -164,6 +176,9 @@ namespace U16 {
 namespace U64 {
     constexpr u64 Max = UINT64_MAX;
 }
+
+#define Kilobytes(kb) ((kb) * (u32)1024)
+#define Megabytes(mb) ((mb) * (u32)1024 * (u32)1024)
 
 // NOTE: Allocator API
 typedef void*(AllocateFn)(uptr size, b32 clear, uptr alignment, void* allocatorData);

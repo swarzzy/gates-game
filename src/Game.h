@@ -38,6 +38,7 @@ struct GameContext {
     DrawMode drawMode;
 
     Desk* desk;
+    b32 shouldExitDesk;
 
     TextureID testTexture;
     TextureID fontAtlas;
@@ -47,7 +48,7 @@ struct GameContext {
 
     iv2 prevMouseDeskPos;
 
-    char16* strings[(u32)Strings::_Count];
+    char32* strings[(u32)Strings::_Count];
 };
 
 void GameInit();

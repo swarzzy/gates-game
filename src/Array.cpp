@@ -42,8 +42,8 @@ template <typename T, typename Derived>
 u32 ArrayBase<T, Derived>::IndexFromPtr(const T* it) {
     auto data = _DataPtr();
     assert(it >= data && it < data + _Count());
-    uptr off = it - data;
-    return (u32)off;
+    uptr off = (uptr)it - (uptr)data;
+    return (u32)off / sizeof(T);
 }
 
 template <typename T, typename Derived>

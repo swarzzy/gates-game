@@ -7,6 +7,7 @@
 #include "List.h"
 #include "Part.h"
 #include "Tools.h"
+#include "Serialize.h"
 
 struct Desk;
 struct Wire;
@@ -18,22 +19,48 @@ struct DeskTile {
     DArray<Part*> parts;
 };
 
-u32 DeskHash(void* arg);
-bool DeskCompare(void* a, void* b);
+struct TileKey {
+    iv2 key;
+    explicit TileKey(iv2 v) : key(v) {}
+};
+
+struct PartID {
+    u32 value;
+    PartID() = default;
+    PartID(u32 v) : value(v) {}
+};
+
+u32 HashU32(PartID& key) {
+    // TODO: Reasonable hashing
+    u32 hash = key.value;
+    return hash;
+}
+
+bool HashCompareKeys(PartID& a, PartID& b) {
+    bool result = a.value == b.value;
+    return result;
+}
 
 struct Desk {
+    u32 partSerialCount;
     DeskPosition origin;
-    u32 nodeSerialCount;
-    u32 pinGeneration;
     PlatformHeap* deskHeap;
     Allocator deskAllocator;
     Canvas canvas;
     PartInfo* partInfo;
-    HashMap<iv2, DeskTile*, DeskHash, DeskCompare> tileHashMap;
+    HashMap<TileKey, DeskTile*> tileHashMap;
     List<Part> parts;
     List<Wire> wires;
     DArray<DeskPosition> wireNodeCleanerBuffer;
     ToolManager toolManager;
+
+    SerializedPart serializerScratchPart;
+    SerializedWire serializerScratchWire;
+    JsonSerializer serializer;
+    JsonDeserializer deserializer;
+
+    HashMap<PartID, Part*> partsTable;
+    HashMap<PartID, u32> idRemappingTable;
 };
 
 struct GetWireAtResult {
@@ -57,6 +84,10 @@ Desk* CreateDesk();
 void DestroyDesk();
 
 Part* GetPartMemory(Desk* desk);
+u32 RegisterPartID(Desk* desk, Part* part);
+void UnregisterPartID(Desk* desk, u32 id);
+
+Part* GetPartByID(Desk* desk, u32 id);
 
 // Desk spatial representation API
 //DeskCell* GetDeskCell(Desk* desk, iv2 p, bool create = false);
@@ -96,3 +127,5 @@ void RemoveWire(Desk* desk, Wire* wire);
 
 // Position is desk-relative
 GetWireAtResult GetWireAt(Desk* desk, v2 p);
+
+bool LoadDeskFromFile(JsonDeserializer* deserializer, Desk* desk, const char* filename);

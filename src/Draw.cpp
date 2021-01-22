@@ -176,7 +176,7 @@ forceinline GlyphInfo* GetGlyph(Font* font, u16 codepoint) {
 }
 
 // TODO: Maybe it is worth to cache text positioning data when we calculate it first time
-Box2D DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align, f32 fontScale) {
+Box2D DrawText(DrawList* list, Font* font, const char32* string, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, TextAlign align, f32 fontScale) {
     Box2D bbox = {};
     v3 posPx = V3(p.x / pixelSize.x, p.y / pixelSize.y, p.z);
     // Currently width assumed to be in pixels
@@ -218,7 +218,7 @@ Box2D DrawText(DrawList* list, Font* font, const char16* string, v3 p, v4 color,
     return bbox;
 }
 
-void DrawTextLine(DrawList* list, Font* font, const char16* string, u32 count, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, f32 fontScale) {
+void DrawTextLine(DrawList* list, Font* font, const char32* string, u32 count, v3 p, v4 color, v2 pixelSize, v2 anchor, f32 maxWidth, f32 fontScale) {
     v2 begin = p.xy;
     f32 z = p.z;
 
@@ -226,7 +226,7 @@ void DrawTextLine(DrawList* list, Font* font, const char16* string, u32 count, v
     f32 yPos = begin.y;
 
     for (u32 i = 0; i < count; i++) {
-        char16 c = string[i];
+        char32 c = string[i];
         auto glyph = GetGlyph(font, (u16)c);
         auto newAdvanceX = xAdvance + glyph->xAdvance * fontScale;
         PushGlyphInternal(list, glyph, V3(xAdvance, yPos, z), pixelSize, color, fontScale);
@@ -234,7 +234,7 @@ void DrawTextLine(DrawList* list, Font* font, const char16* string, u32 count, v
     }
 }
 
-Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char16* string, f32 maxWidth) {
+Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char32* string, f32 maxWidth) {
     f32 advance = 0.0f;
     f32 lineHeight = font->ascent - font->descent + font->lineGap;
 
@@ -272,7 +272,7 @@ Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char16* strin
         } else {
             // Otherwise if the word is longer than maxWidth
             // then wrap it on a new line
-            for (const char16* c = wordBegin; c != wordEnd; c++) {
+            for (const char32* c = wordBegin; c != wordEnd; c++) {
                 auto glyph = GetGlyph(font, (u16)(*c));
                 auto newAdvanceX = advance + glyph->xAdvance;
                 if (advance != 0.0f && newAdvanceX > maxWidth) {
@@ -307,7 +307,7 @@ Tuple<v2, uptr> CalcSingleLineBondingBoxUnscaled(Font* font, const char16* strin
     return MakeTuple(result, (uptr)(at - string));
 }
 
-v2 CalcTextSizeUnscaled(Font* font, const char16* string, f32 maxWidth) {
+v2 CalcTextSizeUnscaled(Font* font, const char32* string, f32 maxWidth) {
     f32 width = 0.0f;
     f32 height = 0.0f;
 

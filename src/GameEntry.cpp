@@ -1,6 +1,13 @@
 #define __CLANG_FLOAT_H
 #define __STDC_UTF_16__
 
+#define STB_SPRINTF_IMPLEMENTATION 1
+#include "../ext/stb_sprintf/stb_sprintf.h"
+
+#include "../ext/utf8/utf8.h"
+
+#include "../ext/json/json.h"
+
 #include "Common.h"
 #include "Globals.h"
 #include "Platform.h"
@@ -111,6 +118,8 @@ extern "C" GAME_CODE_ENTRY void __cdecl GameUpdateAndRender(PlatformState* platf
 #include "Language.cpp"
 #include "Assets.cpp"
 #include "StringBuilder.cpp"
+#include "Serialize.cpp"
+#include "SaveAndLoad.cpp"
 
 #include "Intrinsics.cpp"
 

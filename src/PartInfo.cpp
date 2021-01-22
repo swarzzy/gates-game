@@ -24,9 +24,9 @@ void FuncPartNot(Part* part) {
 void FuncPartSource(Part* part) {
     GetOutput(part, 0)->value = (u8)part->active;
     if (part->active) {
-        part->label = u"I";
+        part->label = U"I";
     } else {
-        part->label = u"0";
+        part->label = U"0";
     }
 }
 
@@ -62,12 +62,12 @@ void InitPartAnd(Desk* desk, Part* part) {
 
     part->activeColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
     part->inactiveColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
-    part->label = u"&";
+    part->label = U"&";
 
     AllocatePins(desk, part, 2, 1);
-    *GetInput(part, 0) = CreatePin(part, -1, 1, PinType::Input);
-    *GetInput(part, 1) = CreatePin(part, -1, 3, PinType::Input);
-    *GetOutput(part, 0) = CreatePin(part, 3, 3, PinType::Output);
+    *GetInput(part, 0) = CreatePin(part, V2(-1, 1) / 2.0f, PinType::Input);
+    *GetInput(part, 1) = CreatePin(part, V2(-1, 3) / 2.0f, PinType::Input);
+    *GetOutput(part, 0) = CreatePin(part, V2(3, 3) / 2.0f, PinType::Output);
 }
 
 void InitPartOr(Desk* desk, Part* part) {
@@ -77,12 +77,12 @@ void InitPartOr(Desk* desk, Part* part) {
 
     part->activeColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
     part->inactiveColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
-    part->label = u"1";
+    part->label = U"1";
 
     AllocatePins(desk, part, 2, 1);
-    *GetInput(part, 0) = CreatePin(part, -1, 1, PinType::Input);
-    *GetInput(part, 1) = CreatePin(part, -1, 3, PinType::Input);
-    *GetOutput(part, 0) = CreatePin(part, 3, 3, PinType::Output);
+    *GetInput(part, 0) = CreatePin(part, V2(-1, 1) / 2.0f, PinType::Input);
+    *GetInput(part, 1) = CreatePin(part, V2(-1, 3) / 2.0f, PinType::Input);
+    *GetOutput(part, 0) = CreatePin(part, V2(3, 3) / 2.0f, PinType::Output);
 }
 
 void InitPartNot(Desk* desk, Part* part) {
@@ -95,8 +95,8 @@ void InitPartNot(Desk* desk, Part* part) {
     //part->label = u"0";
 
     AllocatePins(desk, part, 1, 1);
-    *GetInput(part, 0) = CreatePin(part, -1, 1, PinType::Input);
-    *GetOutput(part, 0) = CreatePin(part, 3, 1, PinType::Output);
+    *GetInput(part, 0) = CreatePin(part, V2(-1, 1) / 2.0f, PinType::Input);
+    *GetOutput(part, 0) = CreatePin(part, V2(3, 1) / 2.0f, PinType::Output);
 }
 
 void InitPartLed(Desk* desk, Part* part) {
@@ -108,7 +108,7 @@ void InitPartLed(Desk* desk, Part* part) {
     part->inactiveColor = V4(0.3f, 0.3f, 0.3f, 1.0f);
 
     AllocatePins(desk, part, 1, 0);
-    *GetInput(part, 0) = CreatePin(part, -1, 1, PinType::Input);
+    *GetInput(part, 0) = CreatePin(part, V2(-1, 1) / 2.0f, PinType::Input);
 }
 
 void InitPartSource(Desk* desk, Part* part) {
@@ -116,13 +116,13 @@ void InitPartSource(Desk* desk, Part* part) {
     part->type = PartType::Source;
     part->dim = IV2(3, 3);
 
-    part->label = u"0";
+    part->label = U"0";
 
     part->activeColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
     part->inactiveColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
 
     AllocatePins(desk, part, 0, 1);
-    *GetOutput(part, 0) = CreatePin(part, 3, 1, PinType::Output);
+    *GetOutput(part, 0) = CreatePin(part, V2(3, 1) / 2.0f, PinType::Output);
 }
 
 void InitPartClock(Desk* desk, Part* part) {
@@ -130,7 +130,7 @@ void InitPartClock(Desk* desk, Part* part) {
     part->type = PartType::Clock;
     part->dim = IV2(3, 3);
 
-    part->label = u"CL";
+    part->label = U"CL";
 
     part->clockDiv = 1;
 
@@ -138,7 +138,7 @@ void InitPartClock(Desk* desk, Part* part) {
     part->inactiveColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
 
     AllocatePins(desk, part, 0, 1);
-    *GetOutput(part, 0) = CreatePin(part, 3, 1, PinType::Output);
+    *GetOutput(part, 0) = CreatePin(part, V2(3, 1) / 2.0f, PinType::Output);
 }
 
 void ClickPartSource(Desk* desk, Part* part) {

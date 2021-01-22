@@ -1,104 +1,136 @@
 #include "HashMap.h"
 
-hash_map_template_decl
-hash_map_template hash_map_template::Make(Allocator allocator, u32 size) {
-    hash_map_template map = {};
-    map.allocator = allocator;
-    // TODO: Stop clearing whole thing
-    map.table = (HashBucket<Key, Value>*)allocator.Alloc(sizeof(HashBucket<Key, Value>) * size, true, alignof(HashBucket<Key, Value>));
-    map.size = size;
-    return map;
-}
+template <typename Key, typename Value>
+void HashMap<Key, Value>::Reserve(usize sz) {
+    if (sz > capacity) {
+        auto newMap = HashMap<Key, Value>(allocator);
+        newMap._AllocateBuffers(sz);
 
-
-hash_map_template_decl
-void HashMapDrop(hash_map_template* map) {
-    if (map->size > 0) {
-        map->allocator.Dealloc(map->table);
-        map->size = 0;
-        map->entryCount = 0;
-    }
-}
-
-hash_map_template_decl
-hash_bucket_teamplate* HashMapFindEntry(hash_map_template* map, Key* key, bool searchForEmpty) {
-    hash_bucket_teamplate* result = nullptr;
-    u32 hashMask = map->size - 1;
-    u32 hash = HashFunction(key);
-    auto firstIndex = hash & hashMask;
-    for (u32 offset = 0; offset < map->size; offset++) {
-        u32 index = (firstIndex + offset) & hashMask;
-        auto entry = map->table + index;
-        if (searchForEmpty && (!entry->used)) {
-            result = entry;
-            break;
-        } else if (entry->used && CompareFunction(key, &entry->key)) {
-            result = entry;
-            break;
+        if (count) {
+            for (usize i = 0; i < capacity; i++) {
+                if (occupancyTable[i]) {
+                    Value* v = newMap.Add(keysTable[i]);
+                    assert(v);
+                    *v = valuesTable[i];
+                }
+            }
         }
+
+        assert(count == newMap.count);
+
+        FreeBuffers();
+        *this = newMap;
+
+        assert(IsPowerOfTwo((u32)capacity));
     }
-    return result;
 }
 
-hash_map_template_decl
-void HashMapGrow(hash_map_template* map) {
-    u32 newSize = map->size * hash_map_template::GrowKoef;
-    log_print("[Hash map] Growing: old size %lu, old load %.3f, new size %lu new load %.3f\n", map->size, (f32)map->entryCount / (f32)map->size, newSize, (f32)map->entryCount / (f32)newSize);
-    auto newMap = hash_map_template::Make(map->allocator, newSize);
-    for (u32 i = 0; i < map->size; i++) {
-        auto oldBucket = map->table + i;
-        if (oldBucket->used) {
-            Value* v = HashMapAdd(&newMap, &oldBucket->key);
-            *v = oldBucket->value;
-        }
+template <typename Key, typename Value>
+void HashMap<Key, Value>::FreeBuffers() {
+    if (capacity) {
+        allocator->Dealloc(occupancyTable);
+        allocator->Dealloc(keysTable);
+        allocator->Dealloc(valuesTable);
+        occupancyTable = nullptr;
+        keysTable = nullptr;
+        valuesTable = nullptr;
+        capacity = 0;
+        count = 0;
     }
-    map->allocator.Dealloc(map->table);
-    map->table = newMap.table;
-    map->size = newSize;
 }
 
+template <typename Key, typename Value>
+void HashMap<Key, Value>::Clear() {
+    count = 0;
+    memset(occupancyTable, 0, sizeof(b8) * capacity);
+}
 
-hash_map_template_decl
-Value* HashMapAdd(hash_map_template* map, Key* key) {
+template <typename Key, typename Value>
+Value* HashMap<Key, Value>::Add(Key& key) {
     Value* result = nullptr;
-    f32 load = (f32)(map->entryCount + 1) / (f32)map->size;
-    if (load > hash_map_template::LoadFactor) {
-        HashMapGrow(map);
-    }
-
-    auto entry = HashMapFindEntry(map, key, true);
-    if (entry) {
-        entry->used = true;
-        entry->key = *key;
-        map->entryCount++;
-        result = &entry->value;
-    }
-    return result;
-}
-
-hash_map_template_decl
-Value* HashMapGet(hash_map_template* map, Key* key) {
-    Value* result = nullptr;
-    if (key) {
-        auto entry = HashMapFindEntry(map, key, false);
-        if (entry) {
-            result = &entry->value;
+    if (capacity == 0) {
+        Reserve(16);
+    } else {
+        f32 load = (f32)(count + 1) / (f32)capacity;
+        if (load > 0.8f) {
+            Reserve(capacity * 2);
         }
     }
+
+    assert(count < capacity);
+
+    auto[found, index] = _FindEntry<true>(key);
+    assert(found);
+    occupancyTable[index] = true;
+    keysTable[index] = key;
+    result = valuesTable + index;
+    count++;
+
     return result;
 }
 
-hash_map_template_decl
-bool HashMapDelete(hash_map_template* map, Key* key) {
+template <typename Key, typename Value>
+Value* HashMap<Key, Value>::Find(Key& key) {
+    Value* result = nullptr;
+    auto[found, index] = _FindEntry<false>(key);
+    if (found) {
+        result = valuesTable + index;
+    }
+    return result;
+}
+
+template <typename Key, typename Value>
+bool HashMap<Key, Value>::Delete(Key& key) {
     bool result = false;
-    if (key) {
-        auto entry = HashMapFindEntry(map, key, false);
-        if (entry) {
-            assert(map->entryCount);
-            entry->used = false;
-            map->entryCount--;
-            result = true;
-        }
+    auto[found, index] = _FindEntry<false>(key);
+    if (found) {
+        assert(count > 0);
+        count--;
+
+        occupancyTable[index] = false;
+        result = true;
     }
     return result;
+}
+
+template <typename Key, typename Value>
+void HashMap<Key, Value>::_AllocateBuffers(usize sz) {
+    assert(!occupancyTable);
+    assert(!keysTable);
+    assert(!valuesTable);
+    assert(!capacity);
+    assert(!count);
+    occupancyTable = allocator->Alloc<b8>(sz, true);
+    keysTable = allocator->Alloc<Key>(sz, false);
+    valuesTable = allocator->Alloc<Value>(sz, false);
+    capacity = sz;
+}
+
+template <typename Key, typename Value>
+template <bool SerachForEmpty>
+Tuple<bool, usize> HashMap<Key, Value>::_FindEntry(Key& key) {
+    compile_if (SerachForEmpty) {
+        if (capacity == count) {
+            return MakeTuple(false, (usize)0);
+        }
+    }
+
+    u32 hashMask = capacity - 1;
+    u32 hash = HashU32(key);
+    u32 firstIndex = hash & hashMask;
+    for (u32 offset = 0; offset < (u32)capacity; offset++) {
+        u32 index = (firstIndex + offset) & hashMask;
+
+        compile_if(SerachForEmpty) {
+            if (!occupancyTable[index]) {
+                return MakeTuple(true, (usize)index);
+            }
+        } else {
+            if (occupancyTable[index] && HashCompareKeys(keysTable[index], key)) {
+                return MakeTuple(true, (usize)index);
+            }
+        }
+    }
+
+    return MakeTuple(false, (usize)0);
 }

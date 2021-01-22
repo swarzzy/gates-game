@@ -4,21 +4,42 @@
 
 #include "Desk.h"
 #include "StringBuilder.h"
+#include "Serialize.h"
+
 
 CodepointRange ranges[2];
 f32 DefaultFontHeight = 24.0f;
+
+struct StringKey {
+    const char* str;
+    explicit StringKey(const char* s) : str(s) {};
+};
+
+u32 HashU32(StringKey& key) {
+    u32 hash = 0;
+    auto len = StringSizeZ(key.str);
+    for (u32 i = 0; i < len; i++) {
+        hash += key.str[i];
+    }
+    return hash;
+}
+
+bool HashCompareKeys(StringKey& a, StringKey& b) {
+    return StringsAreEqual(a.str, b.str);
+}
+
 
 void GameInit() {
     auto context = GetContext();
     context->mainAllocator = MakeAllocator(HeapAllocAPI, HeapFreeAPI, context->mainHeap);
     context->menuCanvas = CreateCanvas(&context->mainAllocator);
 
-#if 1
+#if 0
     // String builder test
-    StringBuilder builder = StringBuilder(&context->mainAllocator, "Hll");
+    StringBuilder builder = StringBuilder(&context->mainAllocator, U"Hll");
     builder.Reserve(10);
     builder.Append("abcdef", sizeof("abcdef"));
-    builder.Append(" sailor");
+    builder.Append(U" sailor");
     builder.Append(-5);
     builder.AppendLiteral(" ");
     builder.Append((i32)38456348563845638);
@@ -28,8 +49,224 @@ void GameInit() {
     builder.Append("sailor", sizeof("sailor"));
     builder.Append("_qwertyuiopasdfghjhlkhklhkh_", sizeof("_qwertyuiopasdfghjhlkhklhkh_"));
 
-    String str1 = builder.CopyString();
-    String str2 = builder.StealString();
+    char32* str1 = builder.CopyString();
+    char* str3 = builder.CopyStringAsASCII();
+    char32* str2 = builder.StealString();
+
+#endif
+#if 0
+
+    double value = 0.0;
+    char buffer[128];
+    const char* start = nullptr;
+    stbsp__uint32 len = 0;
+    stbsp__int32 decimalPos = 0;
+    stbsp__uint32 fracDigits = 0;
+
+    //#define STBSP__NUMSZ 512 // big enough for e308 (with commas) or e-307
+    //char num[STBSP__NUMSZ];
+    // sets decimal pos to STBSP__SPECIAL
+    auto a = stbsp__real_to_str(&start, &len, buffer, &decimalPos, value, fracDigits);
+
+    serializer.BeginStruct();
+    serializer.WriteField(U"field 1", U"value1");
+    serializer.WriteField(U"field 2", U"value2");
+    serializer.WriteField(U"field 3", U"value3");
+    //serializer.BeginArrayRow();
+    serializer.WriteValue(U"1", false);
+    serializer.WriteValue(U"2", false);
+    serializer.WriteValue(U"3", false);
+    serializer.WriteValue(U"4", false);
+    serializer.EndArray();
+    serializer.WriteField(U"field 4", U"value4");
+    serializer.EndStruct();
+    serializer.BeginStruct();
+    serializer.WriteField(U"field 5", U"value5");
+    serializer.EndStruct();
+
+    SerializedPart part {};
+    part.id = 5;
+    part.type = 1;
+    part.pTile = IV2(100, -2);
+    part.pOffset = V2(0.4f, 0.5f);
+    part.dim = IV2(3, 5);
+    part.active = true;
+    part.label = U"Test part";
+    part.inputCount = 3;
+    part.outputCount = 1;
+    part.pinRelPositions = DArray<v2>(&context->mainAllocator);
+    part.pinRelPositions.PushBack(V2(0.0f, 0.0f));
+    part.pinRelPositions.PushBack(V2(1.0f, 0.0f));
+    part.pinRelPositions.PushBack(V2(0.0f, 1.0f));
+    part.pinRelPositions.PushBack(V2(1.0f, 1.0f));
+    part.pinRelPositions.PushBack(V2(-0.0f, -1.0f));
+    part.pinRelPositions.PushBack(V2(1.175494351e-38, 3.402823466e+38));
+    //part.pinRelPositions.PushBack(V2(1.0f, HUGE_VAL));
+
+    SerializedWire wires[2];
+    wires[0].inputId = 1;
+    wires[0].inputId = 55;
+    wires[0].nodes = DArray<DeskPosition>(&context->mainAllocator);
+    wires[0].nodes.PushBack(DeskPosition(IV2(1, 2)));
+    wires[0].nodes.PushBack(DeskPosition(IV2(3, 4)));
+    wires[0].nodes.PushBack(DeskPosition(IV2(5, 6), V2(0.5f, 0.25f)));
+
+    wires[1].inputId = 3;
+    wires[1].inputId = 4;
+    wires[1].nodes = DArray<DeskPosition>(&context->mainAllocator);
+    wires[1].nodes.PushBack(DeskPosition(IV2(10, 10)));
+    wires[1].nodes.PushBack(DeskPosition(IV2(11, 11)));
+    wires[1].nodes.PushBack(DeskPosition(IV2(0, 0), V2(0.0f, 0.23f)));
+
+    JsonSerializer serializer = JsonSerializer(&context->mainAllocator);
+    serializer.inlineMode = false;
+
+    serializer.BeginObject();
+
+    serializer.BeginArray(U"Parts");
+
+    serializer.BeginObject();
+    SerializeToJson(&serializer, &part);
+    serializer.EndObject();
+
+    serializer.EndArray();
+
+    serializer.BeginArray(U"Wires");
+    serializer.BeginObject();
+    SerializeToJson(&serializer, wires + 0);
+    serializer.EndObject();
+    serializer.BeginObject();
+    SerializeToJson(&serializer, wires + 1);
+    serializer.EndObject(false);
+    serializer.EndArray();
+
+    serializer.EndObject(false);
+
+
+    #if false
+
+    serializer.BeginObject(U"One");
+
+    serializer.BeginArray(U"Foo");
+    serializer.WriteArrayMember(1);
+    serializer.WriteArrayMember(2);
+    serializer.WriteArrayMember(3);
+    serializer.WriteArrayMember(4);
+    serializer.WriteArrayMember(5, false);
+    serializer.EndArray(false);
+
+    serializer.EndObject();
+
+    serializer.BeginObject(U"Two");
+    serializer.WriteField(U"Vector", V3(0.0f, 1.0f, 2.0f));
+    serializer.EndObject();
+
+    serializer.BeginArray(U"Array");
+
+    serializer.BeginObject();
+    serializer.WriteField(U"Bar", U"Hello");
+    serializer.EndObject();
+
+    serializer.BeginObject();
+    serializer.WriteField(U"Bar", U"Hello");
+    serializer.EndObject(false);
+
+    serializer.EndArray();
+
+
+    serializer.BeginArray(U"Wires");
+    serializer.BeginObject();
+    SerializeToJson(&serializer, wires + 0);
+    serializer.EndObject();
+    serializer.BeginObject();
+    SerializeToJson(&serializer, wires + 1);
+    serializer.EndObject(false);
+    serializer.EndArray(false);
+
+
+    serializer.EndObject(false);
+
+
+#endif
+    //serializer.BeginArray();
+
+
+    //serializer.EndArray();
+
+    auto data = serializer.GenerateStringUtf8();
+
+    Platform.DebugWriteFile("test.json", data.Data(), data.Count() - 1);
+
+    JsonDeserializer deserializer = JsonDeserializer(&context->mainAllocator);
+    ParseDeskDescription(&deserializer, data.Data(), data.Count() - 1);
+
+    auto partsArray = DArray<SerializedPart>(&context->mainAllocator);
+    auto wiresArray = DArray<SerializedWire>(&context->mainAllocator);
+
+    ForEach(&deserializer.parts, it) {
+        JsonPushObject(&deserializer, *it);
+        if (DeserializePart(&deserializer))
+        {
+            partsArray.PushBack(deserializer.scratchPart);
+            partsArray.Last()->pinRelPositions = deserializer.scratchPart.pinRelPositions.Clone();
+            partsArray.Last()->label = CopyString(deserializer.scratchPart.label, &context->mainAllocator);
+        }
+        JsonPopObject(&deserializer);
+    } EndEach;
+
+    ForEach(&deserializer.wires, it) {
+        JsonPushObject(&deserializer, *it);
+        if (DeserializeWire(&deserializer))
+        {
+            wiresArray.PushBack(deserializer.scratchWire);
+            wiresArray.Last()->nodes = deserializer.scratchWire.nodes.Clone();
+        }
+        JsonPopObject(&deserializer);
+    } EndEach;
+
+    //data.Data()[491] = 0;
+
+    json_parse_result_s parseResult;
+    json_value_s* root = json_parse_ex(data.Data(), data.Count() - 1, json_parse_flags_allow_json5, nullptr, nullptr, &parseResult);
+
+    json_object_s* rootObj = json_value_as_object(root);
+    assert(rootObj);
+
+    auto map = HashMap<StringKey, json_value_s*>(&context->mainAllocator);
+
+    json_object_element_s* it = rootObj->start;
+    while (it) {
+        json_string_s* name = it->name;
+        if (StringsAreEqual(name->string, "Parts")) {
+            json_array_s* array = json_value_as_array(it->value);
+            assert(array);
+            json_array_element_s* partIt = array->start;
+            while(partIt) {
+                json_object_s* part = json_value_as_object(partIt->value);
+                assert(part);
+                json_object_element_s* partField = part->start;
+                while (partField) {
+                    json_value_s** v = map.Add(StringKey(partField->name->string));
+                    *v = partField->value;
+                    partField = partField->next;
+                }
+
+
+                partIt = partIt->next;
+            }
+        }
+        if (StringsAreEqual(name->string, "Wires")) {
+            auto array = json_value_as_array(it->value);
+            assert(array);
+            auto wireIt = array->start;
+            while(wireIt) {
+                printf("Found wire\n");
+                wireIt = wireIt->next;
+            }
+
+        }
+        it = it->next;
+    }
 #endif
 
     auto image = LoadImage("../res/alpha_test.png", true, 4, &context->mainAllocator);
@@ -66,16 +303,18 @@ void GameInit() {
     PartInfoInit(&context->partInfo);
 
     for (u32 i = 0; i < (u32)Strings::_Count; i++) {
-        context->strings[i] = u"<null>";
+        context->strings[i] = U"<null>";
     }
 
-    context->language = Language::Russian;
-    InitLanguageRussian();
+    context->language = Language::English;
+    InitLanguageEnglish();
 
+    #if false
     for (int i = 0; i < 10000; i++) {
         CreateDesk();
         DestroyDesk();
     }
+    #endif
 }
 
 void GameReload() {
@@ -89,6 +328,15 @@ void GameUpdate() {
     case GameState::Desk: { GameUpdateDesk(); } break;
         invalid_default();
     }
+
+    if (context->gameState == GameState::Desk && context->shouldExitDesk) {
+        DestroyDesk();
+        context->gameState = GameState::Menu;
+    }
+
+    if(KeyPressed(Key::Tilde)) {
+        context->consoleEnabled = !context->consoleEnabled;
+    }
 }
 
 void GameSim() {
@@ -98,11 +346,6 @@ void GameSim() {
     case GameState::Menu: { } break;
     case GameState::Desk: { GameSimDesk(); } break;
         invalid_default();
-    }
-
-
-    if(KeyPressed(Key::Tilde)) {
-        context->consoleEnabled = !context->consoleEnabled;
     }
 }
 
@@ -157,6 +400,7 @@ void GameRenderMenu() {
         if (context->hitNewGame) {
             CreateDesk();
             context->gameState = GameState::Desk;
+            auto desk = GetDesk();
             return;
         }
 
@@ -225,6 +469,12 @@ void GameUpdateDesk() {
     auto deskCanvas = &desk->canvas;
     auto partInfo = &context->partInfo;
     auto toolManager = &desk->toolManager;
+    auto serializer = &desk->serializer;
+
+    if (KeyPressed(Key::F5)) {
+        auto fileData = SerializeDeskToJson(desk, serializer);
+        Platform.DebugWriteFile("desk.json", fileData.Data(), fileData.Count() - 1);
+    }
 
     f32 scaleSpeed = 0.1f;
 
@@ -393,12 +643,7 @@ void GameRenderDesk() {
 
     if (MouseButtonPressed(MouseButton::Left) && context->hitExitDesk) {
         context->hitExitDesk = false;
-        DestroyDesk();
-        context->gameState = GameState::Menu;
-    }
-
-    if (context->consoleEnabled) {
-        DrawConsole(&context->console);
+        context->shouldExitDesk = true;
     }
 }
 
