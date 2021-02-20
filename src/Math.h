@@ -1,6 +1,7 @@
 #pragma once
 #include <stdlib.h>
 #include "Intrinsics.h"
+#include "Array.h"
 
 struct RandomSeries {
     // TODO: Random
@@ -121,6 +122,7 @@ constexpr v2 V2(f32 x, f32 y) { return v2{x, y}; }
 constexpr v2 V2(f32 val) { return v2{val, val}; }
 constexpr v2 V2(v3 v) { return v2{v.x, v.y}; }
 constexpr v2 V2(v4 v) { return v2{v.x, v.y}; }
+constexpr v2 V2(iv2 v) { return v2{(f32)v.x, (f32)v.y}; }
 
 constexpr v3 V3(f32 x, f32 y, f32 z) { return v3{x, y, z}; }
 constexpr v3 V3(f32 val) { return v3{val, val, val}; }
@@ -168,6 +170,11 @@ constexpr m3x3 M3x3(f32 diag) { m3x3 result = {}; result._11 = diag; result._22 
 constexpr m4x4 M4x4(f32 diag) { m4x4 result = {};  result._11 = diag; result._22 = diag; result._33 = diag; result._44 = diag; return result; }
 m3x3 M3x3(m4x4 m) { m3x3 result; result._11 = m._11; result._12 = m._12; result._13 = m._13; result._21 = m._21; result._22 = m._22; result._23 = m._23; result._31 = m._31; result._32 = m._32; result._33 = m._33; return result; }
 m4x4 M4x4(m3x3 m) { m4x4 result = {}; result._11 = m._11; result._12 = m._12; result._13 = m._13; result._21 = m._21; result._22 = m._22; result._23 = m._23; result._31 = m._31; result._32 = m._32; result._33 = m._33; result._44 = 1.0f; return result; }
+
+v2 Perp(v2 v) {
+    v2 result = {-v.y, v.x};
+    return result;
+}
 
 template <typename T, u32 Size>
 bool operator==(Vector<T, Size> l, Vector<T, Size> r) {
@@ -332,6 +339,38 @@ Vector<T, Size>& operator/=(Vector<T, Size>& v, T s) {
         v.data[i] /= s;
     }
     return v;
+}
+
+template <typename T, u32 Size>
+    Vector<T, Size> Min(Vector<T, Size> a, Vector<T, Size> b) {
+    Vector<T, Size> result = {};
+    for (usize i = 0; i < Size; i++) {
+        result.data[i] = Min(a.data[i], b.data[i]);
+    }
+    return result;
+}
+
+template <typename T, u32 Size>
+    Vector<T, Size> Max(Vector<T, Size> a, Vector<T, Size> b) {
+    Vector<T, Size> result = {};
+    for (usize i = 0; i < Size; i++) {
+        result.data[i] = Max(a.data[i], b.data[i]);
+    }
+    return result;
+}
+
+template <typename T, u32 Size>
+struct VectorMinMax {
+    Vector<T, Size> min;
+    Vector<T, Size> max;
+};
+
+template <typename T, u32 Size>
+    VectorMinMax<T, Size> MinMax(Vector<T, Size> a, Vector<T, Size> b) {
+    VectorMinMax<T, Size> result;
+    result.min = Min(a, b);
+    result.max = Max(a, b);
+    return result;
 }
 
 template <typename T, u32 Size>
@@ -773,5 +812,87 @@ v3 GetBarycentric(v3 boxMin, v3 boxMax, v3 p) {
     result.x = SafeRatio0(p.x - boxMin.x, boxMax.x - boxMin.x);
     result.y = SafeRatio0(p.y - boxMin.y, boxMax.y - boxMin.y);
     result.z = SafeRatio0(p.z - boxMin.z, boxMax.z - boxMin.z);
+    return result;
+}
+
+struct Box2D {
+    v2 min;
+    v2 max;
+
+    Box2D() = default;
+    Box2D(v2 Min, v2 Max) : min(Min), max(Max) {}
+
+    Box2D Offset(v2 offset) const {
+        Box2D result = Box2D(min + offset, max + offset);
+        return result;
+    }
+
+    SArray<v2, 4> GetPoints() const {
+        SArray<v2, 4> points;
+        points[0] = min;
+        points[1] = V2(max.x, min.y);
+        points[2] = max;
+        points[3] = V2(min.x, max.y);
+        return points;
+    }
+};
+
+
+bool PointInBox2D(Box2D box, v2 point) {
+    bool result = ((point.x >= box.min.x) &&
+                   (point.y >= box.min.y) &&
+                   (point.x < box.max.x) &&
+                   (point.y < box.max.y));
+    return result;
+}
+
+
+bool BoxesIntersect2D(Box2D a, Box2D b) {
+    bool result = !((b.max.x <= a.min.x) ||
+                    (b.min.x >= a.max.x) ||
+                    (b.max.y <= a.min.y) ||
+                    (b.min.y >= a.max.y));
+    return result;
+}
+
+// [https://rootllama.wordpress.com/2014/06/20/ray-line-segment-intersection-test-in-2d/]
+bool RayLineIntersect2D(v2 rayOrigin, v2 rayDir, v2 lineBegin, v2 lineEnd) {
+    bool result = false;
+    v2 perp = V2(-rayDir.y, rayDir.x);
+    v2 beginToOrigin = rayOrigin - lineBegin;
+    v2 beginToEnd = lineEnd - lineBegin;
+
+    f32 denom = Dot(beginToEnd, perp);
+
+    if (Abs(denom) > F32::Eps) {
+        f32 t1 = (beginToEnd.x * beginToOrigin.y - beginToOrigin.x * beginToEnd.y) / denom;
+        f32 t2 = Dot(beginToOrigin, perp) / denom;
+
+        result = (t2 >= 0.0f && t2 <= 1.0f && t1 >= 0.0f);
+    }
+
+    return result;
+}
+
+// [https://rootllama.wordpress.com/2014/05/26/point-in-polygon-test/]
+bool PointInPolygon2D(v2 p, v2* vertices, u32 vertexCount) {
+    bool result = false;
+    u32 numCrossings = 0;
+
+    for (u32 i = 0; i < vertexCount; i++) {
+        u32 j = (i + 1) % vertexCount;
+
+        if (RayLineIntersect2D(p, V2(1.0f, 0.0f), vertices[i], vertices[j])) {
+            numCrossings++;
+        }
+    }
+
+    result = (numCrossings % 2) == 1;
+    return result;
+}
+
+bool PointInRectangle2D(v2 p, v2 min, v2 max) {
+    v2 vertices[] = { min, V2(max.x, min.y), max, V2(min.x, max.y) };
+    bool result = PointInPolygon2D(p, vertices, 4);
     return result;
 }

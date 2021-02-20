@@ -2,14 +2,13 @@
 
 #include "SDL.h"
 
+#include "Allocation.h"
 #include "RendererGL.h"
 
 #include <Windows.h>
 
 // For timeBeginPeriod
 #include <mmsystem.h>
-
-#include "../../ext/mimalloc-1.6.4/include/mimalloc.h"
 
 #define ENABLE_CONSOLE
 
@@ -36,7 +35,8 @@ struct Win32Context {
 
     LibraryData gameLib;
 
-    mi_heap_t* imguiHeap;
+    PlatformHeap* imguiHeap;
+    PlatformHeap* platformHeap;
 
     Renderer renderer;
 };

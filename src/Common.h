@@ -6,40 +6,45 @@
 #include <stddef.h>
 #include <stdarg.h>
 #include <math.h>
+#include <string.h>
+#include <intrin.h>
 
 #if defined(_MSC_VER)
 #define COMPILER_MSVC
 
 // unknown attribute
 #pragma warning(disable: 5030)
+// gogo skips variable initialization
+#pragma warning(disable: 4533)
 
-#define debug_break() __debugbreak()
+#define BreakDebug() __debugbreak()
 #define WriteFence() (_WriteBarrier(), _mm_sfence())
 #define ReadFence() (_ReadBarrier(), _mm_lfence())
+
+#define forceinline __forceinline
 
 #elif defined(__clang__)
 #define COMPILER_CLANG
 
 #pragma clang diagnostic ignored "-Wparentheses-equality"
 
-#define debug_break() __builtin_debugtrap()
+#define BreakDebug() __builtin_debugtrap()
 // TODO: Fences
 #define WriteFence() do {} while(false) //((__asm__("" ::: "memory")), _mm_sfence())
 #define ReadFence() do {} while(false) //((__asm__("" ::: "memory")), _mm_lfence())
+
+#define forceinline __attribute__((always_inline))
 
 #else
 #error Unsupported compiler
 #endif
 
-#include <intrin.h>
-
-
-//#define constant static inline const
 #define array_count(arr) ((uint)(sizeof(arr) / sizeof(arr[0])))
 #define typedecl(type, member) (((type*)0)->member)
 #define offset_of(type, member) ((uptr)(&(((type*)0)->member)))
-#define invalid_default() default: { debug_break(); } break
-#define unreachable() debug_break()
+#define invalid_default() default: { BreakDebug(); } break
+#define unreachable() BreakDebug()
+#define compile_if if constexpr // Prevent editors indentation from getting crazy
 
 // NOTE: Jonathan Blow defer implementation. Reference: https://pastebin.com/SX3mSC9n
 #define concat_internal(x,y) x##y
@@ -64,6 +69,20 @@ struct ExitScopeHelp
 
 #define defer const auto& concat(defer__, __LINE__) = ExitScopeHelp() + [&]()
 
+// Compile time type comparsion
+template<typename T, typename U>
+struct EqualTypesImpl {
+    static constexpr bool value = false;
+};
+
+template<typename T>
+struct EqualTypesImpl<T, T> {
+    static constexpr bool value = true;
+};
+
+template<typename T, typename U>
+inline constexpr bool EqualTypes = EqualTypesImpl<T, U>::value;
+
 // Making tuples be a thing using suuuper crazy template nonsence
 template <typename T1, typename T2 = void, typename T3 = void, typename T4 = void, typename T5 = void>
 struct Tuple { T1 item1; T2 item2; T2 item3; T4 item4; T5 item5; };
@@ -86,7 +105,13 @@ template <typename T1, typename T2>
 inline Tuple<T1, T2> MakeTuple(T1 item1, T2 item2) { return Tuple<T1, T2> { item1, item2 }; }
 
 template <typename T>
-using ForEachFn = void(T it);
+struct Option {
+    T value;
+    bool hasValue = false;
+
+    Option() = default;
+    Option(T v) : value(v), hasValue(true) {}
+};
 
 typedef uint8_t byte;
 typedef unsigned char uchar;
@@ -100,6 +125,9 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
+
+typedef char16_t char16;
+typedef char32_t char32;
 
 typedef uintptr_t uptr;
 
@@ -127,6 +155,7 @@ namespace F32 {
     constexpr f32 Pi = 3.14159265358979323846f;
     constexpr f32 Eps = 0.000001f;
     constexpr f32 Nan = NAN;
+    constexpr f32 Infinity = INFINITY;
     constexpr f32 Max = FLT_MAX;
     constexpr f32 Min = FLT_MIN;
 };
@@ -140,9 +169,16 @@ namespace U32 {
     constexpr u32 Max = 0xffffffff;
 }
 
+namespace U16 {
+    constexpr u16 Max = 0xffff;
+}
+
 namespace U64 {
     constexpr u64 Max = UINT64_MAX;
 }
+
+#define Kilobytes(kb) ((kb) * (u32)1024)
+#define Megabytes(mb) ((mb) * (u32)1024 * (u32)1024)
 
 // NOTE: Allocator API
 typedef void*(AllocateFn)(uptr size, b32 clear, uptr alignment, void* allocatorData);
@@ -153,6 +189,8 @@ struct Allocator {
     DeallocateFn* deallocate;
     void* data;
 
+    template <typename T> inline T* Alloc(bool clear = 1) { return (T*)allocate(sizeof(T), clear, 0, data); }
+    template <typename T> inline T* Alloc(u32 count, bool clear = 1) { return (T*)allocate(sizeof(T) * count, clear, 0, data); }
     inline void* Alloc(uptr size, b32 clear, uptr alignment = 0) { return allocate(size, clear, alignment, data); }
     inline void Dealloc(void* ptr) { deallocate(ptr, data); }
 };
@@ -177,6 +215,8 @@ extern void* GlobalAssertHandlerData;
 
 #define log_print(fmt, ...) _GlobalLoggerWithArgs(GlobalLoggerData, fmt, ##__VA_ARGS__)
 #define assert(expr, ...) do { if (!(expr)) {_GlobalAssertHandler(GlobalAssertHandlerData, __FILE__, __func__, __LINE__, #expr, ##__VA_ARGS__);}} while(false)
+// Same as assert but for extra paranoic checks. Might be diabled even in debug builds for speed
+#define assert_paranoid(expr, ...) do { if (!(expr)) {_GlobalAssertHandler(GlobalAssertHandlerData, __FILE__, __func__, __LINE__, #expr, ##__VA_ARGS__);}} while(false)
 // NOTE: Defined always
 #define panic(expr, ...) do { if (!(expr)) {_GlobalAssertHandler(GlobalAssertHandlerData, __FILE__, __func__, __LINE__, #expr, ##__VA_ARGS__);}} while(false)
 

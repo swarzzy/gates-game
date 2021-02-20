@@ -40,3 +40,4 @@ ctime.ctm
 #Binaries and libs
 /ext/assimp/assimp-vc141-mtd.pdb
 /ext/assimp/assimp-vc141-mtd.lib
+runnable-hiero.jar

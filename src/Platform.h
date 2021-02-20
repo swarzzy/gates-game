@@ -6,12 +6,7 @@
 // (including OpenGL calls) and other necessary stuff such as current input state.
 
 #include "Common.h"
-#include "Intrinsics.h"
-#include "Math.h"
-
 #include "RenderAPI.h"
-
-struct OpenGL;
 
 #if defined(PLATFORM_WINDOWS)
 #define GAME_CODE_ENTRY __declspec(dllexport)
@@ -21,9 +16,8 @@ struct OpenGL;
 #error Unsupported OS
 #endif
 
-enum struct GameInvoke : u32
-{
-    Init, Reload, Update, Render
+enum struct GameInvoke : u32 {
+    Init, Update, Render, Sim
 };
 
 #if defined(PLATFORM_WINDOWS)
@@ -34,71 +28,56 @@ typedef int FileHandle;
 const FileHandle InvalidFileHandle = -1;
 #endif
 
-
-// For accessing in-game resources just char versoins will be enough
-typedef u32(DebugGetFileSizeFn)(const char* filename);
-
-// Read file contents to buffer of size bufferSize. If buffer is too small, it will
-// read only that number of bits which will fit in the buffer.
-// Returns number of bytes written to the buffer
-typedef u32(DebugReadFileFn)(void* buffer, u32 bufferSize, const char* filename);
-
-// Read whole file to buffer and null terminate it
-typedef u32(DebugReadTextFileFn)(void* buffer, u32 bufferSize, const char* filename);
-typedef b32(DebugWriteFileFn)(const char* filename, void* data, u32 dataSize);
-typedef b32(DebugCopyFileFn)(const char* source, const char* dest, b32 overwrite);
-
-typedef FileHandle(DebugOpenFileFn)(const char* filename);
-typedef b32(DebugCloseFileFn)(FileHandle handle);
-typedef u32(DebugWriteToOpenedFileFn)(FileHandle handle, void* data, u32 size);
-
-// Memory allocation
 struct PlatformHeap;
 
-typedef PlatformHeap*(CreateHeapFn)();
-typedef void*(HeapAllocFn)(PlatformHeap* heap, usize size, bool zero);
-typedef void(FreeFn)(void* ptr);
+struct PlatformAPI {
+    u32(*DebugGetFileSize)(const char* filename);
+
+    // Read file contents to buffer of size bufferSize. If buffer is too small, it will
+    // read only that number of bits which will fit in the buffer.
+    // Returns number of bytes written to the buffer
+    u32(*DebugReadFile)(void* buffer, u32 bufferSize, const char* filename);
+
+    // Read whole file to buffer and null terminate it
+    u32(*DebugReadTextFile)(void* buffer, u32 bufferSize, const char* filename);
+
+    b32(*DebugWriteFile)(const char* filename, void* data, u32 dataSize);
+
+    b32(*DebugCopyFile)(const char* source, const char* dest, b32 overwrite);
+
+    FileHandle(*DebugOpenFile)(const char* filename);
+
+    b32(*DebugCloseFile)(FileHandle handle);
+
+    u32(*DebugWriteToOpenedFile)(FileHandle handle, void* data, u32 size);
 
 
-// NOTE: Functions that platform passes to the game
-struct PlatformCalls
-{
-    DebugGetFileSizeFn* DebugGetFileSize;
-    DebugReadFileFn* DebugReadFile;
-    DebugReadTextFileFn* DebugReadTextFile;
-    DebugWriteFileFn* DebugWriteFile;
-    DebugOpenFileFn* DebugOpenFile;
-    DebugCloseFileFn* DebugCloseFile;
-    DebugCopyFileFn* DebugCopyFile;
-    DebugWriteToOpenedFileFn* DebugWriteToOpenedFile;
+    PlatformHeap*(*CreateHeap)();
 
-    CreateHeapFn* CreateHeap;
-    HeapAllocFn* HeapAlloc;
-    FreeFn* Free;
+    void(*DestroyHeap)(PlatformHeap* heap);
+
+    void*(*HeapAlloc)(PlatformHeap* heap, usize size, bool zero);
+
+    void*(*HeapRealloc)(PlatformHeap* heap, void* p, usize size, bool zero);
+
+    void(*Free)(void* ptr);
 };
 
-struct KeyState
-{
-    // TODO(swarzzy): u8
-    // TODO(swarzzy): Repeat count
-    b32 pressedNow;
-    b32 wasPressed;
+struct KeyState {
+    u8 pressedNow;
+    u8 wasPressed;
 };
 
-struct MouseButtonState
-{
-    // TODO: u8
-    b32 pressedNow;
-    b32 wasPressed;
+struct MouseButtonState {
+    u8 pressedNow;
+    u8 wasPressed;
 };
 
-enum struct MouseButton : u8
-{
+enum struct MouseButton : u8 {
     Left = 0, Right, Middle, XButton1, XButton2
 };
 
-enum struct Key : u8
-{
+enum struct Key : u8 {
     Invalid = 0x00,
     LeftCtrl,
     RightCtrl,
@@ -219,45 +198,55 @@ enum struct Key : u8
     NumEnter,
 };
 
-// NOTE: Input state that also gets passed to the game by platform
-struct InputState
-{
-    static const u32 KeyCount = 256;
-    static const u32 MouseButtonCount = 5;
-    KeyState keys[KeyCount];
-    MouseButtonState mouseButtons[MouseButtonCount];
+struct InputState {
+    KeyState keys[256];
+    MouseButtonState mouseButtons[5];
     b32 mouseInWindow;
     b32 activeApp;
-    // NOTE: All mouse position values are normalized
+    // All mouse position values are normalized
     f32 mouseX;
     f32 mouseY;
     f32 mouseFrameOffsetX;
     f32 mouseFrameOffsetY;
-    // NOTE: Not normalized
+    // Not normalized
     i32 scrollOffset;
     i32 scrollFrameOffset;
 };
 
-struct ImGuiContext;
-typedef void*(ImGuiAllocFn)(size_t size, void* data);
-typedef void(ImGuiFreeFn)(void* ptr, void* data);
+// TODO: Half
+enum struct VSyncMode {
+    Disabled = 0, Full, Adaptive
+};
 
-struct PlatformState
-{
-    PlatformCalls functions;
+struct PlatformState {
+    // Mutable variables
+    u32 targetSimStepsPerSecond;
+    VSyncMode vsync;
+    u32 targetFramerate;
+
+    // Immutable
+    PlatformAPI platformAPI;
     RendererAPI rendererAPI;
+
     // nullptr if imgui is disabled
-    ImGuiContext* imguiContext;
-    ImGuiAllocFn* ImGuiAlloc;
-    ImGuiFreeFn* ImGuiFree;
+    struct ImGuiContext* imguiContext;
+    void*(*ImGuiAlloc)(size_t size, void* data);
+    void(*ImGuiFree)(void* ptr, void* data);
     void* imguiAllocatorData;
+
     InputState input;
+
     u64 tickCount;
-    i32 fps;
-    i32 ups;
+    u64 simStepCount;
+    i32 framesPerSecond;
+    i32 updatesPerSecond;
+    i32 simStepsPerSecond;
     f32 deltaTime;
+
     u32 windowWidth;
     u32 windowHeight;
+    f32 pixelsPerCentimeter;
+    VSyncMode vsyncCapabilitiesLevel;
 };
 
 inline const char* ToString(Key keycode) {

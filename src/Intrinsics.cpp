@@ -1,6 +1,7 @@
 #include "Intrinsics.h"
 
 #if defined(PLATFORM_WINDOWS)
+#include <windows.h>
 
 u32 AtomicCompareExchange(u32 volatile* dest, u32 comp, u32 newValue) {
     return (u32)_InterlockedCompareExchange((LONG volatile*)dest, (LONG)newValue, (LONG)comp);
@@ -32,6 +33,10 @@ u64 GetTimeStamp() {
     return count.QuadPart;
 }
 
+void ThreadSleep(u32 ms) {
+    Sleep((DWORD)ms);
+}
+
 static u64 _TicksPerSecond = 0;
 
 u64 GetTicksPerSecond() {
@@ -54,6 +59,10 @@ void* StackAlloc(usize size) {
 
 void StackFree(void* ptr) {
     _freea(ptr);
+}
+
+void KillProcess() {
+    TerminateProcess(GetCurrentProcess(), 0);
 }
 
 #endif

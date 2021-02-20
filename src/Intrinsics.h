@@ -11,13 +11,15 @@ u32 AtomicDecrement(u32 volatile* dest);
 // Just a dummy placeholder on x86-64 windows
 u32 AtomicLoad(u32 volatile* value);
 
-u32 ThreadSleep(u32 ms);
+void ThreadSleep(u32 ms);
 
 u64 GetTimeStamp();
 u64 GetTicksPerSecond();
 
 void* StackAlloc(usize size);
 void StackFree(void* ptr);
+
+void KillProcess();
 
 // NOTE: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 constexpr u32 NextPowerOfTwo(u32 v) {
@@ -59,6 +61,18 @@ constexpr T Min(T a, T b) {
 template<typename T>
 constexpr T Max(T a, T b) {
     return a > b ? a : b;
+}
+
+template <typename T>
+struct MinMaxResult {
+    T min;
+    T max;
+};
+
+template <typename T>
+MinMaxResult<T> MinMax(T a, T b) {
+    MinMaxResult<T> result = a > b ? MinMaxResult<T> { b, a } : MinMaxResult<T> { a, b };
+    return result;
 }
 
 template<typename T>

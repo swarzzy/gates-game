@@ -66,6 +66,9 @@ OpenGLLoadResult SDLLoadOpenGL(SDLContext* sdlContext) {
 }
 
 void SDLGatherMouseMovement(SDLContext* context, PlatformState* platform) {
+    platform->input.mouseFrameOffsetX = 0;
+    platform->input.mouseFrameOffsetY = 0;
+
     if (platform->input.activeApp) {
         int mousePositionX;
         int mousePositionY;
@@ -190,7 +193,18 @@ void SDLPollEvents(SDLContext* context, PlatformState* platform) {
     }
 }
 
-void SDLInit(SDLContext* context, const PlatformState* platform, i32 glMajorVersion, i32 glMinorVersion) {
+void SDLSetVsync(VSyncMode mode) {
+    int value = 0;
+    switch (mode) {
+    case VSyncMode::Full: { value = 1;} break;
+    case VSyncMode::Adaptive: { value = -1;} break;
+    default: {} break;
+    }
+
+    SDL_GL_SetSwapInterval(value);
+}
+
+void SDLInit(SDLContext* context, PlatformState* platform, i32 glMajorVersion, i32 glMinorVersion) {
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS) != 0) {
         panic("[SDL] Initialization failed: %s", SDL_GetError());
@@ -208,6 +222,8 @@ void SDLInit(SDLContext* context, const PlatformState* platform, i32 glMajorVers
     sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16));
     sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1));
     sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1));
+    sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1));
+    sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 2));
     sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, glMajorVersion));
     sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, glMinorVersion));
     sdl_gl_attrib_check(SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE));
@@ -216,7 +232,7 @@ void SDLInit(SDLContext* context, const PlatformState* platform, i32 glMajorVers
 
 #undef sdl_gl_attrib_check
 
-    auto windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL;
+    auto windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI;
     context->window = SDL_CreateWindow("Ping pong", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, platform->windowWidth, platform->windowHeight, windowFlags);
     if (!context->window) {
         panic("[SDL] Failed to create window: %s", SDL_GetError());
@@ -227,9 +243,16 @@ void SDLInit(SDLContext* context, const PlatformState* platform, i32 glMajorVers
         panic("[SDL] Failed to initialize OpenGL context-> %s", SDL_GetError());
     }
 
-    if (SDL_GL_SetSwapInterval(1) != 0) {
-        log_print("[SDL] Warning! V-sync is not supported\n");
+    bool vsyncSupported = SDL_GL_SetSwapInterval(1) == 0;
+    bool adaptiveVsyncSupported = vsyncSupported && SDL_GL_SetSwapInterval(-1) == 0;
+
+    if (adaptiveVsyncSupported) {
+        platform->vsyncCapabilitiesLevel = VSyncMode::Adaptive;
+    } else {
+        platform->vsyncCapabilitiesLevel = VSyncMode::Full;
     }
+
+    SDL_GL_SetSwapInterval(0);
 }
 
 void SDLSwapBuffers(SDLContext* context) {

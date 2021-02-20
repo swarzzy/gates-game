@@ -50,6 +50,10 @@ struct ConsoleCommand {
 // TODO: Match for full word
 static const ConsoleCommand GlobalConsoleCommands[] = {
     { "dummy",              nullptr },
+    { "draw",               ConsoleDrawModeCommand },
+    { "save_as",            SaveAsConsoleCommand },
+    { "load",               LoadConsoleCommand },
+
 #if 0
     { "clear",              ConsoleClearCommand },
     { "help",               ConsoleHelpCommand },

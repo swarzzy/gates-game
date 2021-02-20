@@ -9,15 +9,15 @@
 #define glClearColor gl_function(glClearColor)
 #define glClear gl_function(glClear)
 
-void* ImguiAllocWrapper(size_t size, void* heap) { return mi_heap_malloc((mi_heap_t*)heap, size); }
-void ImguiFreeWrapper(void* ptr, void*_) { mi_free(ptr); }
+void* ImguiAllocWrapper(size_t size, void* heap) { return HeapAlloc((PlatformHeap*)heap, (usize)size, false); }
+void ImguiFreeWrapper(void* ptr, void*_) { Free(ptr); }
 
-ImGuiContext* InitImGuiForGL3(mi_heap_t* heap, SDL_Window* window, SDL_GLContext* glContext) {
+ImGuiContext* InitImGuiForGL3(PlatformHeap* heap, SDL_Window* window, SDL_GLContext* glContext) {
     ImGuiContext* result = nullptr;
     IMGUI_CHECKVERSION();
+    ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, heap);
     auto imguiContext = ImGui::CreateContext();
     if (imguiContext) {
-        ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, heap);
         ImGuiIO& io = ImGui::GetIO(); (void)io;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         ImGui::StyleColorsDark();
@@ -37,7 +37,7 @@ ImGuiContext* InitImGuiForGL3(mi_heap_t* heap, SDL_Window* window, SDL_GLContext
 void ImGuiNewFrameForGL3(SDL_Window* window, u32 wWindow, u32 hWindow) {
     // TODO: Remove this temporary gl calls
     glViewport(0, 0, (int)wWindow, (int)hWindow);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     ImGui_ImplOpenGL3_NewFrame();

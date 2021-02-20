@@ -2,6 +2,8 @@
 
 #include "ImGui.h"
 
+#include "shellscalingapi.h"
+
 // Enforcing unicode
 #if !defined(UNICODE)
 #define UNICODE
@@ -26,7 +28,7 @@ inline void AssertHandler(void* data, const char* file, const char* func, u32 li
     if (args) {
         GlobalLogger(GlobalLoggerData, fmt, args);
     }
-    debug_break();
+    BreakDebug();
 }
 
 LoggerFn* GlobalLogger = Logger;
@@ -35,7 +37,9 @@ AssertHandlerFn* GlobalAssertHandler = AssertHandler;
 void* GlobalAssertHandlerData = nullptr;
 
 static Win32Context GlobalContext;
-static void* GlobalGameData;
+
+void* HeapAllocAPI(uptr size, b32 clear, uptr alignment, void* data) { return HeapAlloc((PlatformHeap*)data, (usize)size, clear); }
+void HeapFreeAPI(void* ptr, void* data) { Free(ptr); }
 
 #define GL (((const Win32Context* )&GlobalContext)->sdl.gl.functions.fn)
 
@@ -168,41 +172,15 @@ b32 DebugCopyFile(const char* source, const char* dest, b32 overwrite) {
     return (b32)result;
 }
 
-PlatformHeap* CreateHeap() {
-    PlatformHeap* heap = (PlatformHeap*)mi_heap_new();
-    return heap;
-}
-
-#if defined(COMPILER_MSVC)
-__declspec(restrict)
-#endif
-void* HeapAlloc(PlatformHeap* heap, usize size, bool zero) {
-    void* mem = nullptr;
-    if (zero) {
-        mem = mi_heap_zalloc((mi_heap_t*)heap, (size_t)size);
-    } else {
-        mem = mi_heap_malloc((mi_heap_t*)heap, (size_t)size);
-    }
-    return mem;
-}
-
-void Free(void* ptr) {
-    mi_free(ptr);
-}
-
-#if defined(COMPILER_MSVC)
-__declspec(restrict)
-#endif
-void* Reallocate(void* ptr, uptr newSize, void* allocatorData) {
-    return realloc(ptr, newSize);
-}
-
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int showCmd)
 {
+    SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
 #if defined(ENABLE_CONSOLE)
     AllocConsole();
     freopen("CONOUT$", "w", stdout);
 #endif
+
+    MiMallocInit();
 
     auto context = &GlobalContext;
 
@@ -216,6 +194,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     context->state.windowWidth = DefaultWindowWidth;
     context->state.windowHeight = DefaultWindowHeight;
 
+    f32 defaultWindowsDpi = 96.0f;
+    f32 cmInInch = 2.54f;
+    f32 cmPerPixel = cmInInch / defaultWindowsDpi;
+    context->state.pixelsPerCentimeter = 1.0f / cmPerPixel;
+
     SDLInit(&context->sdl, &context->state, OPENGL_MAJOR_VERSION, OPENGL_MINOR_VERSION);
 
     // Loading OpenGL
@@ -225,9 +208,14 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     }
 
     // Initializing ImGui context
-    context->imguiHeap = mi_heap_new();
+    context->imguiHeap = CreateHeap();
     if (!context->imguiHeap) {
         panic("Failed to create heap for Dear ImGui");
+    }
+
+    context->platformHeap = CreateHeap();
+    if (!context->platformHeap) {
+        panic("Failed to create platform heap");
     }
 
     context->state.imguiContext = InitImGuiForGL3(context->imguiHeap, context->sdl.window, &context->sdl.glContext);
@@ -240,20 +228,24 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     }
 
     // Setting function pointers to platform routines a for game
-    context->state.functions.DebugGetFileSize = DebugGetFileSize;
-    context->state.functions.DebugReadFile = DebugReadFileToBuffer;
-    context->state.functions.DebugReadTextFile = DebugReadTextFileToBuffer;
-    context->state.functions.DebugWriteFile = DebugWriteFile;
-    context->state.functions.DebugOpenFile = DebugOpenFile;
-    context->state.functions.DebugCloseFile = DebugCloseFile;
-    context->state.functions.DebugCopyFile = DebugCopyFile;
-    context->state.functions.DebugWriteToOpenedFile = DebugWriteToOpenedFile;
+    context->state.platformAPI.DebugGetFileSize = DebugGetFileSize;
+    context->state.platformAPI.DebugReadFile = DebugReadFileToBuffer;
+    context->state.platformAPI.DebugReadTextFile = DebugReadTextFileToBuffer;
+    context->state.platformAPI.DebugWriteFile = DebugWriteFile;
+    context->state.platformAPI.DebugOpenFile = DebugOpenFile;
+    context->state.platformAPI.DebugCloseFile = DebugCloseFile;
+    context->state.platformAPI.DebugCopyFile = DebugCopyFile;
+    context->state.platformAPI.DebugWriteToOpenedFile = DebugWriteToOpenedFile;
 
-    context->state.functions.CreateHeap = CreateHeap;
-    context->state.functions.HeapAlloc = HeapAlloc;
-    context->state.functions.Free = Free;
+    context->state.platformAPI.CreateHeap = CreateHeap;
+    context->state.platformAPI.DestroyHeap = DestroyHeap;
+    context->state.platformAPI.HeapAlloc = HeapAlloc;
+    context->state.platformAPI.HeapRealloc = HeapRealloc;
+    context->state.platformAPI.Free = Free;
 
-    context->state.rendererAPI.RenderDrawList = RenderDrawList;
+    context->state.rendererAPI.SubmitDrawList = RendererDrawList;
+    context->state.rendererAPI.UploadTexture = RendererUploadTexture;
+    context->state.rendererAPI.SetCamera = RendererSetCamera;
 
     RendererInit(&context->renderer);
 
@@ -261,35 +253,74 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         panic("[Platform] Failed to load game library");
     }
 
+    context->state.targetSimStepsPerSecond = 100;
+
+    context->state.vsync = VSyncMode::Disabled;
+    VSyncMode vsyncMode = VSyncMode::Disabled;
+    SDLSetVsync(VSyncMode::Disabled);
+
     // Init the game
-    context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Init, &GlobalGameData);
+    context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Init);
+
+    f64 currentTime = Win32GetTimeStamp();
+    f64 accumulator = 0.0;
+    f64 secondTimer = 0.0;
+    u32 simStepsForSec = 0;
 
     while (context->sdl.running) {
-        auto frameStartTime = Win32GetTimeStamp();
-        context->state.tickCount++;
+        f64 newTime = Win32GetTimeStamp();
+        f64 beginFrameTime = Win32GetTimeStamp();
+        f64 timePerSimStep = 1.0 / (context->state.targetSimStepsPerSecond == 0 ? 1 : context->state.targetSimStepsPerSecond);
+        f64 frameTime = newTime - currentTime;
+        accumulator += frameTime;
+        currentTime = newTime;
 
-        // Reload game lib if it was updated
-        bool codeReloaded = UpdateGameCode(&context->gameLib);
-        if (codeReloaded) {
-            log_print("[Platform] Game was hot-reloaded\n");
-            context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Reload, &GlobalGameData);
+        secondTimer += frameTime;
+        if (secondTimer > 1.0) {
+            context->state.simStepsPerSecond = simStepsForSec;
+            simStepsForSec = 0;
+            secondTimer = 0.0;
         }
 
-        // TODO(swarzzy): For now we do ONE update per frame with variable delta time.
-        // This is not a good solution. We probably need to do updates with fixed timestep
-        // with higher frequency (for example 120Hz)
+        context->state.tickCount++;
 
-        // nockeckin process imgui events
+        if (context->state.vsync != vsyncMode) {
+            vsyncMode = context->state.vsync;
+            SDLSetVsync(vsyncMode);
+        }
+
         SDLPollEvents(&context->sdl, &context->state);
-
         ImGuiNewFrameForGL3(context->sdl.window, context->state.windowWidth, context->state.windowHeight);
+
+        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Update);
+
+
+        f64 stepTime = accumulator / timePerSimStep;
+        u32 simSteps = (u32)(stepTime);
+        accumulator -= simSteps * timePerSimStep;
+
+        f64 simBeginTime = Win32GetTimeStamp();
+
+        for (u32 i = 0; i < simSteps; i++) {
+            context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Sim);
+            simStepsForSec++;
+            context->state.simStepCount++;
+
+            // Abort sim if it takes longer than 100ms
+            // TODO: Maybe it is a bad idea to do zilliard of syscalls per frame to get performance counter
+            // maybe _rdtsc() can do the trick?
+            f64 simCurrTime = Win32GetTimeStamp();
+            if ((simCurrTime - simBeginTime) > 0.1f) {
+                break;
+            }
+        }
+
+        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Render);
+
+        ImGuiEndFrameForGL3();
 
         //bool show_demo_window = true;
         //ImGui::ShowDemoWindow(&show_demo_window);
-
-        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Update, &GlobalGameData);
-
-        context->gameLib.GameUpdateAndRender(&context->state, GameInvoke::Render, &GlobalGameData);
 
         for (u32 keyIndex = 0; keyIndex < array_count(context->state.input.keys); keyIndex ++) {
             context->state.input.keys[keyIndex].wasPressed = context->state.input.keys[keyIndex].pressedNow;
@@ -299,26 +330,47 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
             context->state.input.mouseButtons[mbIndex].wasPressed = context->state.input.mouseButtons[mbIndex].pressedNow;
         }
 
-        ImGuiEndFrameForGL3();
+        context->state.input.scrollFrameOffset = 0;
+        context->state.input.mouseFrameOffsetX = 0;
+        context->state.input.mouseFrameOffsetY = 0;
 
         SDLSwapBuffers(&context->sdl);
 
-        auto frameEndTime = Win32GetTimeStamp();
-        auto frameTime = frameEndTime - frameStartTime;
+        if (granularityWasSet && vsyncMode == VSyncMode::Disabled && (context->state.targetFramerate > 0)) {
+            f64 deltaTime = Win32GetTimeStamp() - beginFrameTime;
+            f64 tragetDeltaTime = 1.0 / context->state.targetFramerate;
+            while (deltaTime < tragetDeltaTime) {
+                DWORD timeToWait = (DWORD)((tragetDeltaTime - deltaTime) * 1000);
+                if (timeToWait > 0) {
+                    Sleep(timeToWait);
+                }
+                deltaTime = Win32GetTimeStamp() - beginFrameTime;
+            }
+        }
 
         // If framerate lower than 15 fps just clamping delta time
-        context->state.deltaTime = (f32)Clamp(1.0 / frameTime, 0.0, 0.066);
-        context->state.fps = (i32)(1.0f / context->state.deltaTime);
-        context->state.ups = context->state.fps;
+        context->state.deltaTime = (f32)Clamp(frameTime, 0.0, 0.066);
+        context->state.framesPerSecond = (i32)(1.0f / frameTime);
+        context->state.updatesPerSecond = context->state.framesPerSecond;
     }
 
     // TODO(swarzzy): Is that necessary?
-    SDL_Quit();
+    //SDL_Quit();
     return 0;
 }
 
 #include "RendererGL.cpp"
-#include "SDL.cpp"
 #include "Win32CodeLoader.cpp"
 
+#include "SDL.cpp"
+#include "Allocation.cpp"
 #include "ImGui.cpp"
+
+#include "../Array.cpp"
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#define STBTT_STATIC
+#define STBTT_malloc(x,u)   (HeapAlloc(GlobalContext.platformHeap, (usize)(x), false))
+#define STBTT_free(x,u)     (Free(x))
+#define STBTT_assert(x)     assert(x)
+#include "../../ext/stb_truetype-1.24/stb_truetype.h"
